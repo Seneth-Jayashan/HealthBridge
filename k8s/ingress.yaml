@@ -1,0 +1,19 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: healthbridge-ingress
+  namespace: healthbridge
+  annotations:
+    # Tells Docker Desktop's built-in Nginx controller to handle this traffic
+    kubernetes.io/ingress.class: nginx 
+spec:
+  rules:
+  - http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: api-gateway
+            port:
+              number: 3000

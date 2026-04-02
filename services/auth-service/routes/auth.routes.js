@@ -8,4 +8,8 @@ router.post('/register', registerUser);
 router.post('/login', loginUser);
 router.get('/me', requireAuth, getMe);
 
+// --- ADMIN ROUTES ---
+// Notice how we chain requireAuth AND requireRole('Admin') 
+router.get('/admin/users', requireAuth, requireRole('Admin'), getAllUsers);
+
 export default router;
