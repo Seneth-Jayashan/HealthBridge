@@ -3,7 +3,6 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 
-// IMPORTANT: Local imports MUST have the .js extension in ES Modules
 import verifyToken from './middlewares/auth.middleware.js';
 import errorHandler from './middlewares/error.middleware.js';
 import routes from './routes/index.js';
@@ -11,7 +10,14 @@ import routes from './routes/index.js';
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(cors());
+const corsOptions = {
+  origin: ['http://localhost:5173', 'http://localhost'], 
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true,
+};
+
+app.use(cors(corsOptions));
 app.use(helmet()); 
 
 app.use(verifyToken);

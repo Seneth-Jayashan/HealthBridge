@@ -4,16 +4,26 @@ metadata:
   name: healthbridge-ingress
   namespace: healthbridge
   annotations:
-    # Tells Docker Desktop's built-in Nginx controller to handle this traffic
-    kubernetes.io/ingress.class: nginx 
+    kubernetes.io/ingress.class: nginx
+    # This prevents the Ingress from stripping the /api prefix before sending to the Gateway
+    nginx.ingress.kubernetes.io/use-regex: "true" 
 spec:
   rules:
   - http:
       paths:
-      - path: /
-        pathType: Prefix
+      # 1. API Traffic goes to the Gateway
+      - path: /api(/|$)(.*)
+        pathType: ImplementationSpecific
         backend:
           service:
             name: api-gateway
             port:
               number: 3000
+      # 2. All other traffic goes to the React UI
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: client-service
+            port:
+              number: 80

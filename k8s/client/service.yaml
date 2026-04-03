@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: client-service
+  namespace: healthbridge
+spec:
+  type: ClusterIP
+  selector:
+    app: healthbridge-client
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
