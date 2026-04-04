@@ -1,5 +1,5 @@
 import express from 'express';
-import { getDoctorProfile, updateDoctorProfile } from '../controllers/doctorService.controller.js';
+import { getDoctorProfile, updateDoctorProfile, verifyDoctor } from '../controllers/doctorService.controller.js';
 import { requireAuth, requireRole } from '@healthbridge/shared';
 
 const router = express.Router();
