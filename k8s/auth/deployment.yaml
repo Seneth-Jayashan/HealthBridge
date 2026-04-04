@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gateway-deployment
+  namespace: healthbridge
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: api-gateway
+  template:
+    metadata:
+      labels:
+        app: api-gateway
+    spec:
+      containers:
+      - name: api-gateway
+        image: docker-api-gateway:latest
+        imagePullPolicy: IfNotPresent # Crucial for local Docker Desktop images
+        ports:
+        - containerPort: 3000
+        env:
+        - name: PORT
+          value: "3000"
+        - name: JWT_SECRET
+          value: "super_secret_healthbridge_key_change_this_later"
+        # Notice how these map perfectly to the names of your other k8s Services!
+        - name: AUTH_SERVICE_URL
+          value: "http://auth-service:3001"
+        - name: PATIENT_SERVICE_URL
+          value: "http://patient-service:3002"
+        - name: DOCTOR_SERVICE_URL
+          value: "http://doctor-service:3003"

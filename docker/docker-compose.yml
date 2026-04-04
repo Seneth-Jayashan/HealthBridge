@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+  api-gateway:
+    build: 
+      context: ../api-gateway      
+      dockerfile: Dockerfile
+    container_name: healthbridge-gateway
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+      - JWT_SECRET=super_secret_healthbridge_key_change_this_later
+      - AUTH_SERVICE_URL=http://auth-service:3001 # Docker networking magic!
+    depends_on:
+      - auth-service
+
+  auth-service:
+    build:
+      context: ../            # Build from the root folder so it can see the 'shared' folder
+      dockerfile: ./services/auth-service/Dockerfile
+    container_name: healthbridge-auth
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+      - JWT_SECRET=super_secret_healthbridge_key_change_this_later
+      # IMPORTANT: Use your actual MongoDB Atlas connection string here
+      - MONGO_URI=mongodb+srv://HealthBridge_DB:Team_Health_Bridge_12@cluster0.d8ewy6i.mongodb.net/?appName=Cluster0
+      - MONGO_DB_NAME=healthbridge_auth_db
+
+  patient-service:
+    build:
+      context: ../
+      dockerfile: ./services/patient-service/Dockerfile
+    container_name: healthbridge-patient
+    ports:
+      - "3002:3002"
+    environment:
+      - PORT=3002
+      - JWT_SECRET=super_secret_healthbridge_key_change_this_later
+      - MONGO_URI=mongodb+srv://HealthBridge_DB:Team_Health_Bridge_12@cluster0.d8ewy6i.mongodb.net/?appName=Cluster0
+      - MONGO_DB_NAME=healthbridge_patient_db
+
+
+  doctor-service:
+    build:
+      context: ../
+      dockerfile: ./services/doctor-service/Dockerfile
+    container_name: healthbridge-doctor
+    ports:
+      - "3003:3003"
+    environment:
+      - PORT=3003
+      - JWT_SECRET=super_secret_healthbridge_key_change_this_later
+      - MONGO_URI=mongodb+srv://HealthBridge_DB:Team_Health_Bridge_12@cluster0.d8ewy6i.mongodb.net/?appName=Cluster0
+      - MONGO_DB_NAME=healthbridge_doctor_db
+
+    
