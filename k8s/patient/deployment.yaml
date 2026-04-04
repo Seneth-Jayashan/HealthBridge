@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: patient-deployment
+  namespace: healthbridge
+spec:
+  replicas: 1 
+  selector:
+    matchLabels:
+      app: patient-service
+  template:
+    metadata:
+      labels:
+        app: patient-service
+    spec:
+      containers:
+      - name: patient-service
+        image: docker-patient-service:latest # Uses your locally built Docker image
+        imagePullPolicy: IfNotPresent     # Tells Kubernetes to use the local image instead of downloading
+        ports:
+        - containerPort: 3002
+        env:
+        - name: PORT
+          value: "3002"
+        - name: JWT_SECRET
+          value: "super_secret_healthbridge_key_change_this_later"
+        - name: MONGO_URI
+          value: "mongodb+srv://HealthBridge_DB:Team_Health_Bridge_12@cluster0.d8ewy6i.mongodb.net/?appName=Cluster0"
+        - name: MONGO_DB_NAME
+          value: "healthbridge_patient_db"
+

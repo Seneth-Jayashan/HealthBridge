@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: client-deployment
+  namespace: healthbridge
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: healthbridge-client
+  template:
+    metadata:
+      labels:
+        app: healthbridge-client
+    spec:
+      containers:
+      - name: client
+        image: docker-client:latest # We will build this image in the next step!
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 80 # Nginx runs on port 80 by default
