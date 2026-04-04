@@ -1,6 +1,6 @@
 import express from 'express';
-import { registerUser, loginUser, getMe } from '../controllers/auth.controller.js';
-import { requireAuth } from '@healthbridge/shared';
+import { registerUser, loginUser, getMe, getAllUsers } from '../controllers/auth.controller.js';
+import { requireAuth, requireRole } from '@healthbridge/shared';
 
 const router = express.Router();
 
