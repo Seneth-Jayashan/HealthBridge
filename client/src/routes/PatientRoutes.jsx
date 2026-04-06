@@ -4,6 +4,7 @@ import RequireRole from '../components/auth/RequireRole';
 
 // Import Patient Pages
 import PatientDashboard from '../pages/patient/Dashboard';
+import PatientTelehealth from '../pages/patient/Telehealth';
 // import PatientAppointments from '../pages/patient/Appointments'; // Ready for when you build it!
 import PatientProfile from '../pages/patient/Profile';
 
@@ -19,6 +20,7 @@ export default function PatientRoutes() {
         {/* Future routes drop in perfectly here: */}
         {/* <Route path="appointments" element={<PatientAppointments />} /> */}
         {/* <Route path="records" element={<PatientRecords />} /> */}
+        <Route path="telehealth" element={<PatientTelehealth />} />
         <Route path="profile" element={<PatientProfile />} />
         
       </Route>

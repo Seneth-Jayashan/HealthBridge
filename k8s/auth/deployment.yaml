@@ -17,6 +17,13 @@ spec:
       - name: api-gateway
         image: docker-api-gateway:latest
         imagePullPolicy: IfNotPresent # Crucial for local Docker Desktop images
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "300m"
+            memory: "256Mi"
         ports:
         - containerPort: 3000
         env:
@@ -31,3 +38,5 @@ spec:
           value: "http://patient-service:3002"
         - name: DOCTOR_SERVICE_URL
           value: "http://doctor-service:3003"
+        - name: TELEMEDICINE_SERVICE_URL
+          value: "http://telemedicine-service:3008"

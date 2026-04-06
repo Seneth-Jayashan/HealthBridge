@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: telemedicine-deployment
+  namespace: healthbridge
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: telemedicine-service
+  template:
+    metadata:
+      labels:
+        app: telemedicine-service
+    spec:
+      containers:
+        - name: telemedicine-service
+          image: docker-telemedicine-service:latest
+          imagePullPolicy: IfNotPresent
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "300m"
+              memory: "256Mi"
+          ports:
+            - containerPort: 3008
+          env:
+            - name: PORT
+              value: "3008"
+            - name: MONGO_URI
+              value: "mongodb+srv://HealthBridge_DB:Team_Health_Bridge_12@cluster0.d8ewy6i.mongodb.net/?appName=Cluster0"
+            - name: MONGO_DB_NAME
+              value: "healthbridge_telemedicine_db"
+            - name: AGORA_APP_ID
+              valueFrom:
+                secretKeyRef:
+                  name: telemedicine-secrets
+                  key: AGORA_APP_ID
+            - name: AGORA_APP_CERTIFICATE
+              valueFrom:
+                secretKeyRef:
+                  name: telemedicine-secrets
+                  key: AGORA_APP_CERTIFICATE
+            - name: AGORA_TOKEN_TTL_SECONDS
+              value: "3600"

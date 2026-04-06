@@ -13,8 +13,10 @@ services:
       - PORT=3000
       - JWT_SECRET=super_secret_healthbridge_key_change_this_later
       - AUTH_SERVICE_URL=http://auth-service:3001 # Docker networking magic!
+      - TELEMEDICINE_SERVICE_URL=http://telemedicine-service:3008
     depends_on:
       - auth-service
+      - telemedicine-service
 
   auth-service:
     build:
@@ -54,3 +56,18 @@ services:
       - JWT_SECRET=super_secret_healthbridge_key_change_this_later
       - MONGO_URI=mongodb+srv://HealthBridge_DB:Team_Health_Bridge_12@cluster0.d8ewy6i.mongodb.net/?appName=Cluster0
       - MONGO_DB_NAME=healthbridge_doctor_db
+
+  telemedicine-service:
+    build:
+      context: ../
+      dockerfile: ./services/telemedicine-service/Dockerfile
+    container_name: healthbridge-telemedicine
+    ports:
+      - "3008:3008"
+    environment:
+      - PORT=3008
+      - MONGO_URI=mongodb+srv://HealthBridge_DB:Team_Health_Bridge_12@cluster0.d8ewy6i.mongodb.net/?appName=Cluster0
+      - MONGO_DB_NAME=healthbridge_telemedicine_db
+      - AGORA_APP_ID=${AGORA_APP_ID}
+      - AGORA_APP_CERTIFICATE=${AGORA_APP_CERTIFICATE}
+      - AGORA_TOKEN_TTL_SECONDS=3600
