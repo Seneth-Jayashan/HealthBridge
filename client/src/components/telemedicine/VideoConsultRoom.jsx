@@ -6,6 +6,7 @@ const parsedLogLevel = Number(import.meta.env.VITE_AGORA_LOG_LEVEL ?? 2);
 const AGORA_LOG_LEVEL = Number.isFinite(parsedLogLevel) ? parsedLogLevel : 2;
 const parsedProxyMode = Number(import.meta.env.VITE_AGORA_PROXY_MODE ?? 0);
 const AGORA_PROXY_MODE = parsedProxyMode === 3 || parsedProxyMode === 5 ? parsedProxyMode : 0;
+const normalizeUid = (uid) => String(uid);
 
 if (typeof AgoraRTC.setLogLevel === 'function') {
   AgoraRTC.setLogLevel(AGORA_LOG_LEVEL);
@@ -14,6 +15,7 @@ if (typeof AgoraRTC.setLogLevel === 'function') {
 const VideoConsultRoom = ({ joinPayload, displayName, onLeave }) => {
   const clientRef = useRef(null);
   const localTracksRef = useRef({ audioTrack: null, videoTrack: null });
+  const remoteVideoTracksRef = useRef(new Map());
   const localVideoRef = useRef(null);
 
   const [connectionState, setConnectionState] = useState('idle');
@@ -36,6 +38,7 @@ const VideoConsultRoom = ({ joinPayload, displayName, onLeave }) => {
     }
 
     localTracksRef.current = { audioTrack: null, videoTrack: null };
+    remoteVideoTracksRef.current.clear();
 
     if (clientRef.current) {
       if (AGORA_PROXY_MODE && typeof clientRef.current.stopProxyServer === 'function') {
@@ -55,6 +58,23 @@ const VideoConsultRoom = ({ joinPayload, displayName, onLeave }) => {
       onLeave?.();
     }
   }, [onLeave]);
+
+  const playRemoteVideoTrack = useCallback((uid) => {
+    const normalizedUid = normalizeUid(uid);
+    const videoTrack = remoteVideoTracksRef.current.get(normalizedUid);
+
+    if (!videoTrack) {
+      return;
+    }
+
+    const targetElement = document.getElementById(`remote-player-${normalizedUid}`);
+
+    if (!targetElement) {
+      return;
+    }
+
+    videoTrack.play(targetElement);
+  }, []);
 
   const joinCall = useCallback(async (payload) => {
     if (!payload?.appId || !payload?.channelName || !payload?.token) {
@@ -77,30 +97,38 @@ const VideoConsultRoom = ({ joinPayload, displayName, onLeave }) => {
       client.on('user-published', async (user, mediaType) => {
         await client.subscribe(user, mediaType);
 
+        const normalizedUid = normalizeUid(user.uid);
+
         if (mediaType === 'audio') {
           user.audioTrack?.play();
           return;
         }
 
         if (mediaType === 'video') {
+          remoteVideoTracksRef.current.set(normalizedUid, user.videoTrack);
           setRemoteParticipants((prev) => (
-            prev.includes(user.uid) ? prev : [...prev, user.uid]
+            prev.includes(normalizedUid) ? prev : [...prev, normalizedUid]
           ));
 
           window.setTimeout(() => {
-            user.videoTrack?.play(`remote-player-${user.uid}`);
+            playRemoteVideoTrack(normalizedUid);
           }, 0);
         }
       });
 
       client.on('user-unpublished', (user, mediaType) => {
+        const normalizedUid = normalizeUid(user.uid);
+
         if (mediaType === 'video') {
-          setRemoteParticipants((prev) => prev.filter((uid) => uid !== user.uid));
+          remoteVideoTracksRef.current.delete(normalizedUid);
+          setRemoteParticipants((prev) => prev.filter((uid) => uid !== normalizedUid));
         }
       });
 
       client.on('user-left', (user) => {
-        setRemoteParticipants((prev) => prev.filter((uid) => uid !== user.uid));
+        const normalizedUid = normalizeUid(user.uid);
+        remoteVideoTracksRef.current.delete(normalizedUid);
+        setRemoteParticipants((prev) => prev.filter((uid) => uid !== normalizedUid));
       });
 
       const joinIdentity = payload.account
@@ -127,13 +155,37 @@ const VideoConsultRoom = ({ joinPayload, displayName, onLeave }) => {
       await leaveCall(false);
       setConnectionState('error');
     }
-  }, [leaveCall]);
+  }, [leaveCall, playRemoteVideoTrack]);
 
   useEffect(() => {
-    if (joinPayload?.sessionId) {
-      joinCall(joinPayload);
+    if (!joinPayload?.sessionId) {
+      return;
     }
+
+    const timeoutId = window.setTimeout(() => {
+      joinCall(joinPayload);
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
   }, [joinPayload, joinCall]);
+
+  useEffect(() => {
+    if (remoteParticipants.length === 0) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      remoteParticipants.forEach((uid) => {
+        playRemoteVideoTrack(uid);
+      });
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [remoteParticipants, playRemoteVideoTrack]);
 
   useEffect(() => {
     return () => {
