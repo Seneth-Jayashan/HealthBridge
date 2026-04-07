@@ -31,3 +31,5 @@ spec:
           value: "http://patient-service:3002"
         - name: DOCTOR_SERVICE_URL
           value: "http://doctor-service:3003"
+        - name: AI_SERVICE_URL
+          value: "http://ai-service:5007"

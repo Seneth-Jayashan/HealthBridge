@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
-import axios from 'axios';
+import httpClient from '../api/Axios';
 
-const API_BASE = import.meta.env.VITE_AI_SERVICE_URL || 'http://localhost:5007/api/ai';
+const AI_BASE_PATH = '/ai';
 
 export const useSymptomChecker = () => {
   const [loading, setLoading] = useState(false);
@@ -10,39 +10,34 @@ export const useSymptomChecker = () => {
   const [history, setHistory] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
 
-
-    const checkSymptoms = useCallback(async (symptoms, additionalInfo) => {
+  const checkSymptoms = useCallback(async (symptoms, additionalInfo) => {
     setLoading(true);
     setError(null);
     setResult(null);
 
     try {
-        const { data } = await axios.post(
-        `${API_BASE}/symptoms/check`,
+      const { data } = await httpClient.post(
+        `${AI_BASE_PATH}/symptoms/check`,
         { symptoms, additionalInfo },
-        {
-            withCredentials: true // ✅ send cookie
-        }
-        );
+      );
 
-        setResult(data.data);
-        return data.data;
+      setResult(data.data);
+      return data.data;
     } catch (err) {
-        const msg = err.response?.data?.message || 'Failed to analyze symptoms.';
-        setError(msg);
-        throw new Error(msg);
+      const msg = err.response?.data?.message || 'Failed to analyze symptoms.';
+      setError(msg);
+      throw new Error(msg);
     } finally {
-        setLoading(false);
+      setLoading(false);
     }
-    }, []);
+  }, []);
 
   // ─── Fetch History ────────────────────────────────────────────
   const fetchHistory = useCallback(async (page = 1, limit = 10) => {
     setHistoryLoading(true);
     try {
-      const { data } = await axios.get(
-        `${API_BASE}/history?page=${page}&limit=${limit}`,
-        getAuthHeader()
+      const { data } = await httpClient.get(
+        `${AI_BASE_PATH}/history?page=${page}&limit=${limit}`,
       );
       setHistory(data.data.records);
       return data.data;
@@ -55,7 +50,7 @@ export const useSymptomChecker = () => {
 
   // ─── Delete Record ────────────────────────────────────────────
   const deleteRecord = useCallback(async (id) => {
-    await axios.delete(`${API_BASE}/history/${id}`, getAuthHeader());
+    await httpClient.delete(`${AI_BASE_PATH}/history/${id}`);
     setHistory((prev) => prev.filter((r) => r._id !== id));
   }, []);
 

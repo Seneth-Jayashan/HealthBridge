@@ -1,6 +1,8 @@
 const jwt = require('jsonwebtoken');
 
 const authenticate = (req, res, next) => {
+    console.log("REQ HEADERS COOKIE:", req.headers.cookie);
+    console.log("REQ COOKIES:", req.cookies);
   try {
     const token =
       req.cookies?.hb_access_token ||
