@@ -1,30 +1,33 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: auth-deployment
+  name: gateway-deployment
   namespace: healthbridge
 spec:
-  replicas: 1 
+  replicas: 1
   selector:
     matchLabels:
-      app: auth-service
+      app: api-gateway
   template:
     metadata:
       labels:
-        app: auth-service
+        app: api-gateway
     spec:
       containers:
-      - name: auth-service
-        image: docker-auth-service:latest # Uses your locally built Docker image
-        imagePullPolicy: IfNotPresent     # Tells Kubernetes to use the local image instead of downloading
+      - name: api-gateway
+        image: docker-api-gateway:latest
+        imagePullPolicy: IfNotPresent # Crucial for local Docker Desktop images
         ports:
-        - containerPort: 3001
+        - containerPort: 3000
         env:
         - name: PORT
-          value: "3001"
+          value: "3000"
         - name: JWT_SECRET
           value: "super_secret_healthbridge_key_change_this_later"
-        - name: MONGO_URI
-          value: "mongodb+srv://HealthBridge_DB:Team_Health_Bridge_12@cluster0.d8ewy6i.mongodb.net/?appName=Cluster0"
-        - name: MONGO_DB_NAME
-          value: "healthbridge_auth_db"
+        # Notice how these map perfectly to the names of your other k8s Services!
+        - name: AUTH_SERVICE_URL
+          value: "http://auth-service:3001"
+        - name: PATIENT_SERVICE_URL
+          value: "http://patient-service:3002"
+        - name: DOCTOR_SERVICE_URL
+          value: "http://doctor-service:3003"
