@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { CalendarClock, ListChecks, LoaderCircle, PlusCircle, RefreshCw, Video } from 'lucide-react';
+import { CalendarClock, ListChecks, LoaderCircle, RefreshCw, Video, Plus } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
-  createTelemedicineSession,
   endTelemedicineSession,
   getMyTelemedicineSessions,
   getTelemedicineJoinToken,
@@ -12,6 +12,8 @@ import VideoConsultRoom from '../../components/telemedicine/VideoConsultRoom';
 
 const DoctorTelehealth = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -19,7 +21,6 @@ const DoctorTelehealth = () => {
   const [error, setError] = useState('');
   const [selectedSessionId, setSelectedSessionId] = useState('');
   const [joinPayload, setJoinPayload] = useState(null);
-  const [form, setForm] = useState({ patientId: '', appointmentId: '', scheduledAt: '' });
 
   const selectedSession = useMemo(
     () => sessions.find((session) => session._id === selectedSessionId) || null,
@@ -49,40 +50,12 @@ const DoctorTelehealth = () => {
 
   useEffect(() => {
     loadSessions();
-  }, []);
-
-  const handleCreateSession = async (event) => {
-    event.preventDefault();
-    setSubmitting(true);
-    setError('');
-    setMessage('');
-
-    try {
-      if (!form.patientId.trim()) {
-        setError('Patient ID is required to create a consultation room.');
-        return;
-      }
-
-      const payload = {
-        patientId: form.patientId.trim(),
-        appointmentId: form.appointmentId.trim() || undefined,
-        scheduledAt: form.scheduledAt || undefined,
-      };
-
-      const created = await createTelemedicineSession(payload);
-      setMessage('Consultation room created successfully.');
-      setForm({ patientId: '', appointmentId: '', scheduledAt: '' });
-      await loadSessions();
-
-      if (created?._id) {
-        setSelectedSessionId(created._id);
-      }
-    } catch (requestError) {
-      setError(requestError?.response?.data?.message || 'Unable to create consultation room.');
-    } finally {
-      setSubmitting(false);
+    
+    // Auto-select session if redirected from CreateSession
+    if (location.state?.sessionId) {
+      setSelectedSessionId(location.state.sessionId);
     }
-  };
+  }, []);
 
   const handleStartSession = async () => {
     if (!selectedSession) return;
@@ -161,53 +134,19 @@ const DoctorTelehealth = () => {
 
       <div className="grid gap-5 xl:grid-cols-5">
         <div className="space-y-5 xl:col-span-2">
-          <form onSubmit={handleCreateSession} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="flex items-center gap-2 text-slate-900">
-              <PlusCircle size={18} className="text-teal-600" />
-              <h2 className="text-lg font-black">Create Consultation Room</h2>
+          {/* Create Session Button */}
+          <button
+            onClick={() => navigate('/doctor/create-session')}
+            className="w-full rounded-2xl border border-teal-300 bg-gradient-to-r from-teal-50 to-cyan-50 p-6 shadow-sm hover:shadow-md hover:border-teal-400 transition-all duration-200 flex flex-col items-center justify-center gap-3 text-center"
+          >
+            <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-teal-600 text-white">
+              <Plus size={24} />
             </div>
-
-            <div className="mt-4 space-y-3">
-              <div>
-                <label className="mb-1 block text-xs font-bold uppercase tracking-wider text-slate-500">Patient ID</label>
-                <input
-                  value={form.patientId}
-                  onChange={(event) => setForm((prev) => ({ ...prev, patientId: event.target.value }))}
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 focus:border-teal-500 focus:outline-none"
-                  placeholder="Mongo ObjectId of patient user"
-                />
-              </div>
-
-              <div>
-                <label className="mb-1 block text-xs font-bold uppercase tracking-wider text-slate-500">Appointment ID (Optional)</label>
-                <input
-                  value={form.appointmentId}
-                  onChange={(event) => setForm((prev) => ({ ...prev, appointmentId: event.target.value }))}
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 focus:border-teal-500 focus:outline-none"
-                  placeholder="Reference appointment id"
-                />
-              </div>
-
-              <div>
-                <label className="mb-1 block text-xs font-bold uppercase tracking-wider text-slate-500">Scheduled At (Optional)</label>
-                <input
-                  type="datetime-local"
-                  value={form.scheduledAt}
-                  onChange={(event) => setForm((prev) => ({ ...prev, scheduledAt: event.target.value }))}
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 focus:border-teal-500 focus:outline-none"
-                />
-              </div>
+            <div>
+              <h3 className="text-lg font-bold text-teal-900">Create New Session</h3>
+              <p className="text-sm text-teal-700 mt-1">Start a new consultation room</p>
             </div>
-
-            <button
-              type="submit"
-              disabled={submitting}
-              className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-teal-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
-            >
-              {submitting ? <LoaderCircle size={16} className="animate-spin" /> : <PlusCircle size={16} />}
-              <span>Create Session</span>
-            </button>
-          </form>
+          </button>
 
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="flex items-center justify-between gap-3">
