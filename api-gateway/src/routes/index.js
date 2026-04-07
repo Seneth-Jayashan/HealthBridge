@@ -10,7 +10,7 @@ const services = {
     appointment: process.env.APPOINTMENT_SERVICE_URL || 'http://localhost:3004',
     payment: process.env.PAYMENT_SERVICE_URL || 'http://localhost:3005',
     notification: process.env.NOTIFICATION_SERVICE_URL || 'http://localhost:3006',
-    ai: process.env.AI_SERVICE_URL || 'http://localhost:3007'
+    ai: process.env.AI_SERVICE_URL || 'http://localhost:5007'
 };
 
 const onProxyError = (err, req, res) => {
