@@ -1,14 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import { useSymptomChecker } from '../../hooks/useSymptomChecker';
+import { useNavigate } from 'react-router-dom';
 
 const URGENCY_BADGE = {
-  low:       'bg-emerald-100 text-emerald-700 border-emerald-200',
-  moderate:  'bg-amber-100 text-amber-700 border-amber-200',
-  high:      'bg-orange-100 text-orange-700 border-orange-200',
+  low: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+  moderate: 'bg-amber-100 text-amber-700 border-amber-200',
+  high: 'bg-orange-100 text-orange-700 border-orange-200',
   emergency: 'bg-red-100 text-red-700 border-red-200',
 };
 
-const SymptomHistoryPage = ({ onNewCheck }) => {
+const SymptomHistoryPage = () => {
+  const navigate = useNavigate();
+
   const { history, historyLoading, fetchHistory, deleteRecord } = useSymptomChecker();
   const [expanded, setExpanded] = useState(null);
   const [page, setPage] = useState(1);
@@ -23,7 +26,7 @@ const SymptomHistoryPage = ({ onNewCheck }) => {
     await deleteRecord(id);
   };
 
-  // ─── Loading ──────────────────────────────────────────────────
+  // Loading state
   if (historyLoading) {
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-3">
@@ -47,8 +50,9 @@ const SymptomHistoryPage = ({ onNewCheck }) => {
             {pagination.total || 0} past check{pagination.total !== 1 ? 's' : ''}
           </p>
         </div>
+
         <button
-          onClick={onNewCheck}
+          onClick={() => navigate('/symptom-checker')}
           className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl transition-colors"
         >
           + New Check
@@ -64,7 +68,7 @@ const SymptomHistoryPage = ({ onNewCheck }) => {
             Use the AI symptom checker to get started
           </p>
           <button
-            onClick={onNewCheck}
+            onClick={() => navigate('/symptom-checker')}
             className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl transition-colors"
           >
             Check Symptoms Now
@@ -84,10 +88,14 @@ const SymptomHistoryPage = ({ onNewCheck }) => {
                     <span className={`text-xs px-2.5 py-0.5 rounded-full font-medium border capitalize ${URGENCY_BADGE[record.aiResponse?.urgencyLevel] || URGENCY_BADGE.moderate}`}>
                       {record.aiResponse?.urgencyLevel || 'moderate'}
                     </span>
+
                     <span className="text-xs text-gray-400">
                       {new Date(record.createdAt).toLocaleDateString('en-LK', {
-                        year: 'numeric', month: 'short', day: 'numeric',
-                        hour: '2-digit', minute: '2-digit',
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
                       })}
                     </span>
                   </div>
@@ -96,7 +104,9 @@ const SymptomHistoryPage = ({ onNewCheck }) => {
                     <span className="font-medium">Symptoms: </span>
                     {record.symptoms.slice(0, 4).join(', ')}
                     {record.symptoms.length > 4 && (
-                      <span className="text-gray-400"> +{record.symptoms.length - 4} more</span>
+                      <span className="text-gray-400">
+                        +{record.symptoms.length - 4} more
+                      </span>
                     )}
                   </p>
 
@@ -113,26 +123,50 @@ const SymptomHistoryPage = ({ onNewCheck }) => {
                 {/* Actions */}
                 <div className="flex items-center gap-1 flex-shrink-0">
                   <button
-                    onClick={() => setExpanded(expanded === record._id ? null : record._id)}
+                    onClick={() =>
+                      setExpanded(expanded === record._id ? null : record._id)
+                    }
                     className="p-2 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
                   >
-                    <svg className={`w-5 h-5 transition-transform ${expanded === record._id ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    <svg
+                      className={`w-5 h-5 transition-transform ${
+                        expanded === record._id ? 'rotate-180' : ''
+                      }`}
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M19 9l-7 7-7-7"
+                      />
                     </svg>
                   </button>
+
                   <button
                     onClick={() => handleDelete(record._id)}
                     className="p-2 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors"
                   >
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    <svg
+                      className="w-5 h-5"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                      />
                     </svg>
                   </button>
                 </div>
               </div>
 
-              {/* Expanded Detail */}
+              {/* Expanded Section */}
               {expanded === record._id && (
                 <div className="border-t border-gray-100 bg-gray-50 px-4 py-4 space-y-4">
 
@@ -143,7 +177,10 @@ const SymptomHistoryPage = ({ onNewCheck }) => {
                     </p>
                     <div className="flex flex-wrap gap-1.5">
                       {record.symptoms.map((s) => (
-                        <span key={s} className="px-2.5 py-1 bg-blue-50 border border-blue-100 text-blue-700 rounded-full text-xs">
+                        <span
+                          key={s}
+                          className="px-2.5 py-1 bg-blue-50 border border-blue-100 text-blue-700 rounded-full text-xs"
+                        >
                           {s}
                         </span>
                       ))}
@@ -159,10 +196,14 @@ const SymptomHistoryPage = ({ onNewCheck }) => {
                       <div className="space-y-1.5">
                         {record.aiResponse.possibleConditions.map((c, i) => (
                           <div key={i} className="flex items-start gap-2">
-                            <span className="text-blue-600 font-bold text-sm flex-shrink-0">{i + 1}.</span>
+                            <span className="text-blue-600 font-bold text-sm flex-shrink-0">
+                              {i + 1}.
+                            </span>
                             <p className="text-sm text-gray-700">
                               <span className="font-medium">{c.name}</span>
-                              <span className="text-xs text-gray-400 ml-1.5">({c.likelihood})</span>
+                              <span className="text-xs text-gray-400 ml-1.5">
+                                ({c.likelihood})
+                              </span>
                             </p>
                           </div>
                         ))}
@@ -170,7 +211,7 @@ const SymptomHistoryPage = ({ onNewCheck }) => {
                     </div>
                   )}
 
-                  {/* Recommended Specialists */}
+                  {/* Specialists */}
                   {record.aiResponse?.recommendedSpecialties?.length > 0 && (
                     <div>
                       <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
@@ -178,7 +219,10 @@ const SymptomHistoryPage = ({ onNewCheck }) => {
                       </p>
                       <div className="flex flex-wrap gap-2">
                         {record.aiResponse.recommendedSpecialties.map((s, i) => (
-                          <span key={i} className="px-3 py-1 bg-white border border-blue-200 text-blue-700 rounded-lg text-xs font-medium">
+                          <span
+                            key={i}
+                            className="px-3 py-1 bg-white border border-blue-200 text-blue-700 rounded-lg text-xs font-medium"
+                          >
                             {s.specialty}
                           </span>
                         ))}
@@ -186,16 +230,17 @@ const SymptomHistoryPage = ({ onNewCheck }) => {
                     </div>
                   )}
 
-                  {/* General Advice */}
+                  {/* Advice */}
                   {record.aiResponse?.generalAdvice && (
                     <div className="bg-white border border-gray-200 rounded-xl p-3">
-                      <p className="text-xs font-semibold text-gray-500 mb-1">General Advice</p>
+                      <p className="text-xs font-semibold text-gray-500 mb-1">
+                        General Advice
+                      </p>
                       <p className="text-xs text-gray-600 leading-relaxed">
                         {record.aiResponse.generalAdvice}
                       </p>
                     </div>
                   )}
-
                 </div>
               )}
             </div>
@@ -213,9 +258,11 @@ const SymptomHistoryPage = ({ onNewCheck }) => {
           >
             ← Previous
           </button>
+
           <span className="text-sm text-gray-600">
             Page {pagination.page} of {pagination.totalPages}
           </span>
+
           <button
             disabled={page === pagination.totalPages}
             onClick={() => setPage((p) => p + 1)}
@@ -225,7 +272,6 @@ const SymptomHistoryPage = ({ onNewCheck }) => {
           </button>
         </div>
       )}
-
     </div>
   );
 };

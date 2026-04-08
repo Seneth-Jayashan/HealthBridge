@@ -49,7 +49,7 @@ export default function App() {
               <Route path="/doctor/*" element={<DoctorRoutes />} />
               <Route path="/admin/*" element={<AdminRoutes />} />
               <Route path="/symptom-checker" element={<SymptomChecker />} />
-              <Route path="/symptom-history" element={<SymptomHistoryPage onNewCheck={() => navigate('/symptom-checker')} />} />
+              <Route path="/symptom-history" element={<SymptomHistoryPage />} />
               
             </Route>
           </Route>
