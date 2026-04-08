@@ -67,7 +67,6 @@ const SpecialtyCard = ({ specialty }) => (
   </div>
 );
 
-// ─── Result Screen ────────────────────────────────────────────
 const ResultView = ({ result, onReset }) => {
   const { result: res, symptoms } = result;
   const urgency = URGENCY_CONFIG[res.urgencyLevel] || URGENCY_CONFIG.moderate;
@@ -114,7 +113,7 @@ const ResultView = ({ result, onReset }) => {
         </div>
       </div>
 
-      {/* Symptoms you entered */}
+      {/* Symptoms */}
       <div className="bg-white border border-gray-200 rounded-2xl p-4">
         <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Your Symptoms</p>
         <div className="flex flex-wrap gap-2">
@@ -126,12 +125,45 @@ const ResultView = ({ result, onReset }) => {
         </div>
       </div>
 
+      {/* Red Flags */}
+      {res.redFlags?.length > 0 && (
+        <div className="bg-red-50 border border-red-200 rounded-2xl p-4">
+          <p className="text-xs font-semibold text-red-600 uppercase tracking-wide mb-2">⚠ Red Flags — Seek Immediate Care</p>
+          <ul className="space-y-1">
+            {res.redFlags.map((flag, i) => (
+              <li key={i} className="flex items-start gap-2 text-sm text-red-700">
+                <span className="flex-shrink-0 mt-0.5">•</span>
+                <span>{flag}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {/* Possible Conditions */}
       <div>
         <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Possible Conditions</p>
         <div className="space-y-3">
           {res.possibleConditions.map((c, i) => (
-            <ConditionCard key={i} condition={c} index={i} />
+            <div key={i} className="flex gap-3 p-4 bg-white border border-gray-200 rounded-xl shadow-sm">
+              <div className="w-8 h-8 rounded-full bg-blue-600 text-white text-sm font-bold flex items-center justify-center flex-shrink-0">
+                {i + 1}
+              </div>
+              <div className="flex-1">
+                <div className="flex flex-wrap items-center gap-2 mb-1">
+                  <span className="font-semibold text-gray-800">{c.name}</span>
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${LIKELIHOOD_STYLE[c.likelihood] || LIKELIHOOD_STYLE.low}`}>
+                    {c.likelihood} likelihood
+                  </span>
+                  {c.confidenceScore !== undefined && (
+                    <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-blue-50 text-blue-700 border border-blue-200">
+                      {c.confidenceScore}% confidence
+                    </span>
+                  )}
+                </div>
+                <p className="text-sm text-gray-600 leading-relaxed">{c.description}</p>
+              </div>
+            </div>
           ))}
         </div>
       </div>
@@ -141,13 +173,56 @@ const ResultView = ({ result, onReset }) => {
         <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Recommended Specialists</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {res.recommendedSpecialties.map((s, i) => (
-            <SpecialtyCard key={i} specialty={s} />
+            <div key={i} className="flex gap-3 p-3 bg-blue-50 border border-blue-100 rounded-xl">
+              <div className="w-9 h-9 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                    d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+              </div>
+              <div>
+                <p className="font-semibold text-blue-900 text-sm">{s.specialty}</p>
+                <p className="text-xs text-blue-700 mt-0.5 leading-relaxed">{s.reason}</p>
+              </div>
+            </div>
           ))}
         </div>
         <button className="mt-3 w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors text-sm">
           Book Appointment with Specialist →
         </button>
       </div>
+
+      {/* Next Steps */}
+      {res.nextSteps?.length > 0 && (
+        <div className="bg-white border border-gray-200 rounded-2xl p-4">
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Next Steps</p>
+          <ol className="space-y-2">
+            {res.nextSteps.map((step, i) => (
+              <li key={i} className="flex items-start gap-3 text-sm text-gray-700">
+                <span className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center mt-0.5">
+                  {i + 1}
+                </span>
+                <span>{step}</span>
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
+
+      {/* Home Care Advice */}
+      {res.homeCareAdvice?.length > 0 && (
+        <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4">
+          <p className="text-xs font-semibold text-emerald-700 uppercase tracking-wide mb-3">🏠 Home Care Advice</p>
+          <ul className="space-y-2">
+            {res.homeCareAdvice.map((advice, i) => (
+              <li key={i} className="flex items-start gap-2 text-sm text-emerald-800">
+                <span className="flex-shrink-0 mt-0.5">✓</span>
+                <span>{advice}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {/* General Advice */}
       <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4">

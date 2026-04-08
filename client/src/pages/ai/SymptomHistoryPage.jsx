@@ -177,15 +177,28 @@ const SymptomHistoryPage = () => {
                     </p>
                     <div className="flex flex-wrap gap-1.5">
                       {record.symptoms.map((s) => (
-                        <span
-                          key={s}
-                          className="px-2.5 py-1 bg-blue-50 border border-blue-100 text-blue-700 rounded-full text-xs"
-                        >
+                        <span key={s} className="px-2.5 py-1 bg-blue-50 border border-blue-100 text-blue-700 rounded-full text-xs">
                           {s}
                         </span>
                       ))}
                     </div>
                   </div>
+
+                  {/* Red Flags */}
+                  {record.aiResponse?.redFlags?.length > 0 && (
+                    <div className="bg-red-50 border border-red-200 rounded-xl p-3">
+                      <p className="text-xs font-semibold text-red-600 uppercase tracking-wide mb-2">
+                        ⚠ Red Flags
+                      </p>
+                      <ul className="space-y-1">
+                        {record.aiResponse.redFlags.map((flag, i) => (
+                          <li key={i} className="text-xs text-red-700 flex gap-2">
+                            <span>•</span><span>{flag}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
 
                   {/* Possible Conditions */}
                   {record.aiResponse?.possibleConditions?.length > 0 && (
@@ -196,14 +209,13 @@ const SymptomHistoryPage = () => {
                       <div className="space-y-1.5">
                         {record.aiResponse.possibleConditions.map((c, i) => (
                           <div key={i} className="flex items-start gap-2">
-                            <span className="text-blue-600 font-bold text-sm flex-shrink-0">
-                              {i + 1}.
-                            </span>
+                            <span className="text-blue-600 font-bold text-sm flex-shrink-0">{i + 1}.</span>
                             <p className="text-sm text-gray-700">
                               <span className="font-medium">{c.name}</span>
-                              <span className="text-xs text-gray-400 ml-1.5">
-                                ({c.likelihood})
-                              </span>
+                              <span className="text-xs text-gray-400 ml-1.5">({c.likelihood})</span>
+                              {c.confidenceScore !== undefined && (
+                                <span className="text-xs text-blue-600 ml-1.5">{c.confidenceScore}% confidence</span>
+                              )}
                             </p>
                           </div>
                         ))}
@@ -211,7 +223,7 @@ const SymptomHistoryPage = () => {
                     </div>
                   )}
 
-                  {/* Specialists */}
+                  {/* Recommended Specialists */}
                   {record.aiResponse?.recommendedSpecialties?.length > 0 && (
                     <div>
                       <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
@@ -219,10 +231,7 @@ const SymptomHistoryPage = () => {
                       </p>
                       <div className="flex flex-wrap gap-2">
                         {record.aiResponse.recommendedSpecialties.map((s, i) => (
-                          <span
-                            key={i}
-                            className="px-3 py-1 bg-white border border-blue-200 text-blue-700 rounded-lg text-xs font-medium"
-                          >
+                          <span key={i} className="px-3 py-1 bg-white border border-blue-200 text-blue-700 rounded-lg text-xs font-medium">
                             {s.specialty}
                           </span>
                         ))}
@@ -230,17 +239,51 @@ const SymptomHistoryPage = () => {
                     </div>
                   )}
 
-                  {/* Advice */}
+                  {/* Next Steps */}
+                  {record.aiResponse?.nextSteps?.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                        Next Steps
+                      </p>
+                      <ol className="space-y-1">
+                        {record.aiResponse.nextSteps.map((step, i) => (
+                          <li key={i} className="flex items-start gap-2 text-xs text-gray-700">
+                            <span className="flex-shrink-0 w-5 h-5 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center mt-0.5">
+                              {i + 1}
+                            </span>
+                            <span>{step}</span>
+                          </li>
+                        ))}
+                      </ol>
+                    </div>
+                  )}
+
+                  {/* Home Care Advice */}
+                  {record.aiResponse?.homeCareAdvice?.length > 0 && (
+                    <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3">
+                      <p className="text-xs font-semibold text-emerald-700 uppercase tracking-wide mb-2">
+                        🏠 Home Care Advice
+                      </p>
+                      <ul className="space-y-1">
+                        {record.aiResponse.homeCareAdvice.map((advice, i) => (
+                          <li key={i} className="text-xs text-emerald-800 flex gap-2">
+                            <span>✓</span><span>{advice}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* General Advice */}
                   {record.aiResponse?.generalAdvice && (
                     <div className="bg-white border border-gray-200 rounded-xl p-3">
-                      <p className="text-xs font-semibold text-gray-500 mb-1">
-                        General Advice
-                      </p>
+                      <p className="text-xs font-semibold text-gray-500 mb-1">General Advice</p>
                       <p className="text-xs text-gray-600 leading-relaxed">
                         {record.aiResponse.generalAdvice}
                       </p>
                     </div>
                   )}
+
                 </div>
               )}
             </div>

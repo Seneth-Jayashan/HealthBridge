@@ -2,26 +2,31 @@ import React, { useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { 
   Activity, Calendar, MessageCircle, UserRound, LogOut, 
-  HeartPulse, FileText, ChevronLeft, ChevronRight, Menu, X 
+  HeartPulse, FileText, ChevronLeft, ChevronRight, Menu, X,
+  Brain, ClipboardList
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext'; 
 
 const navItems = [
-  { label: 'Overview', to: '/patient/dashboard', icon: Activity },
-  { label: 'Appointments', to: '/patient/appointments', icon: Calendar },
-  { label: 'Medical Records', to: '/patient/records', icon: HeartPulse },
-  { label: 'Prescriptions', to: '/patient/prescriptions', icon: FileText },
-  { label: 'Messages', to: '/patient/messages', icon: MessageCircle },
-  { label: 'Profile Settings', to: '/patient/profile', icon: UserRound },
+  { label: 'Overview',         to: '/patient/dashboard',     icon: Activity },
+  { label: 'Appointments',     to: '/patient/appointments',  icon: Calendar },
+  { label: 'Medical Records',  to: '/patient/records',       icon: HeartPulse },
+  { label: 'Prescriptions',    to: '/patient/prescriptions', icon: FileText },
+  { label: 'Messages',         to: '/patient/messages',      icon: MessageCircle },
+  { label: 'Profile Settings', to: '/patient/profile',       icon: UserRound },
+];
+
+const aiNavItems = [
+  { label: 'Symptom Checker',  to: '/symptom-checker',       icon: Brain },
+  { label: 'Symptom History',  to: '/symptom-history',       icon: ClipboardList },
 ];
 
 const PatientSidebar = () => {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   
-  // --- STATE MANAGERS ---
-  const [isCollapsed, setIsCollapsed] = useState(false); // For Desktop Shrinking
-  const [isOpen, setIsOpen] = useState(false);           // For Mobile Drawer
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
 
   const handleLogout = () => {
     logout(); 
@@ -36,9 +41,7 @@ const PatientSidebar = () => {
 
   return (
     <>
-      {/* ========================================== */}
-      {/* 1. MOBILE TOP BAR (Hamburger Icon is here!) */}
-      {/* ========================================== */}
+      {/* Mobile Top Bar */}
       <div className="md:hidden flex items-center justify-between bg-white border-b border-slate-100 px-6 py-4 sticky top-0 z-30">
         <div className="flex items-center gap-3">
           <div className="bg-blue-700 p-2 rounded-lg shadow-md shadow-blue-700/20">
@@ -52,11 +55,11 @@ const PatientSidebar = () => {
           onClick={() => setIsOpen(true)} 
           className="text-slate-500 hover:text-slate-800 transition-colors p-1"
         >
-          <Menu size={28} /> {/* <-- HAMBURGER ICON */}
+          <Menu size={28} />
         </button>
       </div>
 
-      {/* MOBILE OVERLAY BACKDROP */}
+      {/* Mobile Overlay Backdrop */}
       {isOpen && (
         <div 
           className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-40 md:hidden transition-opacity"
@@ -64,17 +67,15 @@ const PatientSidebar = () => {
         />
       )}
 
-      {/* ========================================== */}
-      {/* 2. MAIN SIDEBAR (Handles both Mobile & Desktop) */}
-      {/* ========================================== */}
+      {/* Main Sidebar */}
       <aside className={`
         fixed inset-y-0 left-0 z-50 bg-white border-r border-slate-100 flex flex-col transition-all duration-300 ease-in-out shadow-2xl md:shadow-[4px_0_24px_rgba(0,0,0,0.02)]
-        ${isOpen ? 'translate-x-0' : '-translate-x-full'}  /* Mobile Slide Animation */
-        md:translate-x-0 md:static md:h-screen md:top-0 /* Desktop Positioning */
-        ${isCollapsed ? 'md:w-20 w-72' : 'w-72'} /* Desktop Collapse Width vs Mobile Width */
+        ${isOpen ? 'translate-x-0' : '-translate-x-full'}
+        md:translate-x-0 md:static md:h-screen md:top-0
+        ${isCollapsed ? 'md:w-20 w-72' : 'w-72'}
       `}>
         
-        {/* DESKTOP FLOATING TOGGLE BUTTON (Hidden on Mobile) */}
+        {/* Desktop Toggle Button */}
         <button 
           onClick={() => setIsCollapsed(!isCollapsed)}
           className="hidden md:block absolute -right-3 top-8 bg-white border border-slate-200 text-slate-500 rounded-full p-1.5 shadow-sm hover:text-blue-600 hover:border-blue-300 transition-colors z-50"
@@ -82,7 +83,7 @@ const PatientSidebar = () => {
           {isCollapsed ? <ChevronRight size={14} strokeWidth={3} /> : <ChevronLeft size={14} strokeWidth={3} />}
         </button>
 
-        {/* Brand & Logo Section */}
+        {/* Brand & Logo */}
         <div className={`h-20 flex items-center border-b border-slate-50 overflow-hidden transition-all justify-between ${isCollapsed ? 'md:px-0 md:justify-center px-6' : 'px-6 gap-3'}`}>
           <Link to="/" className="flex items-center gap-3" onClick={closeMobileSidebar}>
             <div className="bg-blue-700 p-2 rounded-xl shadow-md shadow-blue-700/20 shrink-0 flex items-center justify-center">
@@ -92,8 +93,6 @@ const PatientSidebar = () => {
               Health<span className="text-blue-700">Bridge</span>
             </span>
           </Link>
-          
-          {/* Mobile Close Button (X) inside sidebar */}
           <button onClick={closeMobileSidebar} className="md:hidden text-slate-400 hover:text-red-500 p-1">
             <X size={24} />
           </button>
@@ -114,6 +113,8 @@ const PatientSidebar = () => {
 
         {/* Navigation Menu */}
         <div className={`flex-1 overflow-y-auto py-6 ${isCollapsed ? 'md:px-3 px-4' : 'px-4'}`}>
+          
+          {/* Patient Portal Section */}
           <p className={`px-4 text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 whitespace-nowrap ${isCollapsed ? 'md:hidden' : 'block'}`}>
             Patient Portal
           </p>
@@ -122,7 +123,7 @@ const PatientSidebar = () => {
               <NavLink
                 key={item.label}
                 to={item.to}
-                onClick={closeMobileSidebar} // Closes drawer on mobile when clicked
+                onClick={closeMobileSidebar}
                 title={isCollapsed ? item.label : ""} 
                 className={({ isActive }) =>
                   `w-full rounded-xl py-3 text-sm font-bold flex items-center transition-all duration-200 ${isCollapsed ? 'md:px-0 md:justify-center px-4 gap-3' : 'px-4 gap-3'} ${
@@ -141,9 +142,50 @@ const PatientSidebar = () => {
               </NavLink>
             ))}
           </nav>
+
+          {/* AI Tools Section Divider */}
+          <div className={`mt-6 mb-3 ${isCollapsed ? 'md:hidden' : 'block'}`}>
+            <div className="px-2 flex items-center gap-2">
+              <div className="flex-1 h-px bg-slate-200" />
+              <span className="text-xs font-bold uppercase tracking-wider text-blue-600 whitespace-nowrap">
+                🤖 AI Tools
+              </span>
+              <div className="flex-1 h-px bg-slate-200" />
+            </div>
+          </div>
+
+          {/* Collapsed divider line for AI section */}
+          <div className={`mt-4 mb-3 h-px bg-slate-200 ${isCollapsed ? 'md:block hidden' : 'hidden'}`} />
+
+          {/* AI Nav Items */}
+          <nav className="space-y-1.5">
+            {aiNavItems.map((item) => (
+              <NavLink
+                key={item.label}
+                to={item.to}
+                onClick={closeMobileSidebar}
+                title={isCollapsed ? item.label : ""}
+                className={({ isActive }) =>
+                  `w-full rounded-xl py-3 text-sm font-bold flex items-center transition-all duration-200 ${isCollapsed ? 'md:px-0 md:justify-center px-4 gap-3' : 'px-4 gap-3'} ${
+                    isActive
+                      ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20'
+                      : 'text-blue-600 hover:bg-blue-50 hover:text-blue-700 border border-blue-100 bg-blue-50/50'
+                  }`
+                }
+              >
+                {({ isActive }) => (
+                  <>
+                    <item.icon size={18} strokeWidth={isActive ? 2.5 : 2} className="shrink-0" />
+                    <span className={`whitespace-nowrap ${isCollapsed ? 'md:hidden' : 'block'}`}>{item.label}</span>
+                  </>
+                )}
+              </NavLink>
+            ))}
+          </nav>
+
         </div>
 
-        {/* Footer / Logout Section */}
+        {/* Footer / Logout */}
         <div className={`p-4 border-t border-slate-100 bg-slate-50/50 ${isCollapsed ? 'md:flex md:justify-center' : ''}`}>
           <button 
             onClick={handleLogout}

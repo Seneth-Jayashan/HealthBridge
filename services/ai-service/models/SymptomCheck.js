@@ -26,9 +26,10 @@ const symptomCheckSchema = new mongoose.Schema(
     aiResponse: {
       possibleConditions: [
         {
-          name:        String,
-          likelihood:  String,
-          description: String,
+          name:            String,
+          likelihood:      String,
+          confidenceScore: Number,
+          description:     String,
         },
       ],
       recommendedSpecialties: [
@@ -42,11 +43,14 @@ const symptomCheckSchema = new mongoose.Schema(
         enum:    ['low', 'moderate', 'high', 'emergency'],
         default: 'moderate',
       },
-      generalAdvice: { type: String },
-      disclaimer:    { type: String },
-      rawResponse:   { type: String },
+      redFlags:       { type: [String], default: [] },
+      nextSteps:      { type: [String], default: [] },
+      homeCareAdvice: { type: [String], default: [] },
+      generalAdvice:  { type: String },
+      disclaimer:     { type: String },
+      rawResponse:    { type: String },
     },
-    modelUsed:        { type: String, default: 'claude-sonnet-4-20250514' },
+    modelUsed:        { type: String, default: 'llama-3.1-8b-instant' },
     processingTimeMs: { type: Number },
   },
   { timestamps: true }
