@@ -94,6 +94,28 @@ const parseAIResponse = (text) => {
   }
 };
 
+const buildProviderFallback = () => ({
+  possibleConditions: [],
+  recommendedSpecialties: [
+    {
+      specialty: "General Practitioner",
+      reason: "AI analysis is temporarily unavailable. A clinician should evaluate symptoms.",
+    },
+  ],
+  urgencyLevel: "moderate",
+  redFlags: [
+    "If symptoms worsen rapidly, seek urgent medical care.",
+    "If chest pain, breathing difficulty, confusion, or severe bleeding is present, go to emergency care now.",
+  ],
+  nextSteps: [
+    "Book an in-person or telemedicine consultation.",
+    "Track symptom progression and vital signs if available.",
+  ],
+  homeCareAdvice: ["Rest", "Hydration", "Monitor symptoms closely"],
+  generalAdvice: "Automated analysis is temporarily unavailable. Please consult a qualified clinician.",
+  disclaimer: "This is not medical advice.",
+});
+
 // ─── MAIN CONTROLLER ─────────────────────────────
 const checkSymptoms = async (req, res) => {
   const start = Date.now();
@@ -107,10 +129,19 @@ const checkSymptoms = async (req, res) => {
 
     const prompt = buildPrompt(symptoms, additionalInfo);
 
-    // AI CALL
-    const rawResponse = await callAI(prompt);
+    let rawResponse = null;
+    let parsed = null;
+    let fallbackReason = null;
 
-    const parsed = parseAIResponse(rawResponse);
+    try {
+      rawResponse = await callAI(prompt);
+      parsed = parseAIResponse(rawResponse);
+    } catch (aiErr) {
+      fallbackReason = aiErr?.response?.data?.error?.message || aiErr.message || "AI provider unavailable";
+      logger.error(`AI provider failure during symptom check: ${fallbackReason}`);
+      parsed = buildProviderFallback();
+    }
+
     const processingTimeMs = Date.now() - start;
 
     const record = await SymptomCheck.create({
@@ -120,6 +151,8 @@ const checkSymptoms = async (req, res) => {
       aiResponse: {
         ...parsed,
         rawResponse,
+        fallbackUsed: Boolean(fallbackReason),
+        fallbackReason,
       },
       model: process.env.AI_MODEL || "llama-3.1-8b-instant",
       processingTimeMs,
@@ -132,6 +165,8 @@ const checkSymptoms = async (req, res) => {
         symptoms: record.symptoms,
         additionalInfo: record.additionalInfo,
         result: parsed,
+        fallbackUsed: Boolean(fallbackReason),
+        fallbackReason,
         processingTimeMs,
         createdAt: record.createdAt,
       },

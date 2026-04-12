@@ -53,7 +53,9 @@ app.use((err, req, res, next) => {
 
 // ─── Database + Server ────────────────────────────────────────
 mongoose
-  .connect(process.env.MONGO_URI || 'mongodb://localhost:27017/healthbridge-ai')
+  .connect(process.env.MONGO_URI || 'mongodb://localhost:27017/healthbridge-ai', {
+    dbName: process.env.MONGO_DB_NAME || 'healthbridge_ai_db'
+  })
   .then(() => {
     logger.info('MongoDB connected for AI Service');
     app.listen(PORT, () => logger.info(`AI Service running on port ${PORT}`));
