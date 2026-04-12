@@ -60,6 +60,7 @@
     "is-extglob": "^2.1.1",
     "is-glob": "^4.0.3",
     "is-number": "^7.0.0",
+    "jsonwebtoken": "^9.0.3",
     "kareem": "^2.6.3",
     "math-intrinsics": "^1.1.0",
     "media-typer": "^0.3.0",
@@ -126,11 +127,11 @@
     "whatwg-url": "^14.2.0",
     "ws": "^8.18.3"
   },
-"scripts": {
-  "start": "node index.js",
-  "dev": "nodemon index.js",
-  "test": "echo \"Error: no test specified\" && exit 1"
-},
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",
