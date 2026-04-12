@@ -3,8 +3,28 @@ import Appointment from '../models/Appointment.js';
 // ─── Book an appointment ───────────────────────────────
 export const bookAppointment = async (req, res) => {
     try {
-        const { doctorId, specialty, appointmentDate, timeSlot, reason } = req.body;
-        const patientId = req.user.id; // comes from JWT token
+        const { 
+            doctorId, 
+            specialty, 
+            appointmentType, 
+            appointmentDate, 
+            timeSlot, 
+            reason 
+        } = req.body;
+
+        const patientId = req.user.id;
+
+        // Validate required fields
+        if (!doctorId || !specialty || !appointmentType || !appointmentDate || !timeSlot) {
+            return res.status(400).json({ message: 'All fields are required' });
+        }
+
+        // Validate appointmentType
+        if (!['online', 'physical'].includes(appointmentType)) {
+            return res.status(400).json({ 
+                message: 'appointmentType must be online or physical' 
+            });
+        }
 
         // Check if that time slot is already booked
         const existing = await Appointment.findOne({
@@ -15,13 +35,16 @@ export const bookAppointment = async (req, res) => {
         });
 
         if (existing) {
-            return res.status(400).json({ message: 'This time slot is already booked' });
+            return res.status(400).json({ 
+                message: 'This time slot is already booked' 
+            });
         }
 
         const appointment = await Appointment.create({
             patientId,
             doctorId,
             specialty,
+            appointmentType,
             appointmentDate,
             timeSlot,
             reason
@@ -46,14 +69,14 @@ export const searchBySpecialty = async (req, res) => {
             return res.status(400).json({ message: 'Specialty is required' });
         }
 
-        // Find all appointments for that specialty to see which doctors are available
-        const appointments = await Appointment.find({
-            specialty: { $regex: specialty, $options: 'i' } // case-insensitive search
+        const doctorIds = await Appointment.find({
+            specialty: { $regex: specialty, $options: 'i' },
+            status: { $nin: ['cancelled', 'rejected'] }
         }).distinct('doctorId');
 
         res.status(200).json({
             message: `Doctors found for specialty: ${specialty}`,
-            doctorIds: appointments
+            doctorIds
         });
 
     } catch (error) {
@@ -61,15 +84,18 @@ export const searchBySpecialty = async (req, res) => {
     }
 };
 
-// ─── Get all appointments for logged-in patient ───────
+// ─── Get all appointments for logged in patient ───────
 export const getMyAppointments = async (req, res) => {
     try {
         const patientId = req.user.id;
 
         const appointments = await Appointment.find({ patientId })
-            .sort({ appointmentDate: -1 }); // newest first
+            .sort({ appointmentDate: -1 });
 
-        res.status(200).json({ appointments });
+        res.status(200).json({ 
+            count: appointments.length,
+            appointments 
+        });
 
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -90,8 +116,28 @@ export const getAppointmentStatus = async (req, res) => {
         res.status(200).json({
             appointmentId: appointment._id,
             status: appointment.status,
+            appointmentType: appointment.appointmentType,
+            specialty: appointment.specialty,
             appointmentDate: appointment.appointmentDate,
             timeSlot: appointment.timeSlot
+        });
+
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// ─── Get all appointments for a doctor ────────────────
+export const getDoctorAppointments = async (req, res) => {
+    try {
+        const doctorId = req.user.id;
+
+        const appointments = await Appointment.find({ doctorId })
+            .sort({ appointmentDate: -1 });
+
+        res.status(200).json({ 
+            count: appointments.length,
+            appointments 
         });
 
     } catch (error) {
@@ -103,7 +149,7 @@ export const getAppointmentStatus = async (req, res) => {
 export const modifyAppointment = async (req, res) => {
     try {
         const { id } = req.params;
-        const { appointmentDate, timeSlot, reason } = req.body;
+        const { appointmentDate, timeSlot, appointmentType, reason } = req.body;
         const patientId = req.user.id;
 
         const appointment = await Appointment.findOne({ _id: id, patientId });
@@ -114,11 +160,21 @@ export const modifyAppointment = async (req, res) => {
 
         // Only pending appointments can be modified
         if (appointment.status !== 'pending') {
-            return res.status(400).json({ message: `Cannot modify a ${appointment.status} appointment` });
+            return res.status(400).json({ 
+                message: `Cannot modify a ${appointment.status} appointment` 
+            });
+        }
+
+        // Validate appointmentType if provided
+        if (appointmentType && !['online', 'physical'].includes(appointmentType)) {
+            return res.status(400).json({ 
+                message: 'appointmentType must be online or physical' 
+            });
         }
 
         appointment.appointmentDate = appointmentDate || appointment.appointmentDate;
         appointment.timeSlot = timeSlot || appointment.timeSlot;
+        appointment.appointmentType = appointmentType || appointment.appointmentType;
         appointment.reason = reason || appointment.reason;
 
         await appointment.save();
@@ -146,13 +202,24 @@ export const cancelAppointment = async (req, res) => {
         }
 
         if (appointment.status === 'completed') {
-            return res.status(400).json({ message: 'Cannot cancel a completed appointment' });
+            return res.status(400).json({ 
+                message: 'Cannot cancel a completed appointment' 
+            });
+        }
+
+        if (appointment.status === 'cancelled') {
+            return res.status(400).json({ 
+                message: 'Appointment is already cancelled' 
+            });
         }
 
         appointment.status = 'cancelled';
         await appointment.save();
 
-        res.status(200).json({ message: 'Appointment cancelled successfully' });
+        res.status(200).json({ 
+            message: 'Appointment cancelled successfully',
+            appointment
+        });
 
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -163,12 +230,14 @@ export const cancelAppointment = async (req, res) => {
 export const updateAppointmentStatus = async (req, res) => {
     try {
         const { id } = req.params;
-        const { status } = req.body;
+        const { status, notes } = req.body;
         const doctorId = req.user.id;
 
         const validStatuses = ['confirmed', 'completed', 'rejected'];
         if (!validStatuses.includes(status)) {
-            return res.status(400).json({ message: 'Invalid status' });
+            return res.status(400).json({ 
+                message: 'Status must be confirmed, completed or rejected' 
+            });
         }
 
         const appointment = await Appointment.findOne({ _id: id, doctorId });
@@ -178,6 +247,8 @@ export const updateAppointmentStatus = async (req, res) => {
         }
 
         appointment.status = status;
+        if (notes) appointment.notes = notes;
+
         await appointment.save();
 
         res.status(200).json({

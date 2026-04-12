@@ -14,30 +14,36 @@ const appointmentSchema = new mongoose.Schema(
             type: String,
             required: true
         },
+        appointmentType: {
+            type: String,
+            enum: ['online', 'physical'],
+            required: true,
+            default: 'physical'
+        },
         appointmentDate: {
             type: Date,
             required: true
         },
         timeSlot: {
             type: String,
-            required: true  // e.g. "09:00 AM - 09:30 AM"
+            required: true
         },
         status: {
             type: String,
-            enum: ['pending', 'confirmed', 'completed', 'cancelled', 'rejected'],
+            enum: ['pending', 'confirmed', 'completed','cancelled', 'rejected'],
             default: 'pending'
         },
         reason: {
             type: String,
-            default: ''     // why patient is booking
+            default: ''
         },
         notes: {
             type: String,
-            default: ''     // doctor's notes after consultation
+            default: ''
         }
     },
     {
-        timestamps: true    // adds createdAt and updatedAt automatically
+        timestamps: true
     }
 );
 

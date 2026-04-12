@@ -4,6 +4,7 @@ import {
     searchBySpecialty,
     getMyAppointments,
     getAppointmentStatus,
+    getDoctorAppointments,
     modifyAppointment,
     cancelAppointment,
     updateAppointmentStatus
@@ -21,6 +22,7 @@ router.put('/:id', verifyToken, modifyAppointment);
 router.delete('/:id', verifyToken, cancelAppointment);
 
 // ─── Doctor routes ─────────────────────────────────────
+router.get('/doctor/my', verifyToken, getDoctorAppointments);
 router.patch('/:id/status', verifyToken, updateAppointmentStatus);
 
 export default router;

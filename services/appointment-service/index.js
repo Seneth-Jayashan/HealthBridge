@@ -1,23 +1,31 @@
 import express from 'express';
 import dotenv from 'dotenv';
-import mongoose from 'mongoose';
+import connectDB from './config/db.js';
+import appointmentRoutes from './routes/appointment.routes.js';
 
 dotenv.config();
 
 const app = express();
+const PORT = process.env.PORT || 3005;
+
+// ─── Middleware ────────────────────────────────────────
 app.use(express.json());
 
-const PORT = process.env.PORT || 3005;
-const MONGO_URI = process.env.MONGO_URI;
+// ─── Connect to MongoDB ────────────────────────────────
+connectDB();
 
-mongoose.connect(MONGO_URI)
-  .then(() => console.log('MongoDB connected'))
-  .catch(err => console.error('MongoDB error:', err));
+// ─── Routes ───────────────────────────────────────────
+app.use('/api/appointments', appointmentRoutes);
 
+// ─── Health check ─────────────────────────────────────
 app.get('/health', (req, res) => {
-  res.json({ status: 'appointment-service running' });
+    res.json({ 
+        status: 'Appointment Service is running',
+        port: PORT
+    });
 });
 
+// ─── Start server ─────────────────────────────────────
 app.listen(PORT, () => {
-  console.log(`Appointment service running on port ${PORT}`);
+    console.log(`📅 Appointment Service running on port ${PORT}`);
 });
