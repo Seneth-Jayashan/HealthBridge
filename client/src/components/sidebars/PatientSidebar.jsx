@@ -1,27 +1,36 @@
 import React, { useState } from 'react';
-import { Link, NavLink, useNavigate } from 'react-router-dom';
+import { Link, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { 
   Activity, Calendar, MessageCircle, UserRound, LogOut, 
-  HeartPulse, FileText, ChevronLeft, ChevronRight, Menu, X 
+  HeartPulse, FileText, ChevronLeft, ChevronRight, Menu, X,
+  CalendarPlus, CalendarCheck, ChevronDown
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext'; 
 
 const navItems = [
   { label: 'Overview', to: '/patient/dashboard', icon: Activity },
-  { label: 'Appointments', to: '/patient/appointments', icon: Calendar },
   { label: 'Medical Records', to: '/patient/records', icon: HeartPulse },
   { label: 'Prescriptions', to: '/patient/prescriptions', icon: FileText },
   { label: 'Messages', to: '/patient/messages', icon: MessageCircle },
   { label: 'Profile Settings', to: '/patient/profile', icon: UserRound },
 ];
 
+const appointmentSubItems = [
+  { label: 'Book Appointment', to: '/patient/appointment/search', icon: CalendarPlus },
+  { label: 'My Appointments', to: '/patient/appointment/my', icon: CalendarCheck },
+];
+
 const PatientSidebar = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, logout } = useAuth();
   
-  // --- STATE MANAGERS ---
-  const [isCollapsed, setIsCollapsed] = useState(false); // For Desktop Shrinking
-  const [isOpen, setIsOpen] = useState(false);           // For Mobile Drawer
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
+
+  // Auto-open dropdown if current path is an appointment page
+  const isAppointmentActive = location.pathname.startsWith('/patient/appointment');
+  const [appointmentOpen, setAppointmentOpen] = useState(isAppointmentActive);
 
   const handleLogout = () => {
     logout(); 
@@ -36,9 +45,7 @@ const PatientSidebar = () => {
 
   return (
     <>
-      {/* ========================================== */}
-      {/* 1. MOBILE TOP BAR (Hamburger Icon is here!) */}
-      {/* ========================================== */}
+      {/* Mobile Top Bar */}
       <div className="md:hidden flex items-center justify-between bg-white border-b border-slate-100 px-6 py-4 sticky top-0 z-30">
         <div className="flex items-center gap-3">
           <div className="bg-blue-700 p-2 rounded-lg shadow-md shadow-blue-700/20">
@@ -52,11 +59,11 @@ const PatientSidebar = () => {
           onClick={() => setIsOpen(true)} 
           className="text-slate-500 hover:text-slate-800 transition-colors p-1"
         >
-          <Menu size={28} /> {/* <-- HAMBURGER ICON */}
+          <Menu size={28} />
         </button>
       </div>
 
-      {/* MOBILE OVERLAY BACKDROP */}
+      {/* Mobile Overlay */}
       {isOpen && (
         <div 
           className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-40 md:hidden transition-opacity"
@@ -64,25 +71,26 @@ const PatientSidebar = () => {
         />
       )}
 
-      {/* ========================================== */}
-      {/* 2. MAIN SIDEBAR (Handles both Mobile & Desktop) */}
-      {/* ========================================== */}
+      {/* Main Sidebar */}
       <aside className={`
         fixed inset-y-0 left-0 z-50 bg-white border-r border-slate-100 flex flex-col transition-all duration-300 ease-in-out shadow-2xl md:shadow-[4px_0_24px_rgba(0,0,0,0.02)]
-        ${isOpen ? 'translate-x-0' : '-translate-x-full'}  /* Mobile Slide Animation */
-        md:translate-x-0 md:static md:h-screen md:top-0 /* Desktop Positioning */
-        ${isCollapsed ? 'md:w-20 w-72' : 'w-72'} /* Desktop Collapse Width vs Mobile Width */
+        ${isOpen ? 'translate-x-0' : '-translate-x-full'}
+        md:translate-x-0 md:static md:h-screen md:top-0
+        ${isCollapsed ? 'md:w-20 w-72' : 'w-72'}
       `}>
         
-        {/* DESKTOP FLOATING TOGGLE BUTTON (Hidden on Mobile) */}
+        {/* Desktop Collapse Toggle */}
         <button 
-          onClick={() => setIsCollapsed(!isCollapsed)}
+          onClick={() => {
+            setIsCollapsed(!isCollapsed);
+            if (!isCollapsed) setAppointmentOpen(false); // close dropdown when collapsing
+          }}
           className="hidden md:block absolute -right-3 top-8 bg-white border border-slate-200 text-slate-500 rounded-full p-1.5 shadow-sm hover:text-blue-600 hover:border-blue-300 transition-colors z-50"
         >
           {isCollapsed ? <ChevronRight size={14} strokeWidth={3} /> : <ChevronLeft size={14} strokeWidth={3} />}
         </button>
 
-        {/* Brand & Logo Section */}
+        {/* Brand */}
         <div className={`h-20 flex items-center border-b border-slate-50 overflow-hidden transition-all justify-between ${isCollapsed ? 'md:px-0 md:justify-center px-6' : 'px-6 gap-3'}`}>
           <Link to="/" className="flex items-center gap-3" onClick={closeMobileSidebar}>
             <div className="bg-blue-700 p-2 rounded-xl shadow-md shadow-blue-700/20 shrink-0 flex items-center justify-center">
@@ -92,14 +100,12 @@ const PatientSidebar = () => {
               Health<span className="text-blue-700">Bridge</span>
             </span>
           </Link>
-          
-          {/* Mobile Close Button (X) inside sidebar */}
           <button onClick={closeMobileSidebar} className="md:hidden text-slate-400 hover:text-red-500 p-1">
             <X size={24} />
           </button>
         </div>
 
-        {/* User Profile Card */}
+        {/* User Profile */}
         <div className={`py-6 border-b border-slate-100 transition-all ${isCollapsed ? 'md:px-3 px-5' : 'px-5'}`}>
           <div className={`flex items-center bg-slate-50 rounded-2xl border border-slate-100 transition-colors hover:bg-slate-100 cursor-pointer ${isCollapsed ? 'md:p-2 md:justify-center p-3 gap-3' : 'p-3 gap-3'}`}>
             <div className="h-10 w-10 shrink-0 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-black text-sm border border-blue-200" title={user?.name}>
@@ -112,18 +118,115 @@ const PatientSidebar = () => {
           </div>
         </div>
 
-        {/* Navigation Menu */}
+        {/* Navigation */}
         <div className={`flex-1 overflow-y-auto py-6 ${isCollapsed ? 'md:px-3 px-4' : 'px-4'}`}>
           <p className={`px-4 text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 whitespace-nowrap ${isCollapsed ? 'md:hidden' : 'block'}`}>
             Patient Portal
           </p>
           <nav className="space-y-1.5">
-            {navItems.map((item) => (
+
+            {/* Overview */}
+            <NavLink
+              to="/patient/dashboard"
+              onClick={closeMobileSidebar}
+              className={({ isActive }) =>
+                `w-full rounded-xl py-3 text-sm font-bold flex items-center transition-all duration-200 ${isCollapsed ? 'md:px-0 md:justify-center px-4 gap-3' : 'px-4 gap-3'} ${
+                  isActive ? 'bg-blue-700 text-white shadow-md shadow-blue-700/20' : 'text-slate-500 hover:bg-slate-50 hover:text-blue-700'
+                }`
+              }
+            >
+              {({ isActive }) => (
+                <>
+                  <Activity size={18} strokeWidth={isActive ? 2.5 : 2} className="shrink-0" />
+                  <span className={`whitespace-nowrap ${isCollapsed ? 'md:hidden' : 'block'}`}>Overview</span>
+                </>
+              )}
+            </NavLink>
+
+            {/* Appointments Dropdown */}
+            <div>
+              {/* Dropdown trigger */}
+              <button
+                onClick={() => !isCollapsed && setAppointmentOpen((prev) => !prev)}
+                title={isCollapsed ? 'Appointments' : ''}
+                className={`w-full rounded-xl py-3 text-sm font-bold flex items-center transition-all duration-200
+                  ${isCollapsed ? 'md:px-0 md:justify-center px-4 gap-3' : 'px-4 gap-3'}
+                  ${isAppointmentActive
+                    ? 'bg-blue-50 text-blue-700'
+                    : 'text-slate-500 hover:bg-slate-50 hover:text-blue-700'
+                  }`}
+              >
+                <Calendar size={18} strokeWidth={isAppointmentActive ? 2.5 : 2} className="shrink-0" />
+                <span className={`flex-1 text-left whitespace-nowrap ${isCollapsed ? 'md:hidden' : 'block'}`}>
+                  Appointments
+                </span>
+                {!isCollapsed && (
+                  <ChevronDown
+                    size={15}
+                    className={`shrink-0 transition-transform duration-200 ${appointmentOpen ? 'rotate-180' : ''}`}
+                  />
+                )}
+              </button>
+
+              {/* Sub-items */}
+              {!isCollapsed && appointmentOpen && (
+                <div className="mt-1 ml-4 pl-4 border-l-2 border-slate-100 space-y-1">
+                  {appointmentSubItems.map((item) => (
+                    <NavLink
+                      key={item.to}
+                      to={item.to}
+                      onClick={closeMobileSidebar}
+                      className={({ isActive }) =>
+                        `w-full rounded-xl py-2.5 px-3 text-sm font-semibold flex items-center gap-2.5 transition-all duration-200 ${
+                          isActive
+                            ? 'bg-blue-700 text-white shadow-md shadow-blue-700/20'
+                            : 'text-slate-500 hover:bg-slate-50 hover:text-blue-700'
+                        }`
+                      }
+                    >
+                      {({ isActive }) => (
+                        <>
+                          <item.icon size={15} strokeWidth={isActive ? 2.5 : 2} className="shrink-0" />
+                          <span className="whitespace-nowrap">{item.label}</span>
+                        </>
+                      )}
+                    </NavLink>
+                  ))}
+                </div>
+              )}
+
+              {/* Collapsed: show sub-items as icon-only tooltips */}
+              {isCollapsed && (
+                <div className="hidden md:flex flex-col items-center gap-1 mt-1">
+                  {appointmentSubItems.map((item) => (
+                    <NavLink
+                      key={item.to}
+                      to={item.to}
+                      title={item.label}
+                      className={({ isActive }) =>
+                        `w-full rounded-xl py-2.5 flex justify-center transition-all duration-200 ${
+                          isActive
+                            ? 'bg-blue-700 text-white shadow-md shadow-blue-700/20'
+                            : 'text-slate-400 hover:bg-slate-50 hover:text-blue-700'
+                        }`
+                      }
+                    >
+                      {({ isActive }) => (
+                        <item.icon size={16} strokeWidth={isActive ? 2.5 : 2} />
+                      )}
+                    </NavLink>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Rest of nav items */}
+            {navItems.slice(1).map((item) => (
               <NavLink
                 key={item.label}
                 to={item.to}
-                onClick={closeMobileSidebar} // Closes drawer on mobile when clicked
-                title={isCollapsed ? item.label : ""} 
+                onClick={closeMobileSidebar}
+                title={isCollapsed ? item.label : ''}
                 className={({ isActive }) =>
                   `w-full rounded-xl py-3 text-sm font-bold flex items-center transition-all duration-200 ${isCollapsed ? 'md:px-0 md:justify-center px-4 gap-3' : 'px-4 gap-3'} ${
                     isActive
@@ -143,11 +246,11 @@ const PatientSidebar = () => {
           </nav>
         </div>
 
-        {/* Footer / Logout Section */}
+        {/* Logout */}
         <div className={`p-4 border-t border-slate-100 bg-slate-50/50 ${isCollapsed ? 'md:flex md:justify-center' : ''}`}>
           <button 
             onClick={handleLogout}
-            title={isCollapsed ? "Secure Logout" : ""}
+            title={isCollapsed ? 'Secure Logout' : ''}
             className={`rounded-xl py-3 text-sm font-bold flex items-center text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors ${isCollapsed ? 'md:px-3 md:justify-center w-full px-4 gap-3' : 'w-full px-4 gap-3'}`}
           >
             <LogOut size={18} strokeWidth={2.5} className="shrink-0" />
