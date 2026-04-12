@@ -7,6 +7,9 @@ import PatientDashboard from '../pages/patient/Dashboard';
 // import PatientAppointments from '../pages/patient/Appointments'; // Ready for when you build it!
 import PatientProfile from '../pages/patient/Profile';
 
+import BookAppointment from '../pages/patient/appointment/BookAppointment';
+import MyAppointments from '../pages/patient/appointment/MyAppointments';
+
 export default function PatientRoutes() {
   return (
     <Routes>
@@ -20,6 +23,8 @@ export default function PatientRoutes() {
         {/* <Route path="appointments" element={<PatientAppointments />} /> */}
         {/* <Route path="records" element={<PatientRecords />} /> */}
         <Route path="profile" element={<PatientProfile />} />
+        <Route path="appointment/book" element={<BookAppointment />} />
+        <Route path="appointment/my" element={<MyAppointments />} />
         
       </Route>
     </Routes>

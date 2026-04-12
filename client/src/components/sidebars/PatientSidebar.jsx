@@ -16,7 +16,7 @@ const navItems = [
 ];
 
 const appointmentSubItems = [
-  { label: 'Book Appointment', to: '/patient/appointment/search', icon: CalendarPlus },
+  { label: 'Book Appointment', to: '/patient/appointment/book', icon: CalendarPlus },
   { label: 'My Appointments', to: '/patient/appointment/my', icon: CalendarCheck },
 ];
 

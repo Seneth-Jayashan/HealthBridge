@@ -2,8 +2,8 @@ import Doctor from '../models/DoctorService.js';
 import { ApiError, ApiResponse } from '@healthbridge/shared';
 
 // @desc    Get doctor profile
-// @route   GET /api/doctors/profile
-// @access  Private (Doctor only)
+// @route   GET /doctor/profile
+// @access  Doctor only
 export const getDoctorProfile = async (req, res, next) => {
     try {
         let doctor = await Doctor.findOne({ userId: req.user.id });
@@ -19,8 +19,8 @@ export const getDoctorProfile = async (req, res, next) => {
 };
 
 // @desc    Update doctor profile & availability
-// @route   PUT /api/doctors/profile
-// @access  Private (Doctor only)
+// @route   PUT /doctor/profile
+// @access  Doctor only
 export const updateDoctorProfile = async (req, res, next) => {
     try {
         const { 
@@ -29,13 +29,9 @@ export const updateDoctorProfile = async (req, res, next) => {
             experienceYears, 
             bio, 
             consultationFee,
-            availability // Expected to be an array of objects: { day, startTime, endTime }
+            availability
         } = req.body;
 
-        // Admin verification logic: If a doctor updates their core credentials, 
-        // you might want to reset their 'isVerified' status until an Admin reviews it again.
-        // For now, we will just update the fields.
-        
         const updatedDoctor = await Doctor.findOneAndUpdate(
             { userId: req.user.id },
             { 
@@ -57,13 +53,13 @@ export const updateDoctorProfile = async (req, res, next) => {
     }
 };
 
-// @desc    Verify a doctor's registration (Admin only)
-// @route   PUT /api/doctors/admin/verify/:userId
+// @desc    Verify a doctor (Admin only)
+// @route   PUT /doctor/admin/verify/:userId
+// @access  Admin only
 export const verifyDoctor = async (req, res, next) => {
     try {
         const { userId } = req.params;
 
-        // Find the doctor by their Auth ID and update the isVerified flag
         const doctor = await Doctor.findOneAndUpdate(
             { userId: userId },
             { $set: { isVerified: true } },
@@ -75,6 +71,30 @@ export const verifyDoctor = async (req, res, next) => {
         }
 
         res.status(200).json(new ApiResponse(200, doctor, "Doctor has been successfully verified"));
+    } catch (error) {
+        next(error);
+    }
+};
+
+// @desc    Get all verified doctors (optionally filter by specialization)
+// @route   GET /doctor/all
+// @access  Any logged in user
+export const getAllDoctors = async (req, res, next) => {
+    try {
+        const { specialization } = req.query;
+
+        const filter = { isVerified: true };
+
+        if (specialization) {
+            filter.specialization = { 
+                $regex: specialization, 
+                $options: 'i'
+            };
+        }
+
+        const doctors = await Doctor.find(filter);
+
+        res.status(200).json(new ApiResponse(200, doctors, "Doctors retrieved successfully"));
     } catch (error) {
         next(error);
     }
