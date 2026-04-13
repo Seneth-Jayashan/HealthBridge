@@ -13,6 +13,10 @@ export const registerUser = async (req, res, next) => {
     try {
         const { name, email, password, role } = req.body;
 
+        if (role === "Admin" && req.user.role !== "Admin") {
+            throw new ApiError(403, "Only Admins can create another Admin user");
+        }
+
         const userExists = await User.findOne({ email });
         if (userExists) {
             throw new ApiError(400, "User already exists with this email");

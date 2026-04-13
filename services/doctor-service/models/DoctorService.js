@@ -20,7 +20,7 @@ const doctorSchema = new mongoose.Schema(
             unique: true,
             ref: 'User' // Links to the base User model (handling login/passwords)
         },
-        doctorID: { type: String, required: true, unique: true },
+        doctorID: { type: String, unique: true, sparse: true },
         specialization: { type: String, required: true },
         
         registrationNumber: { type: String, required: true, unique: true }, 
@@ -32,7 +32,7 @@ const doctorSchema = new mongoose.Schema(
         
         verificationStatus: { 
             type: String, 
-            enum: ['Pending', 'Approved', 'Rejected'], 
+            enum: ['Pending', 'Review', 'Approved', 'Rejected'], 
             default: 'Pending' 
         }, 
         
@@ -51,7 +51,7 @@ const doctorSchema = new mongoose.Schema(
             rating: { type: Number, min: 1, max: 5, required: true },
             comment: { type: String }
         }],
-        averageRating: { type: Number, min: 1, max: 5, default: 0 },
+        averageRating: { type: Number, min: 0, max: 5, default: 0 },
         totalReviews: { type: Number, default: 0 }
     },
     { timestamps: true }

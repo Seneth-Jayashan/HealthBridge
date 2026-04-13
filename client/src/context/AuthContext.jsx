@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { getMeRequest, loginRequest, registerRequest } from '../services/auth.service';
+import { getDoctorProfile } from '../services/doctor.service';
 import { getCookie, removeCookie, setCookie } from '../utils/cookies';
 
 const AuthContext = createContext(null);
@@ -38,7 +39,28 @@ const normalizeUser = (payload) => ({
   name: payload.name,
   email: payload.email,
   role: payload.role,
+  doctorStatus: payload.doctorStatus || null,
 });
+
+const hydrateDoctorStatus = async (baseUser) => {
+  if (baseUser?.role !== 'Doctor') {
+    return normalizeUser(baseUser);
+  }
+
+  try {
+    const doctorProfile = await getDoctorProfile();
+    return normalizeUser({
+      ...baseUser,
+      doctorStatus: doctorProfile?.verificationStatus || 'Pending',
+    });
+  } catch (error) {
+    const status = error?.response?.status === 404 ? 'Pending' : 'Pending';
+    return normalizeUser({
+      ...baseUser,
+      doctorStatus: status,
+    });
+  }
+};
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(parseUserCookie());
@@ -54,16 +76,10 @@ export const AuthProvider = ({ children }) => {
       return;
     }
 
-    if (cachedUser) {
-      setUser(cachedUser);
-      setLoading(false);
-      return;
-    }
-
     const bootstrap = async () => {
       try {
-        const me = await getMeRequest();
-        const normalized = normalizeUser(me);
+        const baseUser = cachedUser || normalizeUser(await getMeRequest());
+        const normalized = await hydrateDoctorStatus(baseUser);
         setUser(normalized);
         persistSession({ token, user: normalized });
       } catch {
@@ -79,7 +95,7 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (credentials) => {
     const response = await loginRequest(credentials);
-    const normalizedUser = normalizeUser(response);
+    const normalizedUser = await hydrateDoctorStatus(normalizeUser(response));
 
     persistSession({ token: response.token, user: normalizedUser });
     setUser(normalizedUser);
@@ -89,7 +105,7 @@ export const AuthProvider = ({ children }) => {
 
   const register = async (payload) => {
     const response = await registerRequest(payload);
-    const normalizedUser = normalizeUser(response);
+    const normalizedUser = await hydrateDoctorStatus(normalizeUser(response));
 
     persistSession({ token: response.token, user: normalizedUser });
     setUser(normalizedUser);
@@ -116,6 +132,16 @@ export const AuthProvider = ({ children }) => {
       register,
       logout,
       hasRole,
+      refreshDoctorStatus: async () => {
+        if (!user || user.role !== 'Doctor') {
+          return user;
+        }
+
+        const refreshedUser = await hydrateDoctorStatus(user);
+        setUser(refreshedUser);
+        persistSession({ token: getCookie(TOKEN_COOKIE), user: refreshedUser });
+        return refreshedUser;
+      },
     }),
     [user, loading],
   );

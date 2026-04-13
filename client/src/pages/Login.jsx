@@ -11,9 +11,9 @@ const Login = () => {
   const navigate = useNavigate();
   const { login } = useAuth();
 
-  const getRedirectPath = (role) => {
+  const getRedirectPath = (role, doctorStatus) => {
     if (role === 'Admin') return '/admin/dashboard';
-    if (role === 'Doctor') return '/doctor/dashboard';
+    if (role === 'Doctor') return doctorStatus === 'Approved' ? '/doctor/dashboard' : '/doctor/request';
     return '/patient/dashboard';
   };
 
@@ -28,7 +28,7 @@ const Login = () => {
         password
       });
 
-      navigate(getRedirectPath(user.role), { replace: true });
+      navigate(getRedirectPath(user.role, user.doctorStatus), { replace: true });
 
     } catch (err) {
       setError(err.response?.data?.message || 'Unable to connect to the secure server.');

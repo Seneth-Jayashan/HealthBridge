@@ -21,9 +21,9 @@ const Register = () => {
     setForm((previous) => ({ ...previous, [name]: value }));
   };
 
-  const getRedirectPath = (role) => {
+  const getRedirectPath = (role, doctorStatus) => {
     if (role === 'Admin') return '/admin/dashboard';
-    if (role === 'Doctor') return '/doctor/dashboard';
+    if (role === 'Doctor') return doctorStatus === 'Approved' ? '/doctor/dashboard' : '/doctor/request';
     return '/patient/dashboard';
   };
 
@@ -34,7 +34,7 @@ const Register = () => {
 
     try {
       const user = await register(form);
-      navigate(getRedirectPath(user.role), { replace: true });
+      navigate(getRedirectPath(user.role, user.doctorStatus), { replace: true });
     } catch (requestError) {
       setError(requestError.response?.data?.message || 'Registration failed. Please try again.');
     } finally {

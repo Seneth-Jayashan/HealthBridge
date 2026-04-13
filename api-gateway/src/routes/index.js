@@ -10,7 +10,8 @@ const services = {
     appointment: process.env.APPOINTMENT_SERVICE_URL || 'http://localhost:3004',
     payment: process.env.PAYMENT_SERVICE_URL || 'http://localhost:3005',
     notification: process.env.NOTIFICATION_SERVICE_URL || 'http://localhost:3006',
-    ai: process.env.AI_SERVICE_URL || 'http://localhost:3007'
+    ai: process.env.AI_SERVICE_URL || 'http://localhost:3007',
+    prescription: process.env.PRESCRIPTION_SERVICE_URL || 'http://localhost:3008'
 };
 
 const onProxyError = (err, req, res) => {
@@ -28,5 +29,6 @@ router.use('/api/appointments', createProxyMiddleware({ target: services.appoint
 router.use('/api/payments', createProxyMiddleware({ target: services.payment, changeOrigin: true, onError: onProxyError }));
 router.use('/api/notifications', createProxyMiddleware({ target: services.notification, changeOrigin: true, onError: onProxyError }));
 router.use('/api/ai', createProxyMiddleware({ target: services.ai, changeOrigin: true, onError: onProxyError }));
+router.use('/api/prescriptions', createProxyMiddleware({ target: services.prescription, changeOrigin: true, onError: onProxyError }));
 
 export default router;

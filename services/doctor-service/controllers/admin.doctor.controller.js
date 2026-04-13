@@ -1,4 +1,4 @@
-import Doctor from '../models/DoctorService';
+import Doctor from '../models/DoctorService.js';
 import { ApiError, ApiResponse } from '@healthbridge/shared';
 
 // @desc    Get all doctors (with optional filtering for verification status)

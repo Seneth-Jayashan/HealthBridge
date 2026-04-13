@@ -1,4 +1,4 @@
-import Doctor from '../models/DoctorService'; // Adjust your path
+import Doctor from '../models/DoctorService.js'; // Adjust your path
 import { ApiError, ApiResponse } from '@healthbridge/shared';
 
 // @desc    Add or update a rating/review for a doctor
