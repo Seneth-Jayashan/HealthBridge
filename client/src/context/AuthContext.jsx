@@ -43,8 +43,10 @@ const normalizeUser = (payload) => ({
   doctorStatus: payload.doctorStatus || null,
 });
 
+const normalizeRole = (role) => String(role || '').trim().toLowerCase();
+
 const hydrateDoctorStatus = async (baseUser) => {
-  if (baseUser?.role !== 'Doctor') {
+  if (normalizeRole(baseUser?.role) !== 'doctor') {
     return normalizeUser(baseUser);
   }
 
@@ -121,7 +123,8 @@ export const AuthProvider = ({ children }) => {
 
   const hasRole = (allowedRoles = []) => {
     if (!user?.role) return false;
-    return allowedRoles.includes(user.role);
+    const currentRole = normalizeRole(user.role);
+    return allowedRoles.some((role) => normalizeRole(role) === currentRole);
   };
 
   const value = useMemo(
@@ -134,7 +137,7 @@ export const AuthProvider = ({ children }) => {
       logout,
       hasRole,
       refreshDoctorStatus: async () => {
-        if (!user || user.role !== 'Doctor') {
+        if (!user || normalizeRole(user.role) !== 'doctor') {
           return user;
         }
 

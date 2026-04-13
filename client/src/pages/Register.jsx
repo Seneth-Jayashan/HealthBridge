@@ -7,6 +7,8 @@ const Register = () => {
   const navigate = useNavigate();
   const { register } = useAuth();
 
+  const normalizeRole = (role) => String(role || '').trim().toLowerCase();
+
   const [form, setForm] = useState({
     name: '',
     email: '',
@@ -23,8 +25,9 @@ const Register = () => {
   };
 
   const getRedirectPath = (role, doctorStatus) => {
-    if (role === 'Admin') return '/admin/dashboard';
-    if (role === 'Doctor') return doctorStatus === 'Approved' ? '/doctor/dashboard' : '/doctor/request';
+    const normalizedRole = normalizeRole(role);
+    if (normalizedRole === 'admin') return '/admin/dashboard';
+    if (normalizedRole === 'doctor') return doctorStatus === 'Approved' ? '/doctor/dashboard' : '/doctor/request';
     return '/patient/dashboard';
   };
 
