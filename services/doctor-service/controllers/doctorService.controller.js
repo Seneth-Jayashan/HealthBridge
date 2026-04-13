@@ -1,5 +1,6 @@
 import Doctor from '../models/DoctorService.js'; // Adjust path if your filename differs
 import { ApiError, ApiResponse, cloudinaryService } from '@healthbridge/shared';
+import { notifyAdminsDoctorVerificationRequested } from '../services/adminNotification.service.js';
 import fs from 'fs';
 
 // @desc    Get all doctors (with optional filtering for verification status)
@@ -162,6 +163,14 @@ export const uploadVerificationDocument = async (req, res, next) => {
         if (!updatedDoctor) {
             throw new ApiError(404, "Doctor profile not found. Please submit your doctor profile first.");
         }
+
+        notifyAdminsDoctorVerificationRequested({
+            requesterUserId: req.user.id,
+            specialization: updatedDoctor.specialization,
+            registrationNumber: updatedDoctor.registrationNumber,
+        }).catch((notifyError) => {
+            console.error('[Doctor Service] Failed to notify admins for verification request:', notifyError.message);
+        });
 
         res.status(200).json(new ApiResponse(200, updatedDoctor.verificationDocuments, "Verification document uploaded successfully"));
     } catch (error) {

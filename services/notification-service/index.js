@@ -13,7 +13,8 @@ const PORT = process.env.PORT || 3002;
 // Middleware to parse JSON payloads
 app.use(express.json());
 
-// Mount the routes
+// Mount notification routes for both direct-service and gateway-style paths.
+app.use('/api/notifications', notificationRoutes);
 app.use('/', notificationRoutes);
 
 app.get('/health', (req, res) => {

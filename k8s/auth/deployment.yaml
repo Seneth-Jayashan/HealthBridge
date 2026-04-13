@@ -28,3 +28,5 @@ spec:
           value: "mongodb+srv://HealthBridge_DB:Team_Health_Bridge_12@cluster0.d8ewy6i.mongodb.net/?appName=Cluster0"
         - name: MONGO_DB_NAME
           value: "healthbridge_auth_db"
+        - name: INTERNAL_SERVICE_SECRET
+          value: "healthbridge_internal_secret"

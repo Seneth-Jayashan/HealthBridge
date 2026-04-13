@@ -60,6 +60,36 @@ export const getNotificationTemplate = (templateName, title, message) => {
             `;
             break;
 
+        case 'DOCTOR_VERIFICATION_APPROVED':
+            smsContent = `HealthBridge: Your doctor verification has been approved. ${message}`;
+            htmlContent = `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;">
+                    <div style="background-color: #1E8449; padding: 20px; color: white; text-align: center;">
+                        <h2 style="margin: 0;">Doctor Verification Approved</h2>
+                    </div>
+                    <div style="padding: 20px; color: #333; line-height: 1.6;">
+                        <p>${message}</p>
+                        <p>You can now access your doctor dashboard.</p>
+                    </div>
+                </div>
+            `;
+            break;
+
+        case 'DOCTOR_VERIFICATION_REJECTED':
+            smsContent = `HealthBridge: Your doctor verification request was rejected. ${message}`;
+            htmlContent = `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;">
+                    <div style="background-color: #C0392B; padding: 20px; color: white; text-align: center;">
+                        <h2 style="margin: 0;">Doctor Verification Rejected</h2>
+                    </div>
+                    <div style="padding: 20px; color: #333; line-height: 1.6;">
+                        <p>${message}</p>
+                        <p>Please contact admin for more information.</p>
+                    </div>
+                </div>
+            `;
+            break;
+
         case 'OTP_CODE':
             smsContent = `Your HealthBridge verification code is: ${message}. Do not share this code.`;
             htmlContent = `

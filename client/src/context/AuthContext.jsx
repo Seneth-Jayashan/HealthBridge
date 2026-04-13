@@ -38,6 +38,7 @@ const normalizeUser = (payload) => ({
   id: payload._id || payload.id,
   name: payload.name,
   email: payload.email,
+  phoneNumber: payload.phoneNumber || '',
   role: payload.role,
   doctorStatus: payload.doctorStatus || null,
 });

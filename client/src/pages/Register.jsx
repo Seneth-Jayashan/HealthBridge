@@ -10,6 +10,7 @@ const Register = () => {
   const [form, setForm] = useState({
     name: '',
     email: '',
+    phoneNumber: '',
     password: '',
     role: 'Patient',
   });
@@ -83,6 +84,18 @@ const Register = () => {
               onChange={onChange}
               className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-600"
               placeholder="jane@example.com"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-slate-700 mb-2">Phone Number</label>
+            <input
+              type="tel"
+              name="phoneNumber"
+              value={form.phoneNumber}
+              onChange={onChange}
+              className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-600"
+              placeholder="+94 77 123 4567"
             />
           </div>
 

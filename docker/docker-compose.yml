@@ -28,6 +28,7 @@ services:
       - JWT_SECRET=super_secret_healthbridge_key_change_this_later
       - MONGO_URI=mongodb+srv://HealthBridge_DB:Team_Health_Bridge_12@cluster0.d8ewy6i.mongodb.net/?appName=Cluster0
       - MONGO_DB_NAME=healthbridge_auth_db
+      - INTERNAL_SERVICE_SECRET=healthbridge_internal_secret
 
   patient-service:
     build:
@@ -54,6 +55,9 @@ services:
       - JWT_SECRET=super_secret_healthbridge_key_change_this_later
       - MONGO_URI=mongodb+srv://HealthBridge_DB:Team_Health_Bridge_12@cluster0.d8ewy6i.mongodb.net/?appName=Cluster0
       - MONGO_DB_NAME=healthbridge_doctor_db
+      - NOTIFICATION_SERVICE_URL=http://notification-service:3006
+      - AUTH_SERVICE_URL=http://auth-service:3001
+      - INTERNAL_SERVICE_SECRET=healthbridge_internal_secret
 
   notification-service:
     build:
@@ -67,10 +71,14 @@ services:
       - JWT_SECRET=super_secret_healthbridge_key_change_this_later
       - MONGO_URI=mongodb+srv://HealthBridge_DB:Team_Health_Bridge_12@cluster0.d8ewy6i.mongodb.net/?appName=Cluster0
       - MONGO_DB_NAME=healthbridge_notification_db
+      - AUTH_SERVICE_URL=http://auth-service:3001
+      - INTERNAL_SERVICE_SECRET=healthbridge_internal_secret
       - ZOHO_CLIENT_ID=1000.ZXLU93XC9BHN1UWOM6CTFISV984WDS
       - ZOHO_CLIENT_SECRET=9efce252928f0e2b51c042092d61dab154ef2e727f
       - ZOHO_ACCESS_TOKEN=1000.36be57ad5de5418a0ddb698e83aa8a32.8a2c5ca372866b6e5abcb36e61183e4e
       - ZOHO_REFRESH_TOKEN=1000.e2048aa8088aee4721b648dec458b8fd.3aab836c45c58afd47c6a968c6a1bb72
+      - ZOHO_ACCOUNT_ID=6144660000000008002
+      - ZOHO_EMAIL=no-reply@sjaywebsolutions.lk
       - SMS_DRIVER=textlk
       - TEXTLK_API_KEY=3687|q6pRAAWioGlYPEXaEKDLScXSOIeuwCDjurTRGNAL5814c9d8
       - TEXTLK_SENDER_ID=OneX Team

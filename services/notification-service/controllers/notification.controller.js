@@ -8,15 +8,12 @@ import { dispatchNotification } from "../services/notification.dispatcher.js";
 // @access  Private
 export const createNotification = async (req, res, next) => {
     try {
-        // 1. Extract the new contact fields from req.body
         let { 
             userId, 
             notificationType, 
             notificationTemplate, 
             title, 
-            message,
-            targetEmail, // <-- NEW
-            targetPhone  // <-- NEW
+            message
         } = req.body;
         
         // Handle "All" Shortcut
@@ -26,7 +23,6 @@ export const createNotification = async (req, res, next) => {
             notificationType = [notificationType];
         }
 
-        // 2. Save the notification to the database (for In-App history)
         const notification = new Notification({
             userId,
             notificationType,
@@ -37,8 +33,9 @@ export const createNotification = async (req, res, next) => {
         
         await notification.save();
 
-        // 3. Fire and Forget: Pass the contact info directly to the dispatcher!
-        dispatchNotification(notification, targetEmail, targetPhone);
+        setImmediate(() => {
+            dispatchNotification(notification);
+        });
 
         res.status(201).json(new ApiResponse(201, notification, "Notification created and dispatch initiated"));
     } catch (error) {
@@ -51,7 +48,7 @@ export const createNotification = async (req, res, next) => {
 // @access  Private
 export const getNotifications = async (req, res, next) => {
     try {
-        const { userId } = req.params;
+        const userId = req.query.userId || req.user.id;
         const notifications = await Notification.find({ userId }).sort({ createdAt: -1 });
         res.status(200).json(new ApiResponse(200, notifications, "Notifications retrieved successfully"));
     } catch (error) {

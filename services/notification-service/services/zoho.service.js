@@ -17,9 +17,10 @@ async function refreshAccessToken() {
     });
     accessToken = res.data.access_token;
     console.log('[Zoho Mail] Access token refreshed');
+    return true;
   } catch (err) {
     console.error('[Zoho Mail] Error refreshing access token:', err.response?.data || err.message);
-    throw err;
+    return false;
   } finally {
     isRefreshing = null;
   }
@@ -77,7 +78,7 @@ async function sendEmail({ to, subject, text, html }, retryCount = 0) {
       
       if (retryCount >= 1) {
         console.error('[Zoho Mail] Token refresh failed or still returning 401.');
-        throw new Error('Authentication failed after retry');
+        return { success: false, message: 'Authentication failed after retry' };
       }
 
       console.log('[Zoho Mail] Access token expired. Refreshing...');
@@ -85,13 +86,16 @@ async function sendEmail({ to, subject, text, html }, retryCount = 0) {
       if (!isRefreshing) {
         isRefreshing = refreshAccessToken();
       }
-      await isRefreshing;
+      const refreshed = await isRefreshing;
+      if (!refreshed) {
+        return { success: false, message: 'Failed to refresh Zoho access token' };
+      }
 
       return sendEmail({ to, subject, text, html }, retryCount + 1);
     }
 
     console.error('[Zoho Mail] Error sending email:', err.response?.data || err.message);
-    throw err;
+    return { success: false, message: err.response?.data?.message || err.message };
   }
 }
 
