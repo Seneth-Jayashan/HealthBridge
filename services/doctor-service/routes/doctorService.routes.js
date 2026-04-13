@@ -1,22 +1,50 @@
 import express from 'express';
-import { 
-    getDoctorProfile, 
-    updateDoctorProfile, 
-    verifyDoctor,
-    getAllDoctors
-} from '../controllers/doctorService.controller.js';
-import { requireAuth, requireRole } from '@healthbridge/shared';
+import {
+    getVerifiedDoctors,
+    getDoctorProfile,
+    updateDoctorProfile,
+    uploadVerificationDocument,
+    updateAvailability
+} from '../controllers/doctorService.controller.js'; // Adjust path if your filename differs
+import { requireAuth, requireRole, createUploadMiddleware } from '@healthbridge/shared';
 
 const router = express.Router();
 
-// ── Any logged in user ────────────────────────────────
-router.get('/all', requireAuth, getAllDoctors);
+// Configure File Upload Middleware for Verification Documents (e.g., Medical Licenses)
+const uploadVerification = createUploadMiddleware(
+    'doctor_verifications', 
+    ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'], 
+    5 // 5MB limit is generally sufficient for ID/License uploads
+);
 
-// ── Admin only ────────────────────────────────────────
-router.put('/admin/verify/:userId', requireAuth, requireRole('Admin'), verifyDoctor);
+// ==========================================
+// PUBLIC ROUTES (Accessible by any authenticated user)
+// ==========================================
 
-// ── Doctor only ───────────────────────────────────────
-router.get('/profile', requireAuth, requireRole('Doctor'), getDoctorProfile);
-router.put('/profile', requireAuth, requireRole('Doctor'), updateDoctorProfile);
+// Patients need to access this route to search for doctors to book
+router.route('/')
+    .get(requireAuth, getVerifiedDoctors);
+
+
+// ==========================================
+// PRIVATE ROUTES (Accessible ONLY by Doctors)
+// ==========================================
+
+// Apply Doctor role protection to all subsequent routes in this file
+router.use(requireAuth, requireRole('Doctor'));
+
+// --- Profile Routes ---
+router.route('/profile')
+    .get(getDoctorProfile)
+    .put(updateDoctorProfile);
+
+// --- Availability Route ---
+router.route('/availability')
+    .patch(updateAvailability);
+
+// --- Verification Document Route ---
+// Note: The frontend must send the file using the form-data key: 'documentFile'
+router.route('/verification-document')
+    .post(uploadVerification.single('documentFile'), uploadVerificationDocument);
 
 export default router;
