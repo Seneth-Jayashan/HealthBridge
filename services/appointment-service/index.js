@@ -15,7 +15,7 @@ app.use(express.json());
 connectDB();
 
 // ─── Routes ───────────────────────────────────────────
-app.use('/api/appointments', appointmentRoutes);
+app.use('/', appointmentRoutes);
 
 // ─── Health check ─────────────────────────────────────
 app.get('/health', (req, res) => {
