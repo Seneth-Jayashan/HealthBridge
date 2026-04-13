@@ -41,3 +41,21 @@ export const deleteMedicalReport = async (reportId) => {
   const response = await httpClient.delete(`/patients/reports/${reportId}`);
   return response.data?.data || response.data;
 };
+
+
+
+// -----------------------------------------
+// --------  DOCTOR RELATED ACTIONS --------
+// -----------------------------------------
+
+
+// --- Doctor Reviews ---
+export const submitDoctorReview = async (doctorId, rating, comment) => {
+  const response = await httpClient.post(`/doctors/patients/${doctorId}/reviews`, { rating, comment });
+  return response.data?.data || response.data;
+}
+
+export const deleteDoctorReview = async (doctorId) => {
+  const response = await httpClient.delete(`/doctors/patients/${doctorId}/reviews`);
+  return response.data?.data || response.data;
+};

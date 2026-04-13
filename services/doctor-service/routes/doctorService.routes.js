@@ -1,18 +1,50 @@
 import express from 'express';
-import { getDoctorProfile, updateDoctorProfile, verifyDoctor } from '../controllers/doctorService.controller.js';
-import { requireAuth, requireRole } from '@healthbridge/shared';
+import {
+    getVerifiedDoctors,
+    getDoctorProfile,
+    updateDoctorProfile,
+    uploadVerificationDocument,
+    updateAvailability
+} from '../controllers/doctorService.controller.js'; // Adjust path if your filename differs
+import { requireAuth, requireRole, createUploadMiddleware } from '@healthbridge/shared';
 
 const router = express.Router();
 
-// --- ADMIN ROUTES ---
-// Must go BEFORE the generic router.use() block so it doesn't get caught in the Doctor role check
-router.put('/admin/verify/:userId', requireAuth, requireRole('Admin'), verifyDoctor);
+// Configure File Upload Middleware for Verification Documents (e.g., Medical Licenses)
+const uploadVerification = createUploadMiddleware(
+    'doctor_verifications', 
+    ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'], 
+    5 // 5MB limit is generally sufficient for ID/License uploads
+);
 
-// These routes require the user to be logged in AND have the 'Doctor' role
+// ==========================================
+// PUBLIC ROUTES (Accessible by any authenticated user)
+// ==========================================
+
+// Patients need to access this route to search for doctors to book
+router.route('/')
+    .get(requireAuth, getVerifiedDoctors);
+
+
+// ==========================================
+// PRIVATE ROUTES (Accessible ONLY by Doctors)
+// ==========================================
+
+// Apply Doctor role protection to all subsequent routes in this file
 router.use(requireAuth, requireRole('Doctor'));
 
+// --- Profile Routes ---
 router.route('/profile')
     .get(getDoctorProfile)
     .put(updateDoctorProfile);
+
+// --- Availability Route ---
+router.route('/availability')
+    .patch(updateAvailability);
+
+// --- Verification Document Route ---
+// Note: The frontend must send the file using the form-data key: 'documentFile'
+router.route('/verification-document')
+    .post(uploadVerification.single('documentFile'), uploadVerificationDocument);
 
 export default router;
