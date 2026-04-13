@@ -18,10 +18,10 @@ spec:
         image: docker-appointment-service:latest
         imagePullPolicy: IfNotPresent
         ports:
-        - containerPort: 3005
+        - containerPort: 3004
         env:
         - name: PORT
-          value: "3005"
+          value: "3004"
         - name: JWT_SECRET
           value: "super_secret_healthbridge_key_change_this_later"
         - name: MONGO_URI

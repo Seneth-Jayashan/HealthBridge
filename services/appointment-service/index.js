@@ -6,7 +6,7 @@ import appointmentRoutes from './routes/appointment.routes.js';
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 3005;
+const PORT = process.env.PORT || 3004;
 
 // ─── Middleware ────────────────────────────────────────
 app.use(express.json());
