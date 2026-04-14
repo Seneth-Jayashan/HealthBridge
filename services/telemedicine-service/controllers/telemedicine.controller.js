@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import mongoose from 'mongoose';
+import axios from 'axios';
 import { ApiError, ApiResponse } from '@healthbridge/shared';
 import VideoSession from '../models/VideoSession.js';
 import { buildAgoraRtcToken } from '../utils/agoraToken.js';
@@ -7,6 +8,48 @@ import { buildAgoraRtcToken } from '../utils/agoraToken.js';
 const DEFAULT_TTL_SECONDS = Number(process.env.AGORA_TOKEN_TTL_SECONDS || 3600);
 const MIN_TTL_SECONDS = 300;
 const MAX_TTL_SECONDS = 7200;
+
+// ─── Internal Service Communication ──
+const getAppointmentServiceUrl = () => {
+    return process.env.APPOINTMENT_SERVICE_URL || 'http://localhost:3004';
+};
+
+const getInternalServiceKey = () => {
+    return process.env.INTERNAL_SERVICE_SECRET || 'internal-service-key';
+};
+
+/**
+ * Fetch user's online appointments from appointment service (internal API)
+ */
+const fetchUserOnlineAppointments = async (userId, userRole) => {
+    try {
+        const appointmentBaseUrl = getAppointmentServiceUrl();
+        let endpoint;
+
+        if (userRole === 'Doctor') {
+            endpoint = `${appointmentBaseUrl}/internal/doctor/online/${userId}`;
+        } else if (userRole === 'Patient') {
+            endpoint = `${appointmentBaseUrl}/internal/patient/online/${userId}`;
+        } else if (userRole === 'Admin') {
+            endpoint = `${appointmentBaseUrl}/internal/appointments/online`;
+        } else {
+            throw new ApiError(403, 'Invalid user role for appointment access');
+        }
+
+        const response = await axios.get(endpoint, {
+            headers: {
+                'x-internal-service-key': getInternalServiceKey(),
+            },
+            timeout: 8000,
+        });
+
+        return Array.isArray(response.data?.data) ? response.data.data : (response.data?.appointments || []);
+    } catch (error) {
+        console.error('[Telemedicine] Failed to fetch online appointments from appointment service:', error.message);
+        // If appointment service is down, return empty array instead of failing
+        return [];
+    }
+};
 
 const toObjectId = (value, fieldName) => {
     if (!value || !mongoose.Types.ObjectId.isValid(value)) {
@@ -283,14 +326,56 @@ export const getOnlineAppointmentsWithSessions = async (req, res, next) => {
             throw new ApiError(403, 'Unauthorized');
         }
 
-        // Get video sessions
+        // Get video sessions from telemedicine service
         const sessions = await VideoSession.find(query)
             .sort({ createdAt: -1 })
             .limit(100)
             .lean();
 
+        // Fetch online appointments from appointment service (internal API)
+        const appointments = await fetchUserOnlineAppointments(req.user.id, req.user.role);
+
+        // Return combined data
         res.status(200).json(
-            new ApiResponse(200, sessions, 'Online appointments with video sessions retrieved successfully.')
+            new ApiResponse(200, { sessions, appointments }, 'Online appointments with video sessions retrieved successfully.')
+        );
+    } catch (error) {
+        next(error);
+    }
+};
+
+// ─── Get patient's online appointments (internal use for Telehealth) ──
+export const getPatientOnlineAppointments = async (req, res, next) => {
+    try {
+        const userId = req.params.userId || req.user.id;
+
+        if (req.user.role === 'Patient' && String(req.user.id) !== String(userId)) {
+            throw new ApiError(403, 'Forbidden: You can only access your own appointments.');
+        }
+
+        const appointments = await fetchUserOnlineAppointments(userId, 'Patient');
+
+        res.status(200).json(
+            new ApiResponse(200, appointments, 'Patient online appointments retrieved successfully.')
+        );
+    } catch (error) {
+        next(error);
+    }
+};
+
+// ─── Get doctor's online appointments (internal use for Telehealth) ──
+export const getDoctorOnlineAppointments = async (req, res, next) => {
+    try {
+        const userId = req.params.userId || req.user.id;
+
+        if (req.user.role === 'Doctor' && String(req.user.id) !== String(userId)) {
+            throw new ApiError(403, 'Forbidden: You can only access your own appointments.');
+        }
+
+        const appointments = await fetchUserOnlineAppointments(userId, 'Doctor');
+
+        res.status(200).json(
+            new ApiResponse(200, appointments, 'Doctor online appointments retrieved successfully.')
         );
     } catch (error) {
         next(error);

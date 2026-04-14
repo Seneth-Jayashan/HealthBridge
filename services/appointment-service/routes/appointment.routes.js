@@ -9,7 +9,10 @@ import {
     cancelAppointment,
     updateAppointmentStatus,
     getPatientOnlineAppointments,
-    getDoctorOnlineAppointments
+    getDoctorOnlineAppointments,
+    getPatientOnlineAppointmentsInternal,
+    getDoctorOnlineAppointmentsInternal,
+    getAllOnlineAppointmentsInternal
 } from '../controllers/appointment.controller.js';
 import { verifyToken } from '../middleware/auth.middleware.js';
 
@@ -28,5 +31,11 @@ router.delete('/:id', verifyToken, cancelAppointment);
 router.get('/doctor/my', verifyToken, getDoctorAppointments);
 router.get('/doctor/my/online', verifyToken, getDoctorOnlineAppointments);
 router.patch('/:id/status', verifyToken, updateAppointmentStatus);
+
+// ─── [INTERNAL API] Routes for service-to-service communication ──
+// These endpoints are called by the telemedicine service with service-to-service authentication
+router.get('/internal/patient/online/:userId', getPatientOnlineAppointmentsInternal);
+router.get('/internal/doctor/online/:userId', getDoctorOnlineAppointmentsInternal);
+router.get('/internal/appointments/online', getAllOnlineAppointmentsInternal);
 
 export default router;

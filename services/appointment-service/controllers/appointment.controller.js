@@ -1,49 +1,5 @@
 import Appointment from '../models/Appointment.js';
 
-// ─── Create video session for online appointments ──────
-const createVideoSessionForOnlineAppointment = async (appointment, authToken) => {
-    try {
-        const TELEMEDICINE_SERVICE_URL = process.env.TELEMEDICINE_SERVICE_URL || 'http://telemedicine-service:3008';
-        
-        const sessionData = {
-            appointmentId: appointment._id.toString(),
-            patientId: appointment.patientId,
-            doctorId: appointment.doctorId,
-            scheduledAt: appointment.appointmentDate,
-            metadata: {
-                reason: appointment.reason,
-                specialty: appointment.specialty,
-                timeSlot: appointment.timeSlot
-            }
-        };
-
-        const response = await fetch(
-            `${TELEMEDICINE_SERVICE_URL}/telemedicine/sessions`,
-            {
-                method: 'POST',
-                headers: {
-                    'Authorization': authToken,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(sessionData)
-            }
-        );
-
-        if (!response.ok) {
-            throw new Error(`Telemedicine service error: ${response.status}`);
-        }
-
-        const data = await response.json();
-        console.log('✅ Video session created:', data?.data?._id);
-        return data?.data || data.session;
-    } catch (error) {
-        console.error('⚠️ Failed to create video session:', error.message);
-        // Don't throw - appointment still created even if video session fails
-        // This ensures graceful degradation
-        return null;
-    }
-};
-
 // ─── Book an appointment ───────────────────────────────
 export const bookAppointment = async (req, res) => {
     try {
@@ -94,17 +50,9 @@ export const bookAppointment = async (req, res) => {
             reason
         });
 
-        // ─── Auto-create video session for online appointments ───
-        let videoSession = null;
-        if (appointmentType === 'online') {
-            const authToken = req.headers.authorization || '';
-            videoSession = await createVideoSessionForOnlineAppointment(appointment, authToken);
-        }
-
         res.status(201).json({
             message: 'Appointment booked successfully',
-            appointment,
-            videoSession: videoSession || undefined
+            appointment
         });
 
     } catch (error) {
@@ -346,6 +294,68 @@ export const getDoctorOnlineAppointments = async (req, res) => {
         res.status(200).json({ 
             count: appointments.length,
             appointments 
+        });
+
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// ─── [INTERNAL API] Get patient online appointments by userId ──
+export const getPatientOnlineAppointmentsInternal = async (req, res) => {
+    try {
+        const userId = req.params.userId;
+
+        if (!userId) {
+            return res.status(400).json({ message: 'userId is required' });
+        }
+
+        const appointments = await Appointment.find({ 
+            patientId: userId,
+            appointmentType: 'online'
+        }).sort({ appointmentDate: -1 });
+
+        res.status(200).json({ 
+            data: appointments
+        });
+
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// ─── [INTERNAL API] Get doctor online appointments by userId ──
+export const getDoctorOnlineAppointmentsInternal = async (req, res) => {
+    try {
+        const userId = req.params.userId;
+
+        if (!userId) {
+            return res.status(400).json({ message: 'userId is required' });
+        }
+
+        const appointments = await Appointment.find({ 
+            doctorId: userId,
+            appointmentType: 'online'
+        }).sort({ appointmentDate: -1 });
+
+        res.status(200).json({ 
+            data: appointments
+        });
+
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// ─── [INTERNAL API] Get all online appointments ──
+export const getAllOnlineAppointmentsInternal = async (req, res) => {
+    try {
+        const appointments = await Appointment.find({ 
+            appointmentType: 'online'
+        }).sort({ appointmentDate: -1 });
+
+        res.status(200).json({ 
+            data: appointments
         });
 
     } catch (error) {

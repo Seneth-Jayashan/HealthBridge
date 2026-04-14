@@ -7,8 +7,8 @@ import {
   getMyTelemedicineSessions,
   getTelemedicineJoinToken,
   startTelemedicineSession,
+  getDoctorOnlineAppointments,
 } from '../../services/telemedicine.service';
-import { getDoctorOnlineAppointmentsRequest } from '../../services/appointment.service';
 import VideoConsultRoom from '../../components/telemedicine/VideoConsultRoom';
 import DoctorAppointmentList from '../../components/telemedicine/DoctorAppointmentList';
 
@@ -50,7 +50,7 @@ const DoctorTelehealth = () => {
     try {
       const [data, appts] = await Promise.all([
         getMyTelemedicineSessions(),
-        getDoctorOnlineAppointmentsRequest()
+        getDoctorOnlineAppointments()
       ]);
       const safeList = Array.isArray(data) ? data : [];
       setSessions(safeList);

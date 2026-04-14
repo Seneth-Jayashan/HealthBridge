@@ -12,7 +12,24 @@ export const getMyTelemedicineSessions = async (query = {}) => {
 
 export const getOnlineAppointmentsWithSessions = async (query = {}) => {
   const response = await httpClient.get('/telemedicine/sessions/my/appointments', { params: query });
-  return Array.isArray(response.data?.data) ? response.data?.data : (response.data?.data?.appointments || []);
+  const data = response.data?.data || response.data;
+  return {
+    sessions: Array.isArray(data?.sessions) ? data.sessions : [],
+    appointments: Array.isArray(data?.appointments) ? data.appointments : []
+  };
+};
+
+// ─── Internal telemedicine endpoints for fetching appointments ──
+export const getPatientOnlineAppointments = async (userId = null) => {
+  const url = userId ? `/telemedicine/appointments/patient/${userId}` : '/telemedicine/appointments/patient';
+  const response = await httpClient.get(url);
+  return Array.isArray(response.data?.data) ? response.data.data : [];
+};
+
+export const getDoctorOnlineAppointments = async (userId = null) => {
+  const url = userId ? `/telemedicine/appointments/doctor/${userId}` : '/telemedicine/appointments/doctor';
+  const response = await httpClient.get(url);
+  return Array.isArray(response.data?.data) ? response.data.data : [];
 };
 
 export const getTelemedicineSessionById = async (sessionId) => {

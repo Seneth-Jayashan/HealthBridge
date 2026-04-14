@@ -100,3 +100,5 @@ services:
       - AGORA_APP_ID=${AGORA_APP_ID}
       - AGORA_APP_CERTIFICATE=${AGORA_APP_CERTIFICATE}
       - AGORA_TOKEN_TTL_SECONDS=3600
+      - APPOINTMENT_SERVICE_URL=http://appointment-service:3004
+      - INTERNAL_SERVICE_SECRET=healthbridge_internal_secret

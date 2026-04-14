@@ -45,3 +45,7 @@ spec:
                   key: AGORA_APP_CERTIFICATE
             - name: AGORA_TOKEN_TTL_SECONDS
               value: "3600"
+            - name: APPOINTMENT_SERVICE_URL
+              value: "http://appointment-service:3004"
+            - name: INTERNAL_SERVICE_SECRET
+              value: "healthbridge_internal_secret"

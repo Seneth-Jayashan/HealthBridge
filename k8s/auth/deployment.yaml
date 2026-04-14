@@ -30,5 +30,4 @@ spec:
           value: "healthbridge_auth_db"
         - name: INTERNAL_SERVICE_SECRET
           value: "healthbridge_internal_secret"
-        - name: TELEMEDICINE_SERVICE_URL
-          value: "http://telemedicine-service:3008"
+        resources: {}
