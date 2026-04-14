@@ -17,6 +17,7 @@ export default function PatientRoutes() {
         <Route element={<RequirePatientProfileComplete />}>
           {/* The path "dashboard" combines with the parent to become "/patient/dashboard" */}
           <Route path="dashboard" element={<PatientDashboard />} />
+          <Route path="telehealth" element={<PatientTelehealth />} />
 
           {/* Future routes drop in perfectly here: */}
           {/* <Route path="appointments" element={<PatientAppointments />} /> */}

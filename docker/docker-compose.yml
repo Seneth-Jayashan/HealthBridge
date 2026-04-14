@@ -85,3 +85,18 @@ services:
       - TEXTLK_API_KEY=3687|q6pRAAWioGlYPEXaEKDLScXSOIeuwCDjurTRGNAL5814c9d8
       - TEXTLK_SENDER_ID=OneX Team
       - TEXTLK_URL=https://app.text.lk/api/v3/sms/send        
+
+  telemedicine-service:
+    build:
+      context: ../
+      dockerfile: ./services/telemedicine-service/Dockerfile
+    container_name: healthbridge-telemedicine
+    ports:
+      - "3008:3008"
+    environment:
+      - PORT=3008
+      - MONGO_URI=mongodb+srv://HealthBridge_DB:Team_Health_Bridge_12@cluster0.d8ewy6i.mongodb.net/?appName=Cluster0
+      - MONGO_DB_NAME=healthbridge_telemedicine_db
+      - AGORA_APP_ID=${AGORA_APP_ID}
+      - AGORA_APP_CERTIFICATE=${AGORA_APP_CERTIFICATE}
+      - AGORA_TOKEN_TTL_SECONDS=3600
