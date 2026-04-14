@@ -1,39 +1,69 @@
 import httpClient from '../api/Axios';
 
-const DOCTOR_API = '/doctor'; // gateway route is /api/doctor → doctor-service GET /
+// Base URL path for the doctor microservice (adjust if your gateway uses something else like '/api/doctors')
+const DOCTOR_API = '/doctors';
 
+/**
+ * Get Doctor Dashboard (Existing)
+ */
 export const getDoctorDashboard = async () => {
   const response = await httpClient.get('/doctor/dashboard');
   return response.data?.data || response.data;
 };
 
-// GET /api/doctor — patients use this to browse verified doctors
+/**
+ * Get all verified doctors (Used by Patients to search/filter)
+ * @param {Object} params - Query params (e.g., { specialization: 'Cardiology', page: 1, limit: 10 })
+ */
 export const getVerifiedDoctors = async (params = {}) => {
   const response = await httpClient.get(DOCTOR_API, { params });
   return response.data?.data || response.data;
 };
 
+/**
+ * Get the currently logged-in doctor's profile
+ */
 export const getDoctorProfile = async () => {
   const response = await httpClient.get(`${DOCTOR_API}/profile`);
   return response.data?.data || response.data;
 };
 
+/**
+ * Create or Update the doctor's profile
+ * @param {Object} profileData - The doctor's profile details
+ */
 export const updateDoctorProfile = async (profileData) => {
   const response = await httpClient.put(`${DOCTOR_API}/profile`, profileData);
   return response.data?.data || response.data;
 };
 
+/**
+ * Update the doctor's availability specifically
+ * @param {Array} availability - Array of availability objects
+ */
 export const updateAvailability = async (availability) => {
   const response = await httpClient.patch(`${DOCTOR_API}/availability`, { availability });
   return response.data?.data || response.data;
 };
 
+/**
+ * Upload a verification document (e.g., Medical License)
+ * @param {File} file - The actual file object from an <input type="file" />
+ * @param {String} documentType - e.g., "Medical License"
+ */
 export const uploadVerificationDocument = async (file, documentType) => {
+  // Since we are sending a file, we MUST use FormData
   const formData = new FormData();
-  formData.append('documentFile', file);
+  
+  // 'documentFile' matches the expected field name in your multer upload middleware
+  formData.append('documentFile', file); 
   formData.append('documentType', documentType);
+
   const response = await httpClient.post(`${DOCTOR_API}/verification-document`, formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
   });
+  
   return response.data?.data || response.data;
 };
