@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Calendar, Clock, Stethoscope, Video, MapPin, User } from 'lucide-react';
-import { getAllDoctorsRequest, bookAppointmentRequest } from '../../../services/appointment.service';
+import { bookAppointmentRequest } from '../../../services/appointment.service';
+import { getVerifiedDoctors } from '../../../services/doctor.service';
 
 const specialties = [
   'Cardiology', 'Neurology', 'Dermatology', 'Orthopedics',
@@ -33,16 +34,16 @@ const BookAppointment = () => {
   const [bookingError, setBookingError]       = useState('');
   const [success, setSuccess]                 = useState(false);
 
-  useEffect(() => { loadDoctors(''); }, []);
+  useEffect(() => { loadDoctors({}); }, []);
 
-  const loadDoctors = async (specialization) => {
+  const loadDoctors = async (params) => {
     setSearching(true);
     setSearchError('');
     setDoctors([]);
     setSelectedDoctor(null);
     try {
-      // getAllDoctorsRequest now always returns a plain array
-      const list = await getAllDoctorsRequest(specialization);
+      const payload = await getVerifiedDoctors(params);
+      const list = Array.isArray(payload) ? payload : (payload?.doctors || []);
       if (list.length > 0) {
         setDoctors(list);
       } else {
@@ -55,8 +56,8 @@ const BookAppointment = () => {
     }
   };
 
-  const handleSearch  = () => loadDoctors(specialty);
-  const handleViewAll = () => { setSpecialty(''); loadDoctors(''); };
+  const handleSearch  = () => loadDoctors(specialty ? { specialization: specialty } : {});
+  const handleViewAll = () => { setSpecialty(''); loadDoctors({}); };
 
   const handleBook = async () => {
     if (!selectedDoctor || !appointmentDate || !timeSlot) {
