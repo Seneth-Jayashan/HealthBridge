@@ -20,6 +20,9 @@ export default function PatientRoutes() {
           {/* The path "dashboard" combines with the parent to become "/patient/dashboard" */}
           <Route path="dashboard" element={<PatientDashboard />} />
 
+          <Route path="appointment/book" element={<BookAppointment />} />
+          <Route path="appointment/my" element={<MyAppointments />} />
+
           {/* Future routes drop in perfectly here: */}
           {/* <Route path="appointments" element={<PatientAppointments />} /> */}
           {/* <Route path="records" element={<PatientRecords />} /> */}
