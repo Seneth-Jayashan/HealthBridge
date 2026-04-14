@@ -30,7 +30,6 @@ const patientSchema = new mongoose.Schema(
             type: String,
             enum: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']
         },
-        contactNumber: { type: String },
         address: { type: String },
         emergencyContact: {
             name: { type: String },

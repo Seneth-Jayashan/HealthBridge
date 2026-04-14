@@ -7,9 +7,12 @@ const Register = () => {
   const navigate = useNavigate();
   const { register } = useAuth();
 
+  const normalizeRole = (role) => String(role || '').trim().toLowerCase();
+
   const [form, setForm] = useState({
     name: '',
     email: '',
+    phoneNumber: '',
     password: '',
     role: 'Patient',
   });
@@ -21,9 +24,10 @@ const Register = () => {
     setForm((previous) => ({ ...previous, [name]: value }));
   };
 
-  const getRedirectPath = (role) => {
-    if (role === 'Admin') return '/admin/dashboard';
-    if (role === 'Doctor') return '/doctor/dashboard';
+  const getRedirectPath = (role, doctorStatus) => {
+    const normalizedRole = normalizeRole(role);
+    if (normalizedRole === 'admin') return '/admin/dashboard';
+    if (normalizedRole === 'doctor') return doctorStatus === 'Approved' ? '/doctor/dashboard' : '/doctor/request';
     return '/patient/dashboard';
   };
 
@@ -34,7 +38,7 @@ const Register = () => {
 
     try {
       const user = await register(form);
-      navigate(getRedirectPath(user.role), { replace: true });
+      navigate(getRedirectPath(user.role, user.doctorStatus), { replace: true });
     } catch (requestError) {
       setError(requestError.response?.data?.message || 'Registration failed. Please try again.');
     } finally {
@@ -83,6 +87,18 @@ const Register = () => {
               onChange={onChange}
               className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-600"
               placeholder="jane@example.com"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-slate-700 mb-2">Phone Number</label>
+            <input
+              type="tel"
+              name="phoneNumber"
+              value={form.phoneNumber}
+              onChange={onChange}
+              className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-600"
+              placeholder="+94 77 123 4567"
             />
           </div>
 

@@ -30,7 +30,6 @@ export const updatePatientProfile = async (req, res, next) => {
             dateOfBirth, 
             gender, 
             bloodGroup, 
-            contactNumber, 
             address, 
             emergencyContact, 
             allergies, 
@@ -45,7 +44,6 @@ export const updatePatientProfile = async (req, res, next) => {
                     dateOfBirth, 
                     gender, 
                     bloodGroup, 
-                    contactNumber, 
                     address, 
                     emergencyContact,
                     allergies,
@@ -158,7 +156,10 @@ export const getIsProfileUpdated = async (req, res, next) => {
             throw new ApiError(404, "Patient profile not found");
         }
 
-        res.status(200).json(new ApiResponse(200, { isUpdated: patient.isUpdated }, "Profile update status retrieved successfully"));
+        const hasMedicalReports = Array.isArray(patient.medicalReports) && patient.medicalReports.length > 0;
+        const isProfileComplete = Boolean(patient.isUpdated);
+
+        res.status(200).json(new ApiResponse(200, { isUpdated: isProfileComplete, hasMedicalReports }, "Profile update status retrieved successfully"));
     } catch (error) {
         next(error);
     }

@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { getMeRequest, loginRequest, registerRequest } from '../services/auth.service';
+import { getDoctorProfile } from '../services/doctor.service';
 import { getCookie, removeCookie, setCookie } from '../utils/cookies';
 
 const AuthContext = createContext(null);
@@ -37,8 +38,32 @@ const normalizeUser = (payload) => ({
   id: payload._id || payload.id,
   name: payload.name,
   email: payload.email,
+  phoneNumber: payload.phoneNumber || '',
   role: payload.role,
+  doctorStatus: payload.doctorStatus || null,
 });
+
+const normalizeRole = (role) => String(role || '').trim().toLowerCase();
+
+const hydrateDoctorStatus = async (baseUser) => {
+  if (normalizeRole(baseUser?.role) !== 'doctor') {
+    return normalizeUser(baseUser);
+  }
+
+  try {
+    const doctorProfile = await getDoctorProfile();
+    return normalizeUser({
+      ...baseUser,
+      doctorStatus: doctorProfile?.verificationStatus || 'Pending',
+    });
+  } catch (error) {
+    const status = error?.response?.status === 404 ? 'Pending' : 'Pending';
+    return normalizeUser({
+      ...baseUser,
+      doctorStatus: status,
+    });
+  }
+};
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(parseUserCookie());
@@ -54,16 +79,10 @@ export const AuthProvider = ({ children }) => {
       return;
     }
 
-    if (cachedUser) {
-      setUser(cachedUser);
-      setLoading(false);
-      return;
-    }
-
     const bootstrap = async () => {
       try {
-        const me = await getMeRequest();
-        const normalized = normalizeUser(me);
+        const baseUser = cachedUser || normalizeUser(await getMeRequest());
+        const normalized = await hydrateDoctorStatus(baseUser);
         setUser(normalized);
         persistSession({ token, user: normalized });
       } catch {
@@ -79,7 +98,7 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (credentials) => {
     const response = await loginRequest(credentials);
-    const normalizedUser = normalizeUser(response);
+    const normalizedUser = await hydrateDoctorStatus(normalizeUser(response));
 
     persistSession({ token: response.token, user: normalizedUser });
     setUser(normalizedUser);
@@ -89,7 +108,7 @@ export const AuthProvider = ({ children }) => {
 
   const register = async (payload) => {
     const response = await registerRequest(payload);
-    const normalizedUser = normalizeUser(response);
+    const normalizedUser = await hydrateDoctorStatus(normalizeUser(response));
 
     persistSession({ token: response.token, user: normalizedUser });
     setUser(normalizedUser);
@@ -104,7 +123,8 @@ export const AuthProvider = ({ children }) => {
 
   const hasRole = (allowedRoles = []) => {
     if (!user?.role) return false;
-    return allowedRoles.includes(user.role);
+    const currentRole = normalizeRole(user.role);
+    return allowedRoles.some((role) => normalizeRole(role) === currentRole);
   };
 
   const value = useMemo(
@@ -116,6 +136,16 @@ export const AuthProvider = ({ children }) => {
       register,
       logout,
       hasRole,
+      refreshDoctorStatus: async () => {
+        if (!user || normalizeRole(user.role) !== 'doctor') {
+          return user;
+        }
+
+        const refreshedUser = await hydrateDoctorStatus(user);
+        setUser(refreshedUser);
+        persistSession({ token: getCookie(TOKEN_COOKIE), user: refreshedUser });
+        return refreshedUser;
+      },
     }),
     [user, loading],
   );

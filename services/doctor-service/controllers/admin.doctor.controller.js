@@ -1,5 +1,6 @@
-import Doctor from '../models/DoctorService';
+import Doctor from '../models/DoctorService.js';
 import { ApiError, ApiResponse } from '@healthbridge/shared';
+import { notifyDoctorVerificationDecision } from '../services/doctorDecisionNotification.service.js';
 
 // @desc    Get all doctors (with optional filtering for verification status)
 // @route   GET /api/admin/doctors
@@ -69,7 +70,7 @@ export const verifyDoctor = async (req, res, next) => {
         const { doctorId } = req.params;
         const { verificationStatus } = req.body;
 
-        if (!['Pending', 'Approved', 'Rejected'].includes(verificationStatus)) {
+        if (!['Review', 'Approved', 'Rejected'].includes(verificationStatus)) {
             throw new ApiError(400, "Invalid verification status provided");
         }
 
@@ -103,6 +104,16 @@ export const verifyDoctor = async (req, res, next) => {
         // Save the new status (and the new ID if generated)
         doctor.verificationStatus = verificationStatus;
         await doctor.save();
+
+        notifyDoctorVerificationDecision({
+            requesterUserId: req.user.id,
+            doctorUserId: doctor.userId,
+            verificationStatus,
+            doctorID: doctor.doctorID,
+            specialization: doctor.specialization,
+        }).catch((notifyError) => {
+            console.error('[Doctor Service] Failed to notify doctor verification decision:', notifyError.message);
+        });
 
         res.status(200).json(new ApiResponse(200, doctor, `Doctor verification status updated to ${verificationStatus}`));
     } catch (error) {

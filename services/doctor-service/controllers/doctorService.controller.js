@@ -1,5 +1,6 @@
-import Doctor from '../models/DoctorService'; // Adjust path if your filename differs
+import Doctor from '../models/DoctorService.js'; // Adjust path if your filename differs
 import { ApiError, ApiResponse, cloudinaryService } from '@healthbridge/shared';
+import { notifyAdminsDoctorVerificationRequested } from '../services/adminNotification.service.js';
 import fs from 'fs';
 
 // @desc    Get all doctors (with optional filtering for verification status)
@@ -58,7 +59,6 @@ export const getDoctorProfile = async (req, res, next) => {
 export const updateDoctorProfile = async (req, res, next) => {
     try {
         const { 
-            doctorID,
             specialization, 
             registrationNumber, 
             qualifications, 
@@ -68,12 +68,20 @@ export const updateDoctorProfile = async (req, res, next) => {
             availability 
         } = req.body;
 
+        const existingDoctor = await Doctor.findOne({ userId: req.user.id });
+
+        if (existingDoctor && ['Review', 'Approved'].includes(existingDoctor.verificationStatus)) {
+            if (req.file?.path) {
+                fs.unlinkSync(req.file.path);
+            }
+            throw new ApiError(409, 'Doctor request already submitted. You can resubmit only after rejection.');
+        }
+
         // Upsert logic: Create if it doesn't exist, update if it does.
         const updatedDoctor = await Doctor.findOneAndUpdate(
             { userId: req.user.id },
             { 
                 $set: { 
-                    doctorID,
                     specialization,
                     registrationNumber,
                     qualifications,
@@ -100,6 +108,12 @@ export const uploadVerificationDocument = async (req, res, next) => {
     try {
         const { documentType } = req.body;
 
+        const existingDoctor = await Doctor.findOne({ userId: req.user.id });
+
+        if (existingDoctor && ['Review', 'Approved'].includes(existingDoctor.verificationStatus)) {
+            throw new ApiError(409, 'Doctor request already submitted. You can resubmit only after rejection.');
+        }
+
         // 1. Validate that the file exists
         if (!req.file) {
             throw new ApiError(400, "Document file is required");
@@ -112,11 +126,19 @@ export const uploadVerificationDocument = async (req, res, next) => {
             throw new ApiError(400, "Document type is required");
         }
 
-        // 3. Upload file to Cloudinary
-        const cloudinaryResponse = await cloudinaryService.uploadFile(req.file.path, 'doctor_verifications');
+        const localDocumentUrl = `/api/doctors/uploads/doctor_verifications/${req.file.filename}`;
+        let documentUrl = localDocumentUrl;
 
-        if (!cloudinaryResponse) {
-            throw new ApiError(500, "Failed to upload file to cloud storage");
+        // 3. Upload file to Cloudinary when credentials are available.
+        // Fall back to the local upload URL in containerized/dev environments.
+        if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET) {
+            const cloudinaryResponse = await cloudinaryService.uploadFile(req.file.path, 'doctor_verifications');
+
+            if (!cloudinaryResponse) {
+                throw new ApiError(500, "Failed to upload file to cloud storage");
+            }
+
+            documentUrl = cloudinaryResponse.secure_url;
         }
 
         // 4. Update the doctor profile
@@ -128,15 +150,27 @@ export const uploadVerificationDocument = async (req, res, next) => {
                 $set: {
                     verificationDocuments: {
                         documentType,
-                        documentURL: cloudinaryResponse.secure_url,
+                        documentURL: documentUrl,
                         // Tip: Consider adding 'publicId: cloudinaryResponse.public_id' to your 
                         // verificationDocuments schema if you want to be able to delete this from Cloudinary later!
                     },
-                    verificationStatus: 'Pending' 
+                    verificationStatus: 'Review' 
                 }
             },
             { new: true, runValidators: true }
         );
+
+        if (!updatedDoctor) {
+            throw new ApiError(404, "Doctor profile not found. Please submit your doctor profile first.");
+        }
+
+        notifyAdminsDoctorVerificationRequested({
+            requesterUserId: req.user.id,
+            specialization: updatedDoctor.specialization,
+            registrationNumber: updatedDoctor.registrationNumber,
+        }).catch((notifyError) => {
+            console.error('[Doctor Service] Failed to notify admins for verification request:', notifyError.message);
+        });
 
         res.status(200).json(new ApiResponse(200, updatedDoctor.verificationDocuments, "Verification document uploaded successfully"));
     } catch (error) {
