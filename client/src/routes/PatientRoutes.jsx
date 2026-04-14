@@ -5,6 +5,7 @@ import RequirePatientProfileComplete from '../components/auth/RequirePatientProf
 
 // Import Patient Pages
 import PatientDashboard from '../pages/patient/Dashboard';
+import PatientTelehealth from '../pages/patient/Telehealth';
 // import PatientAppointments from '../pages/patient/Appointments'; // Ready for when you build it!
 import PatientProfile from '../pages/patient/Profile';
 

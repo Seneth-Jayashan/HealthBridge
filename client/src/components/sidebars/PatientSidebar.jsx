@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { 
   Activity, Calendar, MessageCircle, UserRound, LogOut, 
-  HeartPulse, FileText, ChevronLeft, ChevronRight, Menu, X 
+  HeartPulse, FileText, ChevronLeft, ChevronRight, Menu, Video, X 
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext'; 
 
@@ -10,6 +10,7 @@ const navItems = [
   { label: 'Overview', to: '/patient/dashboard', icon: Activity },
   { label: 'Appointments', to: '/patient/appointments', icon: Calendar },
   { label: 'Medical Records', to: '/patient/records', icon: HeartPulse },
+  { label: 'Telehealth', to: '/patient/telehealth', icon: Video },
   { label: 'Prescriptions', to: '/patient/prescriptions', icon: FileText },
   { label: 'Messages', to: '/patient/messages', icon: MessageCircle },
   { label: 'Profile Settings', to: '/patient/profile', icon: UserRound },

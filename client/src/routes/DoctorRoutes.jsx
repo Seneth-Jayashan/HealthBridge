@@ -20,7 +20,6 @@ export default function DoctorRoutes() {
         
         {/* Future routes: */}
         {/* <Route path="schedule" element={<DoctorSchedule />} /> */}
-        {/* <Route path="telehealth" element={<LiveTelehealth />} /> */}
         
       </Route>
     </Routes>

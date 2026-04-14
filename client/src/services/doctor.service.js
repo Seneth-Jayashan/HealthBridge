@@ -7,7 +7,7 @@ const DOCTOR_API = '/doctors';
  * Get Doctor Dashboard (Existing)
  */
 export const getDoctorDashboard = async () => {
-  const response = await httpClient.get('/doctor/dashboard');
+  const response = await httpClient.get('/doctors/profile');
   return response.data?.data || response.data;
 };
 
