@@ -1,6 +1,5 @@
 import httpClient from '../api/Axios';
 
-// ── Appointment calls ──────────────────────────────────
 export const bookAppointmentRequest = async (payload) => {
   const response = await httpClient.post('/appointments/book', payload);
   return response.data?.data || response.data;
@@ -8,7 +7,9 @@ export const bookAppointmentRequest = async (payload) => {
 
 export const getMyAppointmentsRequest = async () => {
   const response = await httpClient.get('/appointments/my');
-  return response.data?.data || response.data;
+  // Backend returns { count, appointments } — unwrap correctly
+  const payload = response.data?.data || response.data;
+  return Array.isArray(payload) ? payload : (payload?.appointments || []);
 };
 
 export const cancelAppointmentRequest = async (id) => {
@@ -21,9 +22,12 @@ export const modifyAppointmentRequest = async (id, payload) => {
   return response.data?.data || response.data;
 };
 
-// ── Doctor calls (used in booking page) ───────────────
+// GET /api/doctor → proxied to doctor-service GET /
+// Backend returns: { data: { doctors: [...], pagination: {} } }
 export const getAllDoctorsRequest = async (specialization = '') => {
-  const query = specialization ? `?specialization=${specialization}` : '';
-  const response = await httpClient.get(`/doctor/all${query}`);
-  return response.data?.data || response.data;
+  const params = specialization ? { specialization } : {};
+  const response = await httpClient.get('/doctor', { params });
+  const payload = response.data?.data || response.data;
+  // Unwrap nested doctors array from pagination response
+  return Array.isArray(payload) ? payload : (payload?.doctors || []);
 };

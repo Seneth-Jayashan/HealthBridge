@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { getMyAppointmentsRequest, cancelAppointmentRequest } from '../../../services/appointment.service';
 import { Calendar, Clock, Video, MapPin, Stethoscope, Plus } from 'lucide-react';
 
-// Status badge colors
 const statusStyles = {
   pending:   'bg-yellow-100 text-yellow-700',
   confirmed: 'bg-green-100 text-green-700',
@@ -15,17 +14,17 @@ const statusStyles = {
 const MyAppointments = () => {
   const navigate = useNavigate();
   const [appointments, setAppointments] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [loading, setLoading]           = useState(true);
+  const [error, setError]               = useState('');
   const [cancellingId, setCancellingId] = useState(null);
 
-  // ── Load appointments ────────────────────────────────
   const loadAppointments = async () => {
     setLoading(true);
     setError('');
     try {
-      const result = await getMyAppointmentsRequest();
-      setAppointments(result?.appointments || result || []);
+      // getMyAppointmentsRequest now always returns a plain array
+      const list = await getMyAppointmentsRequest();
+      setAppointments(list);
     } catch (err) {
       setError('Failed to load appointments. Please try again.');
     } finally {
@@ -33,17 +32,13 @@ const MyAppointments = () => {
     }
   };
 
-  useEffect(() => {
-    loadAppointments();
-  }, []);
+  useEffect(() => { loadAppointments(); }, []);
 
-  // ── Cancel appointment ───────────────────────────────
   const handleCancel = async (id) => {
     if (!window.confirm('Are you sure you want to cancel this appointment?')) return;
     setCancellingId(id);
     try {
       await cancelAppointmentRequest(id);
-      // Refresh list after cancel
       await loadAppointments();
     } catch (err) {
       alert(err?.response?.data?.message || 'Failed to cancel appointment.');
@@ -52,11 +47,13 @@ const MyAppointments = () => {
     }
   };
 
-  // ── Loading state ────────────────────────────────────
   if (loading) {
     return (
       <div className="flex items-center justify-center py-24">
-        <p className="text-slate-500 text-lg">Loading your appointments...</p>
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-8 w-8 rounded-full border-2 border-blue-600 border-t-transparent animate-spin" />
+          <p className="text-slate-500">Loading your appointments…</p>
+        </div>
       </div>
     );
   }
@@ -110,27 +107,19 @@ const MyAppointments = () => {
               className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
             >
               <div className="flex items-start justify-between">
-                {/* Left side info */}
                 <div className="flex flex-col gap-2">
-                  {/* Specialty */}
                   <div className="flex items-center gap-2">
                     <Stethoscope size={16} className="text-blue-700" />
                     <span className="font-bold text-slate-900">{appt.specialty}</span>
                   </div>
-
-                  {/* Date */}
                   <div className="flex items-center gap-2 text-sm text-slate-600">
                     <Calendar size={14} className="text-slate-400" />
                     {new Date(appt.appointmentDate).toDateString()}
                   </div>
-
-                  {/* Time slot */}
                   <div className="flex items-center gap-2 text-sm text-slate-600">
                     <Clock size={14} className="text-slate-400" />
                     {appt.timeSlot}
                   </div>
-
-                  {/* Type: online / physical */}
                   <div className="flex items-center gap-2 text-sm text-slate-600">
                     {appt.appointmentType === 'online'
                       ? <Video size={14} className="text-blue-500" />
@@ -138,36 +127,27 @@ const MyAppointments = () => {
                     }
                     {appt.appointmentType === 'online' ? 'Online Consultation' : 'Physical Visit'}
                   </div>
-
-                  {/* Reason */}
                   {appt.reason && (
-                    <p className="text-sm text-slate-500 mt-1">
-                      Reason: {appt.reason}
-                    </p>
+                    <p className="text-sm text-slate-500 mt-1">Reason: {appt.reason}</p>
                   )}
                 </div>
 
-                {/* Right side — status + cancel */}
                 <div className="flex flex-col items-end gap-3">
-                  {/* Status badge */}
                   <span className={`rounded-full px-3 py-1 text-xs font-bold capitalize ${statusStyles[appt.status] || 'bg-slate-100 text-slate-600'}`}>
                     {appt.status}
                   </span>
-
-                  {/* Cancel button — only for pending appointments */}
                   {appt.status === 'pending' && (
                     <button
                       onClick={() => handleCancel(appt._id)}
                       disabled={cancellingId === appt._id}
                       className="text-xs font-semibold text-red-600 hover:text-red-800 disabled:opacity-50"
                     >
-                      {cancellingId === appt._id ? 'Cancelling...' : 'Cancel'}
+                      {cancellingId === appt._id ? 'Cancelling…' : 'Cancel'}
                     </button>
                   )}
                 </div>
               </div>
 
-              {/* Doctor notes if available */}
               {appt.notes && (
                 <div className="mt-4 rounded-xl bg-slate-50 border border-slate-200 p-3">
                   <p className="text-xs font-semibold text-slate-500 mb-1">Doctor Notes</p>
