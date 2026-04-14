@@ -25,7 +25,7 @@ const onProxyError = (err, req, res) => {
 
 router.use('/api/auth', createProxyMiddleware({ target: services.auth, changeOrigin: true, onError: onProxyError }));
 router.use('/api/patients', createProxyMiddleware({ target: services.patient, changeOrigin: true, onError: onProxyError }));
-router.use('/api/doctors', createProxyMiddleware({ target: services.doctor, changeOrigin: true, onError: onProxyError }));
+router.use('/api/doctor', createProxyMiddleware({ target: services.doctor, changeOrigin: true, onError: onProxyError }));
 router.use('/api/appointments', createProxyMiddleware({ target: services.appointment, changeOrigin: true, onError: onProxyError }));
 router.use('/api/payments', createProxyMiddleware({ target: services.payment, changeOrigin: true, onError: onProxyError }));
 router.use('/api/notifications', createProxyMiddleware({ target: services.notification, changeOrigin: true, onError: onProxyError }));

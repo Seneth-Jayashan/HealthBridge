@@ -9,6 +9,9 @@ import PatientTelehealth from '../pages/patient/Telehealth';
 // import PatientAppointments from '../pages/patient/Appointments'; // Ready for when you build it!
 import PatientProfile from '../pages/patient/Profile';
 
+import BookAppointment from '../pages/patient/appointment/BookAppointment';
+import MyAppointments from '../pages/patient/appointment/MyAppointments';
+
 export default function PatientRoutes() {
   return (
     <Routes>
@@ -18,6 +21,9 @@ export default function PatientRoutes() {
           {/* The path "dashboard" combines with the parent to become "/patient/dashboard" */}
           <Route path="dashboard" element={<PatientDashboard />} />
           <Route path="telehealth" element={<PatientTelehealth />} />
+
+          <Route path="appointment/book" element={<BookAppointment />} />
+          <Route path="appointment/my" element={<MyAppointments />} />
 
           {/* Future routes drop in perfectly here: */}
           {/* <Route path="appointments" element={<PatientAppointments />} /> */}
