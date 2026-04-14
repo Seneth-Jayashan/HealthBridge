@@ -3,7 +3,7 @@ import { Link, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { 
   Activity, Calendar, MessageCircle, UserRound, LogOut, 
   HeartPulse, FileText, ChevronLeft, ChevronRight, Menu, X,
-  CalendarPlus, CalendarCheck, ChevronDown
+  CalendarPlus, CalendarCheck, ChevronDown, Video
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext'; 
 
