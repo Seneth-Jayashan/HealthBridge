@@ -126,7 +126,15 @@ const PatientTelehealth = () => {
       </div>
 
       {/* Appointments Tab */}
-      {activeTab === 'appointments' && <PatientAppointmentList />}
+      {activeTab === 'appointments' && (
+        <PatientAppointmentList 
+          onJoinSession={(payload, appointment) => {
+            setJoinPayload(payload);
+            setCurrentAppointment(appointment);
+            setActiveTab('sessions');
+          }}
+        />
+      )}
 
       {/* Sessions Tab */}
       {activeTab === 'sessions' && (

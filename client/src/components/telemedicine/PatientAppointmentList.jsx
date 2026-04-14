@@ -2,17 +2,14 @@ import React, { useEffect, useState } from 'react';
 import { Calendar, Clock, AlertCircle, CheckCircle, XCircle, Loader, Phone } from 'lucide-react';
 import { getMyOnlineAppointmentsRequest } from '../../services/appointment.service';
 import { getOnlineAppointmentsWithSessions, getTelemedicineJoinToken } from '../../services/telemedicine.service';
-import VideoConsultRoom from './VideoConsultRoom';
 
-const PatientAppointmentList = () => {
+const PatientAppointmentList = ({ onJoinSession }) => {
   const [appointments, setAppointments] = useState([]);
   const [sessions, setSessions] = useState({});
   const [loading, setLoading] = useState(false);
   const [joining, setJoining] = useState(null);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
-  const [joinPayload, setJoinPayload] = useState(null);
-  const [currentAppointment, setCurrentAppointment] = useState(null);
 
   const loadAppointments = async () => {
     setLoading(true);
@@ -63,16 +60,14 @@ const PatientAppointmentList = () => {
     
     try {
       const tokenData = await getTelemedicineJoinToken(session._id);
-      setJoinPayload({
+      onJoinSession({
         sessionId: session._id,
         appId: tokenData.appId,
         channelName: tokenData.channelName,
         token: tokenData.token,
         uid: tokenData.uid,
         account: tokenData.account,
-      });
-      setCurrentAppointment(appointment);
-      setMessage('Joining consultation room...');
+      }, appointment);
     } catch (err) {
       setError(err?.response?.data?.message || 'Failed to join session');
     } finally {
@@ -107,21 +102,6 @@ const PatientAppointmentList = () => {
         <Loader className="animate-spin text-blue-600 mb-4" size={32} />
         <p className="text-slate-600 font-medium">Loading your appointments...</p>
       </div>
-    );
-  }
-
-  if (joinPayload) {
-    return (
-      <VideoConsultRoom
-        joinPayload={joinPayload}
-        displayName="Patient"
-        appointmentDetails={currentAppointment}
-        onLeave={() => {
-          setJoinPayload(null);
-          setCurrentAppointment(null);
-          loadAppointments();
-        }}
-      />
     );
   }
 
