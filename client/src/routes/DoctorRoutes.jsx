@@ -1,26 +1,24 @@
 import React from 'react';
 import { Routes, Route } from 'react-router-dom';
 import RequireRole from '../components/auth/RequireRole';
-import RequireDoctorApproved from '../components/auth/RequireDoctorApproved';
+// Make sure this path matches where you saved the file!
+import RequireDoctorApproved from '../components/doctor/RequireDoctorApproved';
 
-// Import Doctor Pages
 import DoctorDashboard from '../pages/doctor/Dashboard';
 import DoctorRequest from '../pages/doctor/Request';
 
 export default function DoctorRoutes() {
   return (
     <Routes>
-      {/* Protects all nested routes ensuring ONLY Doctors can access them */}
+      {/* Level 1: Must be a Doctor */}
       <Route element={<RequireRole allowedRoles={['Doctor']} />}>
+        
         <Route path="request" element={<DoctorRequest />} />
         
+        {/* Level 2: Must be a Doctor AND Approved */}
         <Route element={<RequireDoctorApproved />}>
           <Route path="dashboard" element={<DoctorDashboard />} />
         </Route>
-        
-        {/* Future routes: */}
-        {/* <Route path="schedule" element={<DoctorSchedule />} /> */}
-        {/* <Route path="telehealth" element={<LiveTelehealth />} /> */}
         
       </Route>
     </Routes>

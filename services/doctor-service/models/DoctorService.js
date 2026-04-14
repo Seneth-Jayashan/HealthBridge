@@ -1,16 +1,5 @@
 import mongoose from 'mongoose';
 
-// Enhanced Availability Schema to support Appointment generation
-const availabilitySchema = new mongoose.Schema({
-    day: { 
-        type: String, 
-        enum: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
-        required: true
-    },
-    startTime: { type: String, required: true }, // Format: "09:00"
-    endTime: { type: String, required: true },   // Format: "17:00"
-    slotDuration: { type: Number, default: 30 }  // NEW: Helps generate exact bookable slots (e.g., 30 mins)
-}, { _id: false });
 
 const doctorSchema = new mongoose.Schema(
     {
@@ -42,8 +31,7 @@ const doctorSchema = new mongoose.Schema(
             documentURL: { type: String }   //URL from Cloudinary
         }, 
         
-        availability: [availabilitySchema],
-
+        isAvailabilitySet: { type: Boolean, default: false },
 
         // NEW: Helpful for the Patient's "search for doctors" feature
         rating: [{

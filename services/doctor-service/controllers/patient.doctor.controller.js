@@ -1,3 +1,4 @@
+import Availability from '../models/Availability.js';
 import Doctor from '../models/DoctorService.js'; // Adjust your path
 import { ApiError, ApiResponse } from '@healthbridge/shared';
 
@@ -102,6 +103,38 @@ export const deleteDoctorReview = async (req, res, next) => {
             totalReviews: doctor.totalReviews
         }, "Review deleted successfully"));
 
+    } catch (error) {
+        next(error);
+    }
+};
+
+// @desc    Get Doctor by ID (For patients to view doctor details and reviews)
+// @route   GET /api/patients/doctors/:doctorId
+// @access  Private (Patient only)
+export const getDoctorByIdForPatient = async (req, res, next) => {
+    try {
+        const { doctorId } = req.params;
+        
+        const doctor = await Doctor.findById(doctorId)
+            .select('-verificationDocuments -verificationStatus')
+            .lean();
+            
+        if (!doctor) {
+            throw new ApiError(404, "Doctor not found");
+        }
+
+        const rawAvailability = await Availability.find({ doctorId: doctor._id }).lean();
+
+        const filteredAvailability = rawAvailability.map(schedule => {
+            return {
+                ...schedule,
+                timeSlots: schedule.timeSlots.filter(slot => slot.isBooked === false)
+            };
+        }).filter(schedule => schedule.timeSlots.length > 0); 
+
+        doctor.availability = filteredAvailability;
+
+        res.status(200).json(new ApiResponse(200, doctor, "Doctor details retrieved successfully"));
     } catch (error) {
         next(error);
     }
