@@ -12,6 +12,12 @@ export const getMyAppointmentsRequest = async () => {
   return Array.isArray(payload) ? payload : (payload?.appointments || []);
 };
 
+export const getMyOnlineAppointmentsRequest = async () => {
+  const response = await httpClient.get('/appointments/my/online');
+  const payload = response.data?.data || response.data;
+  return Array.isArray(payload) ? payload : (payload?.appointments || []);
+};
+
 export const cancelAppointmentRequest = async (id) => {
   const response = await httpClient.delete(`/appointments/${id}`);
   return response.data?.data || response.data;
@@ -19,6 +25,17 @@ export const cancelAppointmentRequest = async (id) => {
 
 export const modifyAppointmentRequest = async (id, payload) => {
   const response = await httpClient.put(`/appointments/${id}`, payload);
+  return response.data?.data || response.data;
+};
+
+export const getDoctorOnlineAppointmentsRequest = async () => {
+  const response = await httpClient.get('/appointments/doctor/my/online');
+  const payload = response.data?.data || response.data;
+  return Array.isArray(payload) ? payload : (payload?.appointments || []);
+};
+
+export const updateAppointmentStatusRequest = async (id, status, notes = '') => {
+  const response = await httpClient.patch(`/appointments/${id}/status`, { status, notes });
   return response.data?.data || response.data;
 };
 

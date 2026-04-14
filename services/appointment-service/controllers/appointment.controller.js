@@ -1,5 +1,49 @@
 import Appointment from '../models/Appointment.js';
 
+// ─── Create video session for online appointments ──────
+const createVideoSessionForOnlineAppointment = async (appointment, authToken) => {
+    try {
+        const TELEMEDICINE_SERVICE_URL = process.env.TELEMEDICINE_SERVICE_URL || 'http://telemedicine-service:3008';
+        
+        const sessionData = {
+            appointmentId: appointment._id.toString(),
+            patientId: appointment.patientId,
+            doctorId: appointment.doctorId,
+            scheduledAt: appointment.appointmentDate,
+            metadata: {
+                reason: appointment.reason,
+                specialty: appointment.specialty,
+                timeSlot: appointment.timeSlot
+            }
+        };
+
+        const response = await fetch(
+            `${TELEMEDICINE_SERVICE_URL}/telemedicine/sessions`,
+            {
+                method: 'POST',
+                headers: {
+                    'Authorization': authToken,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(sessionData)
+            }
+        );
+
+        if (!response.ok) {
+            throw new Error(`Telemedicine service error: ${response.status}`);
+        }
+
+        const data = await response.json();
+        console.log('✅ Video session created:', data?.data?._id);
+        return data?.data || data.session;
+    } catch (error) {
+        console.error('⚠️ Failed to create video session:', error.message);
+        // Don't throw - appointment still created even if video session fails
+        // This ensures graceful degradation
+        return null;
+    }
+};
+
 // ─── Book an appointment ───────────────────────────────
 export const bookAppointment = async (req, res) => {
     try {
@@ -50,9 +94,17 @@ export const bookAppointment = async (req, res) => {
             reason
         });
 
+        // ─── Auto-create video session for online appointments ───
+        let videoSession = null;
+        if (appointmentType === 'online') {
+            const authToken = req.headers.authorization || '';
+            videoSession = await createVideoSessionForOnlineAppointment(appointment, authToken);
+        }
+
         res.status(201).json({
             message: 'Appointment booked successfully',
-            appointment
+            appointment,
+            videoSession: videoSession || undefined
         });
 
     } catch (error) {
@@ -254,6 +306,46 @@ export const updateAppointmentStatus = async (req, res) => {
         res.status(200).json({
             message: `Appointment ${status} successfully`,
             appointment
+        });
+
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// ─── Get online appointments for patient (Telemedicine) ──
+export const getPatientOnlineAppointments = async (req, res) => {
+    try {
+        const patientId = req.user.id;
+
+        const appointments = await Appointment.find({ 
+            patientId,
+            appointmentType: 'online'
+        }).sort({ appointmentDate: -1 });
+
+        res.status(200).json({ 
+            count: appointments.length,
+            appointments 
+        });
+
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// ─── Get online appointments for doctor (Telemedicine) ──
+export const getDoctorOnlineAppointments = async (req, res) => {
+    try {
+        const doctorId = req.user.id;
+
+        const appointments = await Appointment.find({ 
+            doctorId,
+            appointmentType: 'online'
+        }).sort({ appointmentDate: -1 });
+
+        res.status(200).json({ 
+            count: appointments.length,
+            appointments 
         });
 
     } catch (error) {

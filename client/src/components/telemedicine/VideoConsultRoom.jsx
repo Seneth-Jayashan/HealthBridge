@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import AgoraRTC from 'agora-rtc-sdk-ng';
-import { Camera, CameraOff, LoaderCircle, Mic, MicOff, PhoneOff, Users } from 'lucide-react';
+import { Camera, CameraOff, LoaderCircle, Mic, MicOff, PhoneOff, Users, Stethoscope, Clock, MapPin } from 'lucide-react';
 
 const parsedLogLevel = Number(import.meta.env.VITE_AGORA_LOG_LEVEL ?? 2);
 const AGORA_LOG_LEVEL = Number.isFinite(parsedLogLevel) ? parsedLogLevel : 2;
@@ -12,7 +12,7 @@ if (typeof AgoraRTC.setLogLevel === 'function') {
   AgoraRTC.setLogLevel(AGORA_LOG_LEVEL);
 }
 
-const VideoConsultRoom = ({ joinPayload, displayName, onLeave }) => {
+const VideoConsultRoom = ({ joinPayload, displayName, onLeave, appointmentDetails }) => {
   const clientRef = useRef(null);
   const localTracksRef = useRef({ audioTrack: null, videoTrack: null });
   const remoteVideoTracksRef = useRef(new Map());
@@ -219,18 +219,76 @@ const VideoConsultRoom = ({ joinPayload, displayName, onLeave }) => {
     return `Channel: ${joinPayload.channelName}`;
   }, [joinPayload]);
 
+  const appointmentTime = useMemo(() => {
+    if (!appointmentDetails?.appointmentDate) return null;
+    const date = new Date(appointmentDetails.appointmentDate);
+    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+  }, [appointmentDetails]);
+
+  const appointmentDate = useMemo(() => {
+    if (!appointmentDetails?.appointmentDate) return null;
+    const date = new Date(appointmentDetails.appointmentDate);
+    return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  }, [appointmentDetails]);
+
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Live Consultation</p>
-          <h3 className="text-lg font-black text-slate-900">{roomTitle}</h3>
-          <p className="text-sm text-slate-600">Connected as {displayName || 'Participant'}</p>
+    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-5">
+      {/* Header with appointment details */}
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Live Consultation</p>
+            <h3 className="text-lg font-black text-slate-900">{roomTitle}</h3>
+            <p className="text-sm text-slate-600">Connected as {displayName || 'Participant'}</p>
+          </div>
+          <div className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+            <Users size={14} />
+            <span>{remoteParticipants.length + (connectionState === 'joined' ? 1 : 0)} participant(s)</span>
+          </div>
         </div>
-        <div className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
-          <Users size={14} />
-          <span>{remoteParticipants.length + (connectionState === 'joined' ? 1 : 0)} participant(s)</span>
-        </div>
+
+        {/* Appointment Details Card */}
+        {appointmentDetails && (
+          <div className="rounded-xl border border-teal-200 bg-gradient-to-br from-teal-50 to-cyan-50 p-4 space-y-2">
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-2">
+                <Stethoscope size={18} className="text-teal-600" />
+                <div>
+                  <p className="text-xs font-bold text-teal-700 uppercase tracking-wider">Appointment Details</p>
+                  <p className="text-sm font-semibold text-slate-900">{appointmentDetails.specialty || 'Medical Consultation'}</p>
+                </div>
+              </div>
+              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-100 text-emerald-700 text-xs font-bold">
+                ✓ Active
+              </span>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="flex items-center gap-1 text-slate-700">
+                <Clock size={14} className="text-teal-600" />
+                <span>{appointmentTime}</span>
+              </div>
+              {appointmentDate && (
+                <div className="flex items-center gap-1 text-slate-700">
+                  <MapPin size={14} className="text-teal-600" />
+                  <span>{appointmentDate}</span>
+                </div>
+              )}
+            </div>
+
+            {appointmentDetails.reason && (
+              <p className="text-xs text-slate-600 border-t border-teal-200 pt-2">
+                <span className="font-bold">Reason:</span> {appointmentDetails.reason}
+              </p>
+            )}
+
+            {appointmentDetails.timeSlot && (
+              <p className="text-xs text-slate-600">
+                <span className="font-bold">Time Slot:</span> {appointmentDetails.timeSlot}
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
       {error && (

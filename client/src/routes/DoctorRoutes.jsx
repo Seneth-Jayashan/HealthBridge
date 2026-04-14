@@ -7,7 +7,6 @@ import RequireDoctorApproved from "../components/auth/RequireDoctorApproved";
 import DoctorDashboard from "../pages/doctor/Dashboard";
 import DoctorRequest from "../pages/doctor/Request";
 import DoctorTelehealth from "../pages/doctor/Telehealth";
-import CreateSession from "../pages/doctor/CreateSession";
 
 export default function DoctorRoutes() {
   return (
@@ -18,7 +17,6 @@ export default function DoctorRoutes() {
 
         <Route element={<RequireDoctorApproved />}>
           <Route path="dashboard" element={<DoctorDashboard />} />
-          <Route path="create-session" element={<CreateSession />} />
           <Route path="telehealth" element={<DoctorTelehealth />} />
         </Route>
 

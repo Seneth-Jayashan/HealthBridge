@@ -268,3 +268,78 @@ export const endVideoSession = async (req, res, next) => {
         next(error);
     }
 };
+
+// ─── Get online appointments with video sessions (for telehealth) ──
+export const getOnlineAppointmentsWithSessions = async (req, res, next) => {
+    try {
+        let query = {};
+
+        // Filter by role
+        if (req.user.role === 'Doctor') {
+            query.doctorId = req.user.id;
+        } else if (req.user.role === 'Patient') {
+            query.patientId = req.user.id;
+        } else if (req.user.role !== 'Admin') {
+            throw new ApiError(403, 'Unauthorized');
+        }
+
+        // Get video sessions
+        const sessions = await VideoSession.find(query)
+            .sort({ createdAt: -1 })
+            .limit(100)
+            .lean();
+
+        res.status(200).json(
+            new ApiResponse(200, sessions, 'Online appointments with video sessions retrieved successfully.')
+        );
+    } catch (error) {
+        next(error);
+    }
+};
+
+// ─── Update video session status linked to appointment ──
+export const updateSessionStatus = async (req, res, next) => {
+    try {
+        const { sessionId } = req.params;
+        const { status } = req.body;
+
+        if (!mongoose.Types.ObjectId.isValid(sessionId)) {
+            throw new ApiError(400, 'Invalid sessionId.');
+        }
+
+        const validStatuses = ['scheduled', 'active', 'completed', 'cancelled'];
+        if (!validStatuses.includes(status)) {
+            throw new ApiError(400, 'Invalid status');
+        }
+
+        const session = await VideoSession.findById(sessionId);
+
+        if (!session) {
+            throw new ApiError(404, 'Video session not found.');
+        }
+
+        ensureDoctorOwnsSession(session, req.user);
+
+        session.status = status;
+
+        if (status === 'active' && !session.startedAt) {
+            session.startedAt = new Date();
+        }
+
+        if (status === 'completed' && !session.endedAt) {
+            session.endedAt = new Date();
+        }
+
+        if (status === 'cancelled' && !session.endedAt) {
+            session.endedAt = new Date();
+        }
+
+        await session.save();
+
+        res.status(200).json(
+            new ApiResponse(200, session, `Video session status updated to ${status}.`)
+        );
+    } catch (error) {
+        next(error);
+    }
+};

@@ -2,13 +2,12 @@ import React, { useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { 
   Stethoscope, CalendarClock, ClipboardList, Users, Video, FileText, 
-  Activity, LogOut, BadgeCheck, ChevronLeft, ChevronRight, Plus 
+  Activity, LogOut, BadgeCheck, ChevronLeft, ChevronRight 
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 const navItems = [
   { label: 'Clinical Overview', to: '/doctor/dashboard', icon: Activity },
-  { label: 'Create Session', to: '/doctor/create-session', icon: Plus },
   { label: 'Live Telehealth', to: '/doctor/telehealth', icon: Video },
   { label: 'My Schedule', to: '/doctor/schedule', icon: CalendarClock },
   { label: 'Patient Directory', to: '/doctor/patients', icon: Users },
