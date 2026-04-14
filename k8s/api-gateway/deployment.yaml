@@ -33,4 +33,13 @@ spec:
           value: "http://doctor-service:3003"
         - name: APPOINTMENT_SERVICE_URL
           value: "http://appointment-service:3004"
-          
+        - name: PAYMENT_SERVICE_URL
+          value: "http://payment-service:3005"
+        - name: NOTIFICATION_SERVICE_URL
+          value: "http://notification-service:3006"
+        - name: AI_SERVICE_URL
+          value: "http://ai-service:3007"
+        - name: TELEMEDICINE_SERVICE_URL
+          value: "http://telemedicine-service:3008"
+        - name: PRESCRIPTION_SERVICE_URL
+          value: "http://prescription-service:3010"
