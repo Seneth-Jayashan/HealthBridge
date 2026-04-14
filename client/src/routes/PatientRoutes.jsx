@@ -1,6 +1,7 @@
 import React from 'react';
 import { Routes, Route } from 'react-router-dom';
 import RequireRole from '../components/auth/RequireRole';
+import RequirePatientProfileComplete from '../components/auth/RequirePatientProfileComplete';
 
 // Import Patient Pages
 import PatientDashboard from '../pages/patient/Dashboard';
@@ -12,15 +13,15 @@ export default function PatientRoutes() {
     <Routes>
       {/* Protects all nested routes ensuring ONLY Patients can access them */}
       <Route element={<RequireRole allowedRoles={['Patient']} />}>
-        
-        {/* The path "dashboard" combines with the parent to become "/patient/dashboard" */}
-        <Route path="dashboard" element={<PatientDashboard />} />
-        
-        {/* Future routes drop in perfectly here: */}
-        {/* <Route path="appointments" element={<PatientAppointments />} /> */}
-        {/* <Route path="records" element={<PatientRecords />} /> */}
-        <Route path="profile" element={<PatientProfile />} />
-        
+        <Route element={<RequirePatientProfileComplete />}>
+          {/* The path "dashboard" combines with the parent to become "/patient/dashboard" */}
+          <Route path="dashboard" element={<PatientDashboard />} />
+
+          {/* Future routes drop in perfectly here: */}
+          {/* <Route path="appointments" element={<PatientAppointments />} /> */}
+          {/* <Route path="records" element={<PatientRecords />} /> */}
+          <Route path="profile" element={<PatientProfile />} />
+        </Route>
       </Route>
     </Routes>
   );

@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notification-deployment
+  namespace: healthbridge
+spec:
+  replicas: 1 
+  selector:
+    matchLabels:
+      app: notification-service
+  template:
+    metadata:
+      labels:
+        app: notification-service
+    spec:
+      containers:
+      - name: notification-service
+        image: docker-notification-service:latest # Uses your locally built Docker image
+        imagePullPolicy: IfNotPresent     # Tells Kubernetes to use the local image instead of downloading
+        ports:
+        - containerPort: 3006
+        env:
+        - name: PORT
+          value: "3006"
+        - name: JWT_SECRET
+          value: "super_secret_healthbridge_key_change_this_later"
+        - name: MONGO_URI
+          value: "mongodb+srv://HealthBridge_DB:Team_Health_Bridge_12@cluster0.d8ewy6i.mongodb.net/?appName=Cluster0"
+        - name: MONGO_DB_NAME
+          value: "healthbridge_notification_db"
+        - name: AUTH_SERVICE_URL
+          value: "http://auth-service:3001"
+        - name: INTERNAL_SERVICE_SECRET
+          value: "healthbridge_internal_secret"
+        - name: ZOHO_CLIENT_ID
+          value: "1000.ZXLU93XC9BHN1UWOM6CTFISV984WDS"
+        - name: ZOHO_CLIENT_SECRET
+          value: "9efce252928f0e2b51c042092d61dab154ef2e727f"
+        - name: ZOHO_ACCESS_TOKEN
+          value: "1000.36be57ad5de5418a0ddb698e83aa8a32.8a2c5ca372866b6e5abcb36e61183e4e"
+        - name: ZOHO_REFRESH_TOKEN
+          value: "1000.e2048aa8088aee4721b648dec458b8fd.3aab836c45c58afd47c6a968c6a1bb72"
+        - name: ZOHO_ACCOUNT_ID
+          value: "6144660000000008002"
+        - name: ZOHO_EMAIL
+          value: "no-reply@sjaywebsolutions.lk"
+        - name: SMS_DRIVER
+          value: "textlk"
+        - name: TEXTLK_API_KEY
+          value: "3687|q6pRAAWioGlYPEXaEKDLScXSOIeuwCDjurTRGNAL5814c9d8"
+        - name: TEXTLK_SENDER_ID
+          value: "OneX Team"
+        - name: TEXTLK_URL
+          value: "https://app.text.lk/api/v3/sms/send"
+
+
