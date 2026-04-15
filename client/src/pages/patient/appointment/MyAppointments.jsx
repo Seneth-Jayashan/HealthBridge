@@ -1,15 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getMyAppointmentsRequest, cancelAppointmentRequest } from '../../../services/appointment.service';
-import { Calendar, Clock, Video, MapPin, Stethoscope, Plus } from 'lucide-react';
+import { Calendar, Clock, Stethoscope, Plus } from 'lucide-react';
 
 const statusStyles = {
-  pending:   'bg-yellow-100 text-yellow-700',
-  confirmed: 'bg-green-100 text-green-700',
-  completed: 'bg-blue-100 text-blue-700',
+  pending: 'bg-yellow-100 text-yellow-700',
+  accepted: 'bg-green-100 text-green-700',
   cancelled: 'bg-red-100 text-red-700',
-  rejected:  'bg-slate-100 text-slate-600',
+  rejected: 'bg-slate-100 text-slate-600',
 };
+
+const normalizeStatus = (s) => String(s || '').trim().toLowerCase();
 
 const MyAppointments = () => {
   const navigate = useNavigate();
@@ -110,22 +111,15 @@ const MyAppointments = () => {
                 <div className="flex flex-col gap-2">
                   <div className="flex items-center gap-2">
                     <Stethoscope size={16} className="text-blue-700" />
-                    <span className="font-bold text-slate-900">{appt.specialty}</span>
+                    <span className="font-bold text-slate-900">Appointment</span>
                   </div>
                   <div className="flex items-center gap-2 text-sm text-slate-600">
                     <Calendar size={14} className="text-slate-400" />
-                    {new Date(appt.appointmentDate).toDateString()}
+                    {appt.dayOfWeek || '—'}
                   </div>
                   <div className="flex items-center gap-2 text-sm text-slate-600">
                     <Clock size={14} className="text-slate-400" />
-                    {appt.timeSlot}
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-slate-600">
-                    {appt.appointmentType === 'online'
-                      ? <Video size={14} className="text-blue-500" />
-                      : <MapPin size={14} className="text-orange-500" />
-                    }
-                    {appt.appointmentType === 'online' ? 'Online Consultation' : 'Physical Visit'}
+                    {appt.startTime && appt.endTime ? `${appt.startTime} - ${appt.endTime}` : '—'}
                   </div>
                   {appt.reason && (
                     <p className="text-sm text-slate-500 mt-1">Reason: {appt.reason}</p>
@@ -133,10 +127,10 @@ const MyAppointments = () => {
                 </div>
 
                 <div className="flex flex-col items-end gap-3">
-                  <span className={`rounded-full px-3 py-1 text-xs font-bold capitalize ${statusStyles[appt.status] || 'bg-slate-100 text-slate-600'}`}>
-                    {appt.status}
+                  <span className={`rounded-full px-3 py-1 text-xs font-bold capitalize ${statusStyles[normalizeStatus(appt.status)] || 'bg-slate-100 text-slate-600'}`}>
+                    {normalizeStatus(appt.status)}
                   </span>
-                  {appt.status === 'pending' && (
+                  {normalizeStatus(appt.status) === 'pending' && (
                     <button
                       onClick={() => handleCancel(appt._id)}
                       disabled={cancellingId === appt._id}
@@ -150,7 +144,7 @@ const MyAppointments = () => {
 
               {appt.notes && (
                 <div className="mt-4 rounded-xl bg-slate-50 border border-slate-200 p-3">
-                  <p className="text-xs font-semibold text-slate-500 mb-1">Doctor Notes</p>
+                  <p className="text-xs font-semibold text-slate-500 mb-1">Notes</p>
                   <p className="text-sm text-slate-700">{appt.notes}</p>
                 </div>
               )}

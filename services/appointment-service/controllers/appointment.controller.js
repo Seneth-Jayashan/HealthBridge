@@ -1,418 +1,240 @@
-import mongoose from 'mongoose';
 import Appointment from '../models/Appointment.js';
-import Availability from '../models/Availability.js';
-import Doctor from '../models/DoctorService.js';
 import { ApiError, ApiResponse } from '@healthbridge/shared';
+import axios from 'axios';
 
-const VALID_STATUSES = ['pending', 'confirmed', 'completed', 'cancelled', 'rejected'];
+const normalizeBaseUrl = (url) => String(url || '').replace(/\/$/, '');
+const doctorBaseUrl = () => normalizeBaseUrl(process.env.DOCTOR_SERVICE_URL || 'http://localhost:3003');
+const internalKey = () => process.env.INTERNAL_SERVICE_SECRET;
 
-const getDayOfWeek = (date) =>
-  new Date(date).toLocaleDateString('en-US', { weekday: 'long' });
+const doctorClient = axios.create({ timeout: 8000 });
 
-const parseTimeSlot = (timeSlot = '') => {
-  const [startTime, endTime] = timeSlot.split('-').map((s) => s?.trim());
-  if (!startTime || !endTime) return null;
-  return { startTime, endTime };
+const getDoctorBaseUrlCandidates = () => {
+  const configured = normalizeBaseUrl(process.env.DOCTOR_SERVICE_URL);
+  const candidates = [configured, 'http://localhost:3003', 'http://doctor-service:3003']
+    .filter(Boolean)
+    .map((url) => normalizeBaseUrl(url));
+
+  return [...new Set(candidates)];
 };
 
-// @desc    Book appointment (Patient)
-// @route   POST /api/appointments/book
-// @access  Private (Patient)
-export const bookAppointment = async (req, res, next) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
+const requestDoctorService = async (path, config = {}) => {
+  if (!internalKey()) {
+    throw new ApiError(500, 'Appointment service is missing INTERNAL_SERVICE_SECRET configuration');
+  }
 
+  let lastErr;
+  for (const baseUrl of getDoctorBaseUrlCandidates()) {
+    const url = `${baseUrl}${path.startsWith('/') ? '' : '/'}${path}`;
+    try {
+      const res = await doctorClient.request({
+        url,
+        ...config,
+        headers: {
+          'x-internal-service-key': internalKey(),
+          ...(config.headers || {}),
+        },
+      });
+      return res.data;
+    } catch (err) {
+      lastErr = err;
+      // Auth/validation errors are definitive; do not retry other hosts.
+      if (err?.response?.status && err.response.status < 500) break;
+    }
+  }
+
+  const status = lastErr?.response?.status || 500;
+  const message = lastErr?.response?.data?.message || lastErr?.message || 'Doctor service request failed';
+  throw new ApiError(status, message);
+};
+
+const getDoctorAvailabilityInternal = async (doctorId) => {
+  return requestDoctorService(`/internal/availability/${doctorId}`, { method: 'GET' });
+};
+
+const reserveSlotInternal = async ({
+  doctorId,
+  dayOfWeek,
+  timeSlotId,
+  patientId,
+  patientName,
+  appointmentId,
+}) => {
+  return requestDoctorService(`/internal/availability/${doctorId}/reserve`, {
+    method: 'POST',
+    data: { dayOfWeek, timeSlotId, patientId, patientName, appointmentId },
+  });
+};
+
+const releaseSlotInternal = async ({ doctorId, dayOfWeek, timeSlotId, appointmentId }) => {
+  return requestDoctorService(`/internal/availability/${doctorId}/release`, {
+    method: 'POST',
+    data: { dayOfWeek, timeSlotId, appointmentId },
+  });
+};
+
+const assertRole = (req, role) => String(req.user?.role || '') === role;
+
+// Patient reads doctor's availability (sanitized) via appointment-service proxy
+// GET /doctors/:doctorId/availability
+export const getDoctorAvailabilityForBooking = async (req, res, next) => {
   try {
-    const patientId = req.user.id;
-    const patientName = req.user?.name || '';
+    const { doctorId } = req.params;
+    const payload = await getDoctorAvailabilityInternal(doctorId);
+    res.status(200).json(new ApiResponse(200, payload?.data ?? payload, 'Availability retrieved'));
+  } catch (err) {
+    next(err);
+  }
+};
 
-    const {
+// POST /appointments (Patient)
+export const createAppointment = async (req, res, next) => {
+  try {
+    if (!assertRole(req, 'Patient')) throw new ApiError(403, 'Only Patients can create appointments');
+
+    const { doctorId, dayOfWeek, timeSlotId, startTime, endTime, reason, notes, patientPhone } = req.body || {};
+
+    if (!doctorId || !dayOfWeek || !timeSlotId || !startTime || !endTime) {
+      throw new ApiError(400, 'doctorId, dayOfWeek, timeSlotId, startTime, endTime are required');
+    }
+
+    // Create appointment id first so we can atomically reserve in doctor-service
+    const appt = new Appointment({
       doctorId,
-      appointmentDate,
-      timeSlot,
-      reason = '',
-      notes = ''
-    } = req.body;
-
-    if (!doctorId || !appointmentDate || !timeSlot) {
-      throw new ApiError(400, 'doctorId, appointmentDate and timeSlot are required');
-    }
-
-    const slotParts = parseTimeSlot(timeSlot);
-    if (!slotParts) {
-      throw new ApiError(400, 'Invalid timeSlot format. Expected "HH:mm-HH:mm"');
-    }
-
-    const doctor = await Doctor.findById(doctorId).session(session);
-    if (!doctor || doctor.verificationStatus !== 'Approved') {
-      throw new ApiError(404, 'Doctor not found or not available for appointments');
-    }
-
-    const dateObj = new Date(appointmentDate);
-    if (Number.isNaN(dateObj.getTime())) {
-      throw new ApiError(400, 'Invalid appointmentDate');
-    }
-
-    const dayOfWeek = getDayOfWeek(dateObj);
-
-    // Lock slot atomically if free
-    const updatedAvailability = await Availability.findOneAndUpdate(
-      {
-        doctorId: doctor._id,
-        dayOfWeek,
-        timeSlots: {
-          $elemMatch: {
-            startTime: slotParts.startTime,
-            endTime: slotParts.endTime,
-            isBooked: false
-          }
-        }
-      },
-      {
-        $set: {
-          'timeSlots.$.isBooked': true,
-          'timeSlots.$.bookingDetails': {
-            patientId,
-            patientName,
-            bookedAt: new Date()
-          }
-        }
-      },
-      { new: true, session }
-    );
-
-    if (!updatedAvailability) {
-      throw new ApiError(409, 'Selected time slot is not available');
-    }
-
-    // Prevent duplicate appointments for same doctor/date/slot
-    const existing = await Appointment.findOne({
-      doctorId: doctor._id,
-      appointmentDate: dateObj,
-      timeSlot,
-      status: { $in: ['pending', 'confirmed'] }
-    }).session(session);
-
-    if (existing) {
-      throw new ApiError(409, 'This slot is already booked');
-    }
-
-    const [appointment] = await Appointment.create(
-      [
-        {
-          patientId,
-          doctorId: doctor._id,
-          specialty: doctor.specialization,
-          appointmentType: 'online', // forced online-only
-          appointmentDate: dateObj,
-          dayOfWeek,
-          timeSlot,
-          reason,
-          notes,
-          status: 'pending'
-        }
-      ],
-      { session }
-    );
-
-    // attach appointmentId into slot bookingDetails
-    await Availability.updateOne(
-      {
-        doctorId: doctor._id,
-        dayOfWeek,
-        'timeSlots.startTime': slotParts.startTime,
-        'timeSlots.endTime': slotParts.endTime
-      },
-      {
-        $set: {
-          'timeSlots.$.bookingDetails.appointmentId': appointment._id
-        }
-      },
-      { session }
-    );
-
-    await session.commitTransaction();
-
-    return res
-      .status(201)
-      .json(new ApiResponse(201, appointment, 'Appointment booked successfully'));
-  } catch (error) {
-    await session.abortTransaction();
-    next(error);
-  } finally {
-    session.endSession();
-  }
-};
-
-// @desc    Search doctors by specialty (Patient helper)
-// @route   GET /api/appointments/search?specialty=Cardiology
-// @access  Private
-export const searchBySpecialty = async (req, res, next) => {
-  try {
-    const { specialty, page = 1, limit = 10 } = req.query;
-
-    const query = { verificationStatus: 'Approved' };
-    if (specialty) query.specialization = { $regex: specialty, $options: 'i' };
-
-    const doctors = await Doctor.find(query)
-      .select('specialization consultationFee averageRating totalReviews')
-      .skip((Number(page) - 1) * Number(limit))
-      .limit(Number(limit))
-      .sort({ averageRating: -1, createdAt: -1 })
-      .lean();
-
-    const total = await Doctor.countDocuments(query);
-
-    return res.status(200).json(
-      new ApiResponse(
-        200,
-        {
-          doctors,
-          pagination: {
-            totalPages: Math.ceil(total / Number(limit)),
-            currentPage: Number(page),
-            totalRecords: total
-          }
-        },
-        'Doctors retrieved successfully'
-      )
-    );
-  } catch (error) {
-    next(error);
-  }
-};
-
-// @desc    Get my appointments (Patient)
-// @route   GET /api/appointments/my
-// @access  Private (Patient)
-export const getMyAppointments = async (req, res, next) => {
-  try {
-    const appointments = await Appointment.find({ patientId: req.user.id })
-      .sort({ appointmentDate: 1, createdAt: -1 });
-
-    return res
-      .status(200)
-      .json(new ApiResponse(200, appointments, 'My appointments retrieved successfully'));
-  } catch (error) {
-    next(error);
-  }
-};
-
-// @desc    Get appointment status by ID
-// @route   GET /api/appointments/:id/status
-// @access  Private (Owner patient / owner doctor)
-export const getAppointmentStatus = async (req, res, next) => {
-  try {
-    const { id } = req.params;
-
-    const appointment = await Appointment.findById(id);
-    if (!appointment) throw new ApiError(404, 'Appointment not found');
-
-    // Optional basic access guard (if your auth middleware has role)
-    // patient can access own appointment
-    // doctor can access appointments tied to their profile
-    const isPatientOwner = appointment.patientId.toString() === req.user.id.toString();
-
-    let isDoctorOwner = false;
-    const doctorProfile = await Doctor.findOne({ userId: req.user.id }).select('_id').lean();
-    if (doctorProfile) {
-      isDoctorOwner = appointment.doctorId.toString() === doctorProfile._id.toString();
-    }
-
-    if (!isPatientOwner && !isDoctorOwner) {
-      throw new ApiError(403, 'Unauthorized to view this appointment');
-    }
-
-    return res.status(200).json(
-      new ApiResponse(
-        200,
-        {
-          appointmentId: appointment._id,
-          status: appointment.status
-        },
-        'Appointment status retrieved successfully'
-      )
-    );
-  } catch (error) {
-    next(error);
-  }
-};
-
-// @desc    Get doctor appointments
-// @route   GET /api/appointments/doctor/my
-// @access  Private (Doctor)
-export const getDoctorAppointments = async (req, res, next) => {
-  try {
-    const doctor = await Doctor.findOne({ userId: req.user.id }).select('_id');
-    if (!doctor) throw new ApiError(404, 'Doctor profile not found');
-
-    const appointments = await Appointment.find({ doctorId: doctor._id }).sort({
-      appointmentDate: 1,
-      createdAt: -1
+      patientId: req.user.id,
+      patientName: req.user?.name,
+      patientPhone,
+      dayOfWeek,
+      timeSlotId,
+      startTime,
+      endTime,
+      reason,
+      notes,
+      status: 'Pending',
     });
 
-    return res.status(200).json(
-      new ApiResponse(200, appointments, 'Doctor appointments retrieved successfully')
-    );
-  } catch (error) {
-    next(error);
+    await appt.validate();
+
+    // Reserve slot in doctor-service (atomic, prevents double booking)
+    await reserveSlotInternal({
+      doctorId,
+      dayOfWeek,
+      timeSlotId,
+      patientId: req.user.id,
+      patientName: req.user?.name,
+      appointmentId: appt._id,
+    });
+
+    try {
+      await appt.save();
+    } catch (dbErr) {
+      // If we fail to save locally, release the slot to avoid dead lock
+      await releaseSlotInternal({ doctorId, dayOfWeek, timeSlotId, appointmentId: appt._id }).catch(() => {});
+      throw dbErr;
+    }
+
+    res.status(201).json(new ApiResponse(201, appt, 'Appointment created (Pending)'));
+  } catch (err) {
+    next(err);
   }
 };
 
-// @desc    Modify appointment details (Patient)
-// @route   PUT /api/appointments/:id
-// @access  Private (Patient)
-export const modifyAppointment = async (req, res, next) => {
+// GET /appointments/mine (Patient)
+export const getMyAppointments = async (req, res, next) => {
   try {
-    const { id } = req.params;
-    const { reason, notes } = req.body;
-
-    const appointment = await Appointment.findOne({ _id: id, patientId: req.user.id });
-    if (!appointment) throw new ApiError(404, 'Appointment not found');
-
-    if (appointment.status !== 'pending') {
-      throw new ApiError(400, 'Only pending appointments can be modified');
-    }
-
-    if (typeof reason !== 'undefined') appointment.reason = reason;
-    if (typeof notes !== 'undefined') appointment.notes = notes;
-
-    await appointment.save();
-
-    return res
-      .status(200)
-      .json(new ApiResponse(200, appointment, 'Appointment updated successfully'));
-  } catch (error) {
-    next(error);
+    if (!assertRole(req, 'Patient')) throw new ApiError(403, 'Only Patients can view this list');
+    const appts = await Appointment.find({ patientId: req.user.id }).sort({ createdAt: -1 });
+    res.status(200).json(new ApiResponse(200, appts, 'Appointments retrieved'));
+  } catch (err) {
+    next(err);
   }
 };
 
-// @desc    Cancel appointment (Patient)
-// @route   DELETE /api/appointments/:id
-// @access  Private (Patient)
-export const cancelAppointment = async (req, res, next) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
-
+// GET /appointments/doctor (Doctor)
+export const getDoctorAppointments = async (req, res, next) => {
   try {
-    const { id } = req.params;
-    const patientId = req.user.id;
+    if (!assertRole(req, 'Doctor')) throw new ApiError(403, 'Only Doctors can view this list');
 
-    const appointment = await Appointment.findOne({ _id: id, patientId }).session(session);
-    if (!appointment) throw new ApiError(404, 'Appointment not found');
+    // Your doctor-service stores doctor profile linked by userId.
+    // In this service we don’t have that mapping, so doctorId must be provided (from frontend / gateway).
+    const { doctorId } = req.query;
+    if (!doctorId) throw new ApiError(400, 'doctorId query param is required');
 
-    // patient can cancel only before doctor confirmation
-    if (appointment.status !== 'pending') {
-      throw new ApiError(400, 'You can only cancel before doctor confirmation');
-    }
-
-    appointment.status = 'cancelled';
-    await appointment.save({ session });
-
-    const slotParts = parseTimeSlot(appointment.timeSlot);
-    if (!slotParts) throw new ApiError(400, 'Invalid appointment slot format');
-
-    await Availability.updateOne(
-      {
-        doctorId: appointment.doctorId,
-        dayOfWeek: appointment.dayOfWeek,
-        'timeSlots.startTime': slotParts.startTime,
-        'timeSlots.endTime': slotParts.endTime
-      },
-      {
-        $set: {
-          'timeSlots.$.isBooked': false,
-          'timeSlots.$.bookingDetails': {}
-        }
-      },
-      { session }
-    );
-
-    await session.commitTransaction();
-
-    return res
-      .status(200)
-      .json(new ApiResponse(200, appointment, 'Appointment cancelled and slot reopened'));
-  } catch (error) {
-    await session.abortTransaction();
-    next(error);
-  } finally {
-    session.endSession();
+    const appts = await Appointment.find({ doctorId }).sort({ createdAt: -1 });
+    res.status(200).json(new ApiResponse(200, appts, 'Doctor appointments retrieved'));
+  } catch (err) {
+    next(err);
   }
 };
 
-// @desc    Update appointment status by doctor (confirm/reject/complete)
-// @route   PATCH /api/appointments/:id/status
-// @access  Private (Doctor)
-export const updateAppointmentStatus = async (req, res, next) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
-
+// POST /appointments/:id/cancel (Patient) - only before doctor decision
+export const cancelAppointmentByPatient = async (req, res, next) => {
   try {
+    if (!assertRole(req, 'Patient')) throw new ApiError(403, 'Only Patients can cancel appointments');
+
     const { id } = req.params;
-    const { status } = req.body;
+    const appt = await Appointment.findById(id);
+    if (!appt) throw new ApiError(404, 'Appointment not found');
+    if (String(appt.patientId) !== String(req.user.id)) throw new ApiError(403, 'Not allowed');
 
-    if (!VALID_STATUSES.includes(status)) {
-      throw new ApiError(400, `Invalid status. Allowed: ${VALID_STATUSES.join(', ')}`);
+    if (appt.status !== 'Pending') {
+      throw new ApiError(409, `Cannot cancel appointment in status: ${appt.status}`);
     }
 
-    const doctor = await Doctor.findOne({ userId: req.user.id }).session(session);
-    if (!doctor) throw new ApiError(404, 'Doctor profile not found');
+    appt.status = 'Cancelled';
+    appt.cancelledAt = new Date();
+    await appt.save();
 
-    const appointment = await Appointment.findOne({
-      _id: id,
-      doctorId: doctor._id
-    }).session(session);
+    // Release slot so others can book
+    await releaseSlotInternal({
+      doctorId: appt.doctorId,
+      dayOfWeek: appt.dayOfWeek,
+      timeSlotId: appt.timeSlotId,
+      appointmentId: appt._id,
+    }).catch(() => {});
 
-    if (!appointment) throw new ApiError(404, 'Appointment not found');
+    res.status(200).json(new ApiResponse(200, appt, 'Appointment cancelled'));
+  } catch (err) {
+    next(err);
+  }
+};
 
-    // Allowed transitions:
-    // pending -> confirmed/rejected
-    // confirmed -> completed
-    // (cancelled/rejected/completed are terminal for doctor updates)
-    const current = appointment.status;
-    const validTransition =
-      (current === 'pending' && ['confirmed', 'rejected'].includes(status)) ||
-      (current === 'confirmed' && status === 'completed');
+// POST /appointments/:id/decision (Doctor) body: { decision: 'accept'|'reject', note? }
+export const doctorDecision = async (req, res, next) => {
+  try {
+    if (!assertRole(req, 'Doctor')) throw new ApiError(403, 'Only Doctors can decide appointments');
 
-    if (!validTransition) {
-      throw new ApiError(400, `Invalid status transition: ${current} -> ${status}`);
+    const { id } = req.params;
+    const { decision, note, doctorId } = req.body || {};
+    if (!decision || !['accept', 'reject'].includes(String(decision).toLowerCase())) {
+      throw new ApiError(400, "decision must be 'accept' or 'reject'");
+    }
+    if (!doctorId) throw new ApiError(400, 'doctorId is required (doctor identity for this service)');
+
+    const appt = await Appointment.findById(id);
+    if (!appt) throw new ApiError(404, 'Appointment not found');
+    if (String(appt.doctorId) !== String(doctorId)) throw new ApiError(403, 'Not allowed');
+
+    if (appt.status !== 'Pending') {
+      throw new ApiError(409, `Cannot decide appointment in status: ${appt.status}`);
     }
 
-    appointment.status = status;
-    await appointment.save({ session });
+    const normalized = String(decision).toLowerCase();
+    appt.status = normalized === 'accept' ? 'Accepted' : 'Rejected';
+    appt.doctorDecisionNote = note;
+    appt.decidedAt = new Date();
+    await appt.save();
 
-    // If rejected, reopen slot
-    if (status === 'rejected') {
-      const slotParts = parseTimeSlot(appointment.timeSlot);
-      if (!slotParts) throw new ApiError(400, 'Invalid appointment slot format');
-
-      await Availability.updateOne(
-        {
-          doctorId: appointment.doctorId,
-          dayOfWeek: appointment.dayOfWeek,
-          'timeSlots.startTime': slotParts.startTime,
-          'timeSlots.endTime': slotParts.endTime
-        },
-        {
-          $set: {
-            'timeSlots.$.isBooked': false,
-            'timeSlots.$.bookingDetails': {}
-          }
-        },
-        { session }
-      );
+    if (appt.status === 'Rejected') {
+      await releaseSlotInternal({
+        doctorId: appt.doctorId,
+        dayOfWeek: appt.dayOfWeek,
+        timeSlotId: appt.timeSlotId,
+        appointmentId: appt._id,
+      }).catch(() => {});
     }
 
-    await session.commitTransaction();
-
-    return res
-      .status(200)
-      .json(new ApiResponse(200, appointment, `Appointment ${status} successfully`));
-  } catch (error) {
-    await session.abortTransaction();
-    next(error);
-  } finally {
-    session.endSession();
+    res.status(200).json(new ApiResponse(200, appt, `Appointment ${appt.status.toLowerCase()}`));
+  } catch (err) {
+    next(err);
   }
 };

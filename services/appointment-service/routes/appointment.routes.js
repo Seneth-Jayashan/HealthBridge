@@ -1,31 +1,30 @@
 import express from 'express';
+import { requireAuth, requireRole } from '@healthbridge/shared';
 import {
-  bookAppointment,
-  searchBySpecialty,
+  getDoctorAvailabilityForBooking,
+  createAppointment,
   getMyAppointments,
-  getAppointmentStatus,
+  cancelAppointmentByPatient,
   getDoctorAppointments,
-  modifyAppointment,
-  cancelAppointment,
-  updateAppointmentStatus
+  doctorDecision,
 } from '../controllers/appointment.controller.js';
-import { requireAuth, requireRole } from '@healthbridge/shared'; // ✅ Change this
 
 const router = express.Router();
 
-// Protect all routes with authentication
-router.use(requireAuth);
+router.get('/health', (req, res) => {
+  res.status(200).json({ status: 'Appointment routes healthy' });
+});
 
-// ─── Doctor routes (keep before /:id routes to avoid conflicts) ───────────────
-router.get('/doctor/my', requireRole('Doctor'), getDoctorAppointments);
-router.patch('/:id/status', requireRole('Doctor'), updateAppointmentStatus);
+// Patient browsing availability (proxy to doctor-service internal)
+router.get('/doctors/:doctorId/availability', requireAuth, getDoctorAvailabilityForBooking);
 
-// ─── Patient routes ────────────────────────────────────────────────────────────
-router.post('/book', bookAppointment);
-router.get('/search', searchBySpecialty);
-router.get('/my', getMyAppointments);
-router.get('/:id/status', getAppointmentStatus);
-router.put('/:id', modifyAppointment);
-router.delete('/:id', cancelAppointment);
+// Patient appointment actions
+router.post('/appointments', requireAuth, requireRole('Patient'), createAppointment);
+router.get('/appointments/mine', requireAuth, requireRole('Patient'), getMyAppointments);
+router.post('/appointments/:id/cancel', requireAuth, requireRole('Patient'), cancelAppointmentByPatient);
+
+// Doctor appointment actions
+router.get('/appointments/doctor', requireAuth, requireRole('Doctor'), getDoctorAppointments);
+router.post('/appointments/:id/decision', requireAuth, requireRole('Doctor'), doctorDecision);
 
 export default router;

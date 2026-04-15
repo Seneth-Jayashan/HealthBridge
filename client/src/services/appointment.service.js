@@ -1,68 +1,112 @@
 import httpClient from '../api/Axios';
 
-// Patient: Book appointment
+const unwrapPayload = (response) => response?.data?.data ?? response?.data;
+
+const toArray = (value) => (Array.isArray(value) ? value : []);
+
+const requestWithPathFallback = async (primaryRequest, fallbackRequest) => {
+  try {
+    return await primaryRequest();
+  } catch (err) {
+    if (err?.response?.status !== 404 || !fallbackRequest) throw err;
+    return fallbackRequest();
+  }
+};
+
+// Patient: Fetch a doctor's available week days + time slots (sanitized)
+export const getDoctorAvailabilityRequest = async (doctorId) => {
+  // This endpoint lives under appointment-service (proxied at /api/appointments)
+  const response = await httpClient.get(`/appointments/doctors/${doctorId}/availability`);
+  return toArray(unwrapPayload(response));
+};
+
+// Patient: Create appointment (Pending)
 // payload: {
-//   doctorId, appointmentDate, timeSlot, reason?, notes?
+//   doctorId,
+//   dayOfWeek,
+//   timeSlotId,
+//   startTime,
+//   endTime,
+//   patientPhone?,
+//   reason?,
+//   notes?
 // }
 export const bookAppointmentRequest = async (payload) => {
-  const response = await httpClient.post('/appointments/book', payload);
-  return response.data?.data || response.data;
+  const response = await requestWithPathFallback(
+    () => httpClient.post('/appointments/appointments', payload),
+    () => httpClient.post('/appointments', payload)
+  );
+  return unwrapPayload(response);
 };
 
 // Patient: Get my appointments
 export const getMyAppointmentsRequest = async () => {
-  const response = await httpClient.get('/appointments/my');
-  const payload = response.data?.data || response.data;
-  return Array.isArray(payload) ? payload : (payload?.appointments || []);
+  const response = await requestWithPathFallback(
+    () => httpClient.get('/appointments/appointments/mine'),
+    () => httpClient.get('/appointments/mine')
+  );
+  const payload = unwrapPayload(response);
+  return Array.isArray(payload) ? payload : toArray(payload?.appointments);
 };
 
-// Patient: Cancel appointment (only pending allowed)
+// Patient: Cancel appointment (only Pending allowed)
 export const cancelAppointmentRequest = async (id) => {
-  const response = await httpClient.delete(`/appointments/${id}`);
-  return response.data?.data || response.data;
+  const response = await requestWithPathFallback(
+    () => httpClient.post(`/appointments/appointments/${id}/cancel`),
+    () => httpClient.post(`/appointments/${id}/cancel`)
+  );
+  return unwrapPayload(response);
 };
 
-// Patient: Modify appointment (only pending allowed)
-// payload: { reason?, notes? }
-export const modifyAppointmentRequest = async (id, payload) => {
-  const response = await httpClient.put(`/appointments/${id}`, payload);
-  return response.data?.data || response.data;
+// Doctor: Get appointments for doctorId
+export const getDoctorAppointmentsRequest = async (doctorId) => {
+  const response = await requestWithPathFallback(
+    () => httpClient.get('/appointments/appointments/doctor', { params: { doctorId } }),
+    () => httpClient.get('/appointments/doctor', { params: { doctorId } })
+  );
+  const payload = unwrapPayload(response);
+  return Array.isArray(payload) ? payload : toArray(payload?.appointments);
 };
 
-// Patient/Doctor: Get status of a specific appointment
-export const getAppointmentStatusRequest = async (id) => {
-  const response = await httpClient.get(`/appointments/${id}/status`);
-  return response.data?.data || response.data;
+// Doctor: Accept/Reject a pending appointment
+// decision: 'accept' | 'reject'
+export const doctorDecisionRequest = async (id, { decision, doctorId, note } = {}) => {
+  const response = await requestWithPathFallback(
+    () => httpClient.post(`/appointments/appointments/${id}/decision`, { decision, doctorId, note }),
+    () => httpClient.post(`/appointments/${id}/decision`, { decision, doctorId, note })
+  );
+  return unwrapPayload(response);
 };
 
-// Doctor: Get my appointments
-export const getDoctorAppointmentsRequest = async () => {
-  const response = await httpClient.get('/appointments/doctor/my');
-  const payload = response.data?.data || response.data;
-  return Array.isArray(payload) ? payload : (payload?.appointments || []);
-};
+// Back-compat: old function name used "status"
+// Maps to accept/reject only (online-only flow).
+export const updateAppointmentStatusRequest = async (id, status, extra = {}) => {
+  const normalized = String(status || '').toLowerCase();
+  const decision = normalized === 'accepted' || normalized === 'confirm' || normalized === 'confirmed'
+    ? 'accept'
+    : normalized === 'rejected' || normalized === 'reject'
+      ? 'reject'
+      : null;
 
-// Doctor: Update appointment status
-// allowed transitions by backend:
-// pending -> confirmed/rejected
-// confirmed -> completed
-export const updateAppointmentStatusRequest = async (id, status) => {
-  const response = await httpClient.patch(`/appointments/${id}/status`, { status });
-  return response.data?.data || response.data;
-};
+  if (!decision) {
+    throw new Error("Only 'Accepted' or 'Rejected' are supported by the new backend.");
+  }
 
-// Patient: Search doctors by specialty through appointment search endpoint (optional use)
-export const searchDoctorsBySpecialtyRequest = async (specialty = '') => {
-  const params = specialty ? { specialty } : {};
-  const response = await httpClient.get('/appointments/search', { params });
-  const payload = response.data?.data || response.data;
-  return Array.isArray(payload) ? payload : (payload?.doctors || []);
+  return doctorDecisionRequest(id, { decision, ...extra });
 };
 
 // Get all verified doctors from doctor-service
 export const getAllDoctorsRequest = async (specialization = '') => {
   const params = specialization ? { specialization } : {};
-  const response = await httpClient.get('/doctors', { params });
-  const payload = response.data?.data || response.data;
-  return Array.isArray(payload) ? payload : (payload?.doctors || []);
+  try {
+    const response = await httpClient.get('/doctors', { params });
+    const payload = unwrapPayload(response);
+    return Array.isArray(payload) ? payload : toArray(payload?.doctors);
+  } catch (err) {
+    // Compatibility fallback for environments still exposing singular /doctor.
+    if (err?.response?.status !== 404) throw err;
+    const response = await httpClient.get('/doctor', { params });
+    const payload = unwrapPayload(response);
+    return Array.isArray(payload) ? payload : toArray(payload?.doctors);
+  }
 };

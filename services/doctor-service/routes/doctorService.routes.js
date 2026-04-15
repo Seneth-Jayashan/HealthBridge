@@ -5,7 +5,10 @@ import {
     updateDoctorProfile,
     uploadVerificationDocument,
     updateDoctorAvailability,
-    getDoctorAvailability
+    getDoctorAvailability,
+    getDoctorAvailabilityInternal,
+    reserveDoctorSlotInternal,
+    releaseDoctorSlotInternal
 } from '../controllers/doctorService.controller.js'; // Adjust path if your filename differs
 import { requireAuth, requireRole, createUploadMiddleware } from '@healthbridge/shared';
 
@@ -25,6 +28,13 @@ const uploadVerification = createUploadMiddleware(
 // Patients need to access this route to search for doctors to book
 router.route('/')
     .get(requireAuth, getVerifiedDoctors);
+
+// ==========================================
+// INTERNAL ROUTES (Service-to-service only)
+// ==========================================
+router.get('/internal/availability/:doctorId', getDoctorAvailabilityInternal);
+router.post('/internal/availability/:doctorId/reserve', reserveDoctorSlotInternal);
+router.post('/internal/availability/:doctorId/release', releaseDoctorSlotInternal);
 
 
 // ==========================================

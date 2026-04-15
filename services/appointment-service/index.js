@@ -1,9 +1,8 @@
+import 'dotenv/config';
 import express from 'express';
-import dotenv from 'dotenv';
 import connectDB from './config/db.js';
 import appointmentRoutes from './routes/appointment.routes.js';
-
-dotenv.config();
+import { errorHandler } from '@healthbridge/shared';
 
 const app = express();
 const PORT = process.env.PORT || 3004;
@@ -26,6 +25,8 @@ app.get('/health', (req, res) => {
 });
 
 // ─── Start server ─────────────────────────────────────
+app.use(errorHandler);
+
 app.listen(PORT, () => {
     console.log(`📅 Appointment Service running on port ${PORT}`);
 });

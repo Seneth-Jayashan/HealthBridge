@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { Search, Calendar, Clock, Stethoscope, User, Video } from 'lucide-react';
 import {
   getAllDoctorsRequest,
-  bookAppointmentRequest
+  bookAppointmentRequest,
+  getDoctorAvailabilityRequest,
 } from '../../../services/appointment.service';
 import { getDoctorByIdForPatient } from '../../../services/patient.service';
 
@@ -34,6 +35,24 @@ const formatForUiSlot = (startTime, endTime) => {
   return `${to12(startTime)} - ${to12(endTime)}`;
 };
 
+const getDoctorDisplayName = (doctor) => {
+  return (
+    doctor?.userId?.name ||
+    doctor?.user?.name ||
+    doctor?.name ||
+    doctor?.fullName ||
+    doctor?.doctorID ||
+    'Unknown'
+  );
+};
+
+const normalizeAvailability = (value) => {
+  if (Array.isArray(value)) return value;
+  if (Array.isArray(value?.availability)) return value.availability;
+  if (Array.isArray(value?.data?.availability)) return value.data.availability;
+  return [];
+};
+
 const BookAppointment = () => {
   const navigate = useNavigate();
 
@@ -45,7 +64,8 @@ const BookAppointment = () => {
   const [loadingAvailability, setLoadingAvailability] = useState(false);
 
   const [selectedDate, setSelectedDate] = useState(''); // YYYY-MM-DD
-  const [timeSlot, setTimeSlot] = useState('');
+  const [timeSlotId, setTimeSlotId] = useState('');
+  const [patientPhone, setPatientPhone] = useState('');
   const [reason, setReason] = useState('');
   const [notes, setNotes] = useState('');
 
@@ -66,7 +86,7 @@ const BookAppointment = () => {
     setSelectedDoctor(null);
     setDoctorAvailability([]);
     setSelectedDate('');
-    setTimeSlot('');
+    setTimeSlotId('');
     try {
       const list = await getAllDoctorsRequest(specialization);
       if (list.length > 0) {
@@ -90,15 +110,25 @@ const BookAppointment = () => {
   const handleSelectDoctor = async (doc) => {
     setSelectedDoctor(doc);
     setSelectedDate('');
-    setTimeSlot('');
+    setTimeSlotId('');
     setDoctorAvailability([]);
     setBookingError('');
 
     try {
       setLoadingAvailability(true);
       const doctorId = doc?._id;
-      const doctorDetails = await getDoctorByIdForPatient(doctorId); // must include availability[]
-      setDoctorAvailability(doctorDetails?.availability || []);
+      // Primary source: doctor patient-profile endpoint already returns filtered availability.
+      const doctorProfile = await getDoctorByIdForPatient(doctorId);
+      const profileAvailability = normalizeAvailability(doctorProfile);
+
+      if (profileAvailability.length > 0) {
+        setDoctorAvailability(profileAvailability);
+        return;
+      }
+
+      // Fallback source: appointment-service proxy endpoint.
+      const availability = await getDoctorAvailabilityRequest(doctorId);
+      setDoctorAvailability(normalizeAvailability(availability));
     } catch (err) {
       setDoctorAvailability([]);
       setBookingError(err?.response?.data?.message || 'Failed to load doctor availability');
@@ -151,15 +181,21 @@ const BookAppointment = () => {
     return schedule.timeSlots
       .filter((slot) => slot.isBooked === false || typeof slot.isBooked === 'undefined')
       .map((slot) => ({
+        _id: slot._id,
         startTime: slot.startTime,
         endTime: slot.endTime,
         display: formatForUiSlot(slot.startTime, slot.endTime),
-        apiFormat: `${slot.startTime}-${slot.endTime}`
+        apiFormat: `${slot.startTime}-${slot.endTime}`,
       }));
   }, [selectedDayOfWeek, doctorAvailability]);
 
+  const selectedSlot = useMemo(
+    () => availableSlotsForSelectedDate.find((s) => String(s._id) === String(timeSlotId)) || null,
+    [availableSlotsForSelectedDate, timeSlotId]
+  );
+
   const handleBook = async () => {
-    if (!selectedDoctor || !selectedDate || !timeSlot) {
+    if (!selectedDoctor || !selectedDate || !selectedSlot) {
       setBookingError('Please select a doctor, date, and available time slot.');
       return;
     }
@@ -170,11 +206,11 @@ const BookAppointment = () => {
     try {
       await bookAppointmentRequest({
         doctorId: selectedDoctor._id,
-        specialty: selectedDoctor.specialization || specialty, // ✅ Include specialty
-        appointmentDate: selectedDate, // ✅ real selected date (YYYY-MM-DD)
-        dayOfWeek: selectedDayOfWeek, // ✅ Include day of week
-        appointmentType: 'online', // ✅ Explicitly set to online
-        timeSlot, // ✅ HH:mm-HH:mm format
+        dayOfWeek: selectedDayOfWeek,
+        timeSlotId: selectedSlot._id,
+        startTime: selectedSlot.startTime,
+        endTime: selectedSlot.endTime,
+        patientPhone,
         reason,
         notes
       });
@@ -182,7 +218,7 @@ const BookAppointment = () => {
       setSuccess(true);
       setTimeout(() => navigate('/patient/appointment/my'), 1600);
     } catch (err) {
-      setBookingError(err?.response?.data?.message || 'Booking failed. Please try again.');
+      setBookingError(err?.response?.data?.message || err?.message || 'Booking failed. Please try again.');
     } finally {
       setBooking(false);
     }
@@ -271,13 +307,13 @@ const BookAppointment = () => {
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <p className="font-bold text-slate-900">
-                        Dr. {doc.userId?.name || doc.name || 'Unknown'}
+                        Dr. {getDoctorDisplayName(doc)}
                       </p>
                       <p className="text-sm font-medium text-blue-600">
                         {doc.specialization || 'General Medicine'}
                       </p>
                     </div>
-                    <p className="font-bold text-blue-700">LKR {doc.consultationFee}</p>
+                    <p className="font-bold text-blue-700">LKR {doc.consultationFee ?? 0}</p>
                   </div>
                 </div>
               );
@@ -296,12 +332,12 @@ const BookAppointment = () => {
           <div className="mb-5 rounded-xl bg-blue-50 border border-blue-100 p-4 flex items-center justify-between">
             <div>
               <p className="text-sm font-semibold text-blue-800">
-                Dr. {selectedDoctor.userId?.name || selectedDoctor.name || 'Unknown'}
+                Dr. {getDoctorDisplayName(selectedDoctor)}
               </p>
               <p className="text-xs text-blue-600 mt-0.5">{selectedDoctor.specialization}</p>
             </div>
             <div className="text-right">
-              <p className="text-sm font-bold text-blue-700">LKR {selectedDoctor.consultationFee}</p>
+              <p className="text-sm font-bold text-blue-700">LKR {selectedDoctor.consultationFee ?? 0}</p>
               <p className="text-xs text-blue-600 flex items-center gap-1 justify-end mt-1">
                 <Video size={12} /> Online Only
               </p>
@@ -330,7 +366,7 @@ const BookAppointment = () => {
                       key={dayData.date}
                       onClick={() => {
                         setSelectedDate(dayData.date);
-                        setTimeSlot('');
+                        setTimeSlotId('');
                       }}
                       disabled={!hasSlots}
                       className={`rounded-lg py-3 px-2 text-center transition-all ${
@@ -375,13 +411,13 @@ const BookAppointment = () => {
                   <p className="text-sm text-slate-500">Loading available slots...</p>
                 ) : (
                   <select
-                    value={timeSlot}
-                    onChange={(e) => setTimeSlot(e.target.value)}
+                    value={timeSlotId}
+                    onChange={(e) => setTimeSlotId(e.target.value)}
                     className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="">— Select an available time slot —</option>
                     {availableSlotsForSelectedDate.map((slot) => (
-                      <option key={slot.apiFormat} value={slot.apiFormat}>
+                      <option key={slot._id} value={slot._id}>
                         {slot.display}
                       </option>
                     ))}
@@ -397,6 +433,18 @@ const BookAppointment = () => {
             ) : (
               <p className="text-sm text-slate-500">Select a date to see available time slots.</p>
             )}
+          </div>
+
+          <div className="mb-4">
+            <label className="block text-sm font-semibold text-slate-700 mb-2">
+              Phone Number <span className="font-normal text-slate-400">(optional)</span>
+            </label>
+            <input
+              value={patientPhone}
+              onChange={(e) => setPatientPhone(e.target.value)}
+              placeholder="e.g. 07X XXX XXXX"
+              className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
           </div>
 
           <div className="mb-4">

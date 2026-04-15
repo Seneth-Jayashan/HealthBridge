@@ -2,50 +2,41 @@ import mongoose from 'mongoose';
 
 const appointmentSchema = new mongoose.Schema(
   {
-    patientId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
-      required: true
-    },
-    doctorId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Doctor',
-      required: true
-    },
-    specialty: {
-      type: String,
-      required: true
-    },
-    appointmentType: {
-      type: String,
-      enum: ['online'],
-      default: 'online'
-    },
-    appointmentDate: {
-      type: Date,
-      required: true
-    },
+    doctorId: { type: mongoose.Schema.Types.ObjectId, required: true },
+    patientId: { type: mongoose.Schema.Types.ObjectId, required: true },
+
     dayOfWeek: {
       type: String,
       enum: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
-      required: true
+      required: true,
     },
-    timeSlot: {
-      type: String, // "09:00-09:30"
-      required: true
-    },
+    timeSlotId: { type: mongoose.Schema.Types.ObjectId, required: true }, // Availability.timeSlots._id
+    startTime: { type: String, required: true },
+    endTime: { type: String, required: true },
+
     status: {
       type: String,
-      enum: ['pending', 'confirmed', 'completed', 'cancelled', 'rejected'],
-      default: 'pending'
+      enum: ['Pending', 'Accepted', 'Rejected', 'Cancelled'],
+      default: 'Pending',
+      index: true,
     },
-    reason: { type: String, default: '' },
-    notes: { type: String, default: '' }
+
+    // Patient-provided info (keep flexible)
+    patientName: { type: String },
+    patientPhone: { type: String },
+    reason: { type: String },
+    notes: { type: String },
+
+    // Doctor decision metadata
+    doctorDecisionNote: { type: String },
+    decidedAt: { type: Date },
+    cancelledAt: { type: Date },
   },
   { timestamps: true }
 );
 
-appointmentSchema.index({ doctorId: 1, appointmentDate: 1, timeSlot: 1 }, { unique: true });
+appointmentSchema.index({ doctorId: 1, dayOfWeek: 1, timeSlotId: 1 });
+appointmentSchema.index({ patientId: 1, createdAt: -1 });
+appointmentSchema.index({ doctorId: 1, createdAt: -1 });
 
-const Appointment = mongoose.model('Appointment', appointmentSchema);
-export default Appointment;
+export default mongoose.model('Appointment', appointmentSchema);
