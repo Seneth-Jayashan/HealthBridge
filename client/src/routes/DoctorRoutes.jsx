@@ -7,6 +7,7 @@ import RequireDoctorApproved from '../components/doctor/RequireDoctorApproved';
 import DoctorDashboard from '../pages/doctor/Dashboard';
 import DoctorRequest from '../pages/doctor/Request';
 import AppointmentList from '../pages/doctor/appointment/AppointmentList';
+import DoctorTelehealth from "../pages/doctor/Telehealth";
 
 export default function DoctorRoutes() {
   return (
@@ -20,8 +21,10 @@ export default function DoctorRoutes() {
         <Route element={<RequireDoctorApproved />}>
           <Route path="dashboard" element={<DoctorDashboard />} />
           <Route path="appointment" element={<AppointmentList />} />
+          <Route path="telehealth" element={<DoctorTelehealth />} />
         </Route>
         
+      {/* Protects all nested routes ensuring ONLY Doctors can access them */}
       </Route>
     </Routes>
   );

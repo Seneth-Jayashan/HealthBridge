@@ -1,13 +1,13 @@
 import httpClient from '../api/Axios';
 
-// Base URL path for the doctor microservice (adjust if your gateway uses something else like '/api/doctors')
-const DOCTOR_API = '/doctors';
+// Base URL path for the doctor microservice (adjust if your gateway uses something else like '/api/doctor')
+const DOCTOR_API = '/doctor';
 
 /**
  * Get Doctor Dashboard (Existing)
  */
 export const getDoctorDashboard = async () => {
-  const response = await httpClient.get('/doctor/dashboard');
+  const response = await httpClient.get(`${DOCTOR_API}/profile`);
   return response.data?.data || response.data;
 };
 

@@ -6,6 +6,7 @@ import RequirePatientProfileComplete from '../components/patients/RequirePatient
 // Import Patient Pages
 import PatientDashboard from '../pages/patient/Dashboard';
 import MedicalReports from '../pages/patient/MedicalReports';
+import PatientTelehealth from '../pages/patient/Telehealth';
 // import PatientAppointments from '../pages/patient/Appointments'; // Ready for when you build it!
 import PatientProfile from '../pages/patient/Profile';
 
@@ -21,6 +22,7 @@ export default function PatientRoutes() {
           {/* The path "dashboard" combines with the parent to become "/patient/dashboard" */}
           <Route path="dashboard" element={<PatientDashboard />} />
           <Route path="reports" element={<MedicalReports />} />
+          <Route path="telehealth" element={<PatientTelehealth />} />
 
           <Route path="appointment/book" element={<BookAppointment />} />
           <Route path="appointment/my" element={<MyAppointments />} />

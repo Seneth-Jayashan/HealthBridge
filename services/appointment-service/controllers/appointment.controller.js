@@ -238,3 +238,105 @@ export const doctorDecision = async (req, res, next) => {
     next(err);
   }
 };
+
+// ─── Get online appointments for patient (Telemedicine) ──
+export const getPatientOnlineAppointments = async (req, res) => {
+    try {
+        const patientId = req.user.id;
+
+        const appointments = await Appointment.find({ 
+            patientId,
+            appointmentType: 'online'
+        }).sort({ appointmentDate: -1 });
+
+        res.status(200).json({ 
+            count: appointments.length,
+            appointments 
+        });
+
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// ─── Get online appointments for doctor (Telemedicine) ──
+export const getDoctorOnlineAppointments = async (req, res) => {
+    try {
+        const doctorId = req.user.id;
+
+        const appointments = await Appointment.find({ 
+            doctorId,
+            appointmentType: 'online'
+        }).sort({ appointmentDate: -1 });
+
+        res.status(200).json({ 
+            count: appointments.length,
+            appointments 
+        });
+
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// ─── [INTERNAL API] Get patient online appointments by userId ──
+export const getPatientOnlineAppointmentsInternal = async (req, res) => {
+    try {
+        const userId = req.params.userId;
+
+        if (!userId) {
+            return res.status(400).json({ message: 'userId is required' });
+        }
+
+        const appointments = await Appointment.find({ 
+            patientId: userId,
+            appointmentType: 'online'
+        }).sort({ appointmentDate: -1 });
+
+        res.status(200).json({ 
+            data: appointments
+        });
+
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// ─── [INTERNAL API] Get doctor online appointments by userId ──
+export const getDoctorOnlineAppointmentsInternal = async (req, res) => {
+    try {
+        const userId = req.params.userId;
+
+        if (!userId) {
+            return res.status(400).json({ message: 'userId is required' });
+        }
+
+        const appointments = await Appointment.find({ 
+            doctorId: userId,
+            appointmentType: 'online'
+        }).sort({ appointmentDate: -1 });
+
+        res.status(200).json({ 
+            data: appointments
+        });
+
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// ─── [INTERNAL API] Get all online appointments ──
+export const getAllOnlineAppointmentsInternal = async (req, res) => {
+    try {
+        const appointments = await Appointment.find({ 
+            appointmentType: 'online'
+        }).sort({ appointmentDate: -1 });
+
+        res.status(200).json({ 
+            data: appointments
+        });
+
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};

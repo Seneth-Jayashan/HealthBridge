@@ -30,3 +30,4 @@ spec:
           value: "healthbridge_auth_db"
         - name: INTERNAL_SERVICE_SECRET
           value: "healthbridge_internal_secret"
+        resources: {}

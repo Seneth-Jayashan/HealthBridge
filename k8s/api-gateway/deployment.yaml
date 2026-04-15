@@ -36,3 +36,9 @@ spec:
         - name: PAYMENT_SERVICE_URL
           value: "http://payment-service:3005"
           
+        - name: NOTIFICATION_SERVICE_URL
+          value: "http://notification-service:3006"
+        - name: AI_SERVICE_URL
+          value: "http://ai-service:3007"
+        - name: TELEMEDICINE_SERVICE_URL
+          value: "http://telemedicine-service:3008"
