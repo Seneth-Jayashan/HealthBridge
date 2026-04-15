@@ -246,3 +246,27 @@ export const getDoctorAvailability = async (req, res, next) => {
         next(error);
     }
 };
+
+// Check doctor consultationFee is equal to order amount
+export const checkConsultationFee = async (req, res, next) => {
+    try {
+        const { doctorId} = req.query;
+
+        if (!doctorId === undefined) {
+            throw new ApiError(400, "doctorId and amount are required");
+        }
+
+        const doctor = await Doctor.findById(doctorId);
+        if (!doctor) {
+            throw new ApiError(404, "Doctor not found");
+        }
+        
+        res.status(200).json(
+            new ApiResponse(200, {
+                consultationFee: doctor.consultationFee,
+            }, "Consultation fee checked")
+        );
+    } catch (error) {
+        next(error);
+    }
+};

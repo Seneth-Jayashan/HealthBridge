@@ -5,24 +5,28 @@ import {
     updateDoctorProfile,
     uploadVerificationDocument,
     updateDoctorAvailability,
-    getDoctorAvailability
-} from '../controllers/doctorService.controller.js'; // Adjust path if your filename differs
+    getDoctorAvailability,
+    checkConsultationFee,
+} from '../controllers/doctorService.controller.js';
 import { requireAuth, requireRole, createUploadMiddleware } from '@healthbridge/shared';
 
 const router = express.Router();
 
-// Configure File Upload Middleware for Verification Documents (e.g., Medical Licenses)
 const uploadVerification = createUploadMiddleware(
     'doctor_verifications', 
     ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'], 
-    5 // 5MB limit is generally sufficient for ID/License uploads
+    5 
 );
 
 // ==========================================
-// PUBLIC ROUTES (Accessible by any authenticated user)
+// INTERNAL / SERVICE-TO-SERVICE ROUTES
 // ==========================================
+router.get('/internal/payment/checkFee', checkConsultationFee);
 
-// Patients need to access this route to search for doctors to book
+
+// ==========================================
+// PUBLIC/PATIENT ROUTES (Authenticated users)
+// ==========================================
 router.route('/')
     .get(requireAuth, getVerifiedDoctors);
 
@@ -30,7 +34,6 @@ router.route('/')
 // ==========================================
 // PRIVATE ROUTES (Accessible ONLY by Doctors)
 // ==========================================
-
 // Apply Doctor role protection to all subsequent routes in this file
 router.use(requireAuth, requireRole('Doctor'));
 
@@ -45,7 +48,6 @@ router.route('/availability')
     .patch(updateDoctorAvailability);
 
 // --- Verification Document Route ---
-// Note: The frontend must send the file using the form-data key: 'documentFile'
 router.route('/verification-document')
     .post(uploadVerification.single('documentFile'), uploadVerificationDocument);
 

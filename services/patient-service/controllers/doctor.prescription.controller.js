@@ -1,4 +1,4 @@
-import Prescriptions from "../models/Prescriptions";
+import Prescriptions from "../models/Prescriptions.js"; // Ensure you include .js for ES Modules
 import { ApiError, ApiResponse } from "@healthbridge/shared";
 
 // @desc    Get all prescriptions issued by the logged-in doctor for a specific patient
