@@ -49,12 +49,7 @@ export const getMyAppointmentsRequest = async () => {
   return Array.isArray(payload) ? payload : toArray(payload?.appointments);
 };
 
-export const getMyOnlineAppointmentsRequest = async () => {
-  const response = await httpClient.get('/appointments/my/online');
-  const payload = response.data?.data || response.data;
-  return Array.isArray(payload) ? payload : (payload?.appointments || []);
-};
-
+// Patient: Cancel appointment (only Pending allowed)
 export const cancelAppointmentRequest = async (id) => {
   const response = await requestWithPathFallback(
     () => httpClient.post(`/appointments/appointments/${id}/cancel`),
@@ -77,6 +72,7 @@ export const getDoctorAppointmentsRequest = async (doctorId) => {
 // decision: 'accept' | 'reject'
 export const doctorDecisionRequest = async (id, { decision, doctorId, note } = {}) => {
   const response = await requestWithPathFallback(
+    () => httpClient.post(`/appointments/appointments/${id}/decision`, { decision, doctorId, note }),
     () => httpClient.post(`/appointments/${id}/decision`, { decision, doctorId, note })
   );
   return unwrapPayload(response);

@@ -1,7 +1,7 @@
 import httpClient from '../api/Axios';
 
 // Base URL path for the doctor microservice (adjust if your gateway uses something else like '/api/doctor')
-const DOCTOR_API = '/doctor';
+const DOCTOR_API = '/doctors';
 
 /**
  * Get Doctor Dashboard (Existing)

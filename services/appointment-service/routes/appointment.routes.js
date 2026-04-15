@@ -7,11 +7,10 @@ import {
   cancelAppointmentByPatient,
   getDoctorAppointments,
   doctorDecision,
-    getPatientOnlineAppointments,
-    getDoctorOnlineAppointments,
-    getPatientOnlineAppointmentsInternal,
-    getDoctorOnlineAppointmentsInternal,
-    getAllOnlineAppointmentsInternal
+  getPatientOnlineAppointmentsInternal,
+  getDoctorOnlineAppointmentsInternal,
+  getAllOnlineAppointmentsInternal,
+  updatePaymentStatusInternal
 } from '../controllers/appointment.controller.js';
 
 const router = express.Router();
@@ -32,18 +31,14 @@ router.post('/appointments/:id/cancel', requireAuth, requireRole('Patient'), can
 router.get('/appointments/doctor', requireAuth, requireRole('Doctor'), getDoctorAppointments);
 router.post('/appointments/:id/decision', requireAuth, requireRole('Doctor'), doctorDecision);
 
-export default router;
-// ─── Patient routes ────────────────────────────────────
-router.get('/my/online', verifyToken, getPatientOnlineAppointments);
-
-// ─── Doctor routes ─────────────────────────────────────
-router.get('/doctor/my/online', verifyToken, getDoctorOnlineAppointments);
-router.patch('/:id/status', verifyToken, updateAppointmentStatus);
 
 // ─── [INTERNAL API] Routes for service-to-service communication ──
 // These endpoints are called by the telemedicine service with service-to-service authentication
 router.get('/internal/patient/online/:userId', getPatientOnlineAppointmentsInternal);
 router.get('/internal/doctor/online/:userId', getDoctorOnlineAppointmentsInternal);
 router.get('/internal/appointments/online', getAllOnlineAppointmentsInternal);
+
+// payment status update endpoint 
+router.post('/internal/confirm/:appointmentId', updatePaymentStatusInternal);
 
 export default router;

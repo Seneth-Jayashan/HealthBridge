@@ -31,6 +31,13 @@ const appointmentSchema = new mongoose.Schema(
     doctorDecisionNote: { type: String },
     decidedAt: { type: Date },
     cancelledAt: { type: Date },
+
+    paymentStatus: {
+      type: String,
+      enum: ['Pending', 'Completed', 'Failed'],
+      default: 'Pending',
+    },
+    paymentId: { type: mongoose.Schema.Types.ObjectId }, 
   },
   { timestamps: true }
 );
