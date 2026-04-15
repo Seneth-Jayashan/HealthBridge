@@ -4,7 +4,8 @@ import {
     getDoctorProfile,
     updateDoctorProfile,
     uploadVerificationDocument,
-    updateDoctorAvailability
+    updateDoctorAvailability,
+    getDoctorAvailability
 } from '../controllers/doctorService.controller.js'; // Adjust path if your filename differs
 import { requireAuth, requireRole, createUploadMiddleware } from '@healthbridge/shared';
 
@@ -40,6 +41,7 @@ router.route('/profile')
 
 // --- Availability Route ---
 router.route('/availability')
+    .get(getDoctorAvailability)
     .patch(updateDoctorAvailability);
 
 // --- Verification Document Route ---

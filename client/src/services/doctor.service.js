@@ -46,6 +46,15 @@ export const updateAvailability = async (availability) => {
   return response.data?.data || response.data;
 };
 
+
+/**
+ * Get the doctor's availability schedule
+ */
+export const getDoctorAvailability = async () => {
+  const response = await httpClient.get(`${DOCTOR_API}/availability`);
+  return response.data?.data || response.data;
+};
+
 /**
  * Upload a verification document (e.g., Medical License)
  * @param {File} file - The actual file object from an <input type="file" />

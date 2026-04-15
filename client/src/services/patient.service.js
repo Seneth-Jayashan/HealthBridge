@@ -48,6 +48,11 @@ export const deleteMedicalReport = async (reportId) => {
 // --------  DOCTOR RELATED ACTIONS --------
 // -----------------------------------------
 
+// --- Get Doctor Profile for Patients ---
+export const getDoctorByIdForPatient = async (doctorId) => {
+  const response = await httpClient.get(`/doctors/patients/${doctorId}`);
+  return response.data?.data || response.data;
+};
 
 // --- Doctor Reviews ---
 export const submitDoctorReview = async (doctorId, rating, comment) => {
