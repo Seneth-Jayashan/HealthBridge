@@ -1,29 +1,40 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getMyAppointmentsRequest, cancelAppointmentRequest } from '../../../services/appointment.service';
-import { Calendar, Clock, Stethoscope, Plus } from 'lucide-react';
+import { Calendar, Clock, Stethoscope, Plus, Video, MapPin, User, ChevronRight, XCircle } from 'lucide-react';
 
 const statusStyles = {
-  pending: 'bg-yellow-100 text-yellow-700',
-  accepted: 'bg-green-100 text-green-700',
-  cancelled: 'bg-red-100 text-red-700',
-  rejected: 'bg-slate-100 text-slate-600',
+  pending: 'bg-amber-50 text-amber-700 border-amber-200',
+  accepted: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  cancelled: 'bg-rose-50 text-rose-700 border-rose-200',
+  rejected: 'bg-slate-50 text-slate-600 border-slate-200',
 };
 
 const normalizeStatus = (s) => String(s || '').trim().toLowerCase();
 
+const getDoctorDisplayName = (doctor) => {
+  if (!doctor) return 'Unknown';
+  return (
+    doctor?.userId?.name ||
+    doctor?.user?.name ||
+    doctor?.name ||
+    doctor?.fullName ||
+    doctor?.doctorID ||
+    'Unknown'
+  );
+};
+
 const MyAppointments = () => {
   const navigate = useNavigate();
   const [appointments, setAppointments] = useState([]);
-  const [loading, setLoading]           = useState(true);
-  const [error, setError]               = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [cancellingId, setCancellingId] = useState(null);
 
   const loadAppointments = async () => {
     setLoading(true);
     setError('');
     try {
-      // getMyAppointmentsRequest now always returns a plain array
       const list = await getMyAppointmentsRequest();
       setAppointments(list);
     } catch (err) {
@@ -33,10 +44,12 @@ const MyAppointments = () => {
     }
   };
 
-  useEffect(() => { loadAppointments(); }, []);
+  useEffect(() => {
+    loadAppointments();
+  }, []);
 
   const handleCancel = async (id) => {
-    if (!window.confirm('Are you sure you want to cancel this appointment?')) return;
+    if (!window.confirm('Cancel this appointment?')) return;
     setCancellingId(id);
     try {
       await cancelAppointmentRequest(id);
@@ -50,109 +63,211 @@ const MyAppointments = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-24">
-        <div className="flex flex-col items-center gap-3">
-          <div className="h-8 w-8 rounded-full border-2 border-blue-600 border-t-transparent animate-spin" />
-          <p className="text-slate-500">Loading your appointments…</p>
+      <div className="flex flex-col items-center justify-center min-h-[60vh]">
+        <div className="rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 p-6 mb-6 shadow-xl shadow-blue-200">
+          <Calendar size={48} className="text-white animate-pulse" />
+        </div>
+        <h2 className="text-2xl font-bold text-slate-800">Loading your appointments</h2>
+        <p className="mt-2 text-slate-500">Just a moment…</p>
+        <div className="mt-6 w-48 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+          <div className="h-full w-2/3 bg-blue-500 rounded-full animate-pulse" />
         </div>
       </div>
     );
   }
 
   return (
-    <section>
+    <div className="max-w-5xl mx-auto px-4 py-6 md:py-10">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-black text-slate-900">My Appointments</h1>
-          <p className="mt-2 text-slate-600">View and manage all your booked appointments.</p>
+          <h1 className="text-4xl font-extrabold text-slate-800 tracking-tight">
+            My <span className="text-blue-600">Appointments</span>
+          </h1>
+          <p className="text-slate-500 mt-2 text-lg">Track and manage your upcoming consultations</p>
         </div>
         <button
           onClick={() => navigate('/patient/appointment/book')}
-          className="flex items-center gap-2 rounded-xl bg-blue-700 px-5 py-2.5 text-white font-semibold hover:bg-blue-800 transition-all"
+          className="inline-flex items-center gap-2 px-5 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-2xl shadow-md shadow-blue-200 transition-all self-start sm:self-auto"
         >
-          <Plus size={16} /> Book New
+          <Plus size={18} />
+          Book New
         </button>
       </div>
 
       {/* Error */}
       {error && (
-        <div className="mt-4 rounded-xl bg-red-50 border border-red-200 p-4 text-red-700">
+        <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-2xl">
           {error}
         </div>
       )}
 
-      {/* Empty state */}
+      {/* Empty State */}
       {!error && appointments.length === 0 && (
         <div className="mt-16 flex flex-col items-center justify-center text-center">
-          <div className="rounded-full bg-blue-50 p-6 mb-4">
-            <Calendar size={40} className="text-blue-700" />
+          <div className="rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 p-6 mb-6 shadow-xl shadow-blue-200">
+            <Calendar size={48} className="text-white" />
           </div>
-          <h2 className="text-xl font-bold text-slate-800">No appointments yet</h2>
-          <p className="mt-2 text-slate-500">Book your first appointment to get started.</p>
+          <h2 className="text-2xl font-bold text-slate-800">No appointments yet</h2>
+          <p className="mt-2 text-slate-500">Book your first consultation with a specialist.</p>
           <button
             onClick={() => navigate('/patient/appointment/book')}
-            className="mt-6 flex items-center gap-2 rounded-xl bg-blue-700 px-6 py-3 text-white font-semibold hover:bg-blue-800"
+            className="mt-6 inline-flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-2xl shadow-md shadow-blue-200 transition-all"
           >
-            <Plus size={16} /> Book Appointment
+            <Plus size={18} />
+            Find a Doctor
           </button>
         </div>
       )}
 
-      {/* Appointments list */}
+      {/* Appointments Grid */}
       {appointments.length > 0 && (
-        <div className="mt-6 grid gap-4">
-          {appointments.map((appt) => (
-            <article
-              key={appt._id}
-              className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
-            >
-              <div className="flex items-start justify-between">
-                <div className="flex flex-col gap-2">
-                  <div className="flex items-center gap-2">
-                    <Stethoscope size={16} className="text-blue-700" />
-                    <span className="font-bold text-slate-900">Appointment</span>
+        <div className="grid grid-cols-1 gap-5">
+          {appointments.map((appt) => {
+            const status = normalizeStatus(appt.status);
+            const doctor = appt.doctorId || appt.doctor || {};
+            const doctorName = getDoctorDisplayName(doctor);
+            const specialization = doctor?.specialization || 'General Medicine';
+            const fee = doctor?.consultationFee ?? appt.consultationFee ?? 0;
+
+            return (
+              <article
+                key={appt._id}
+                className="group bg-white/80 backdrop-blur-sm rounded-3xl border border-white/40 shadow-lg shadow-blue-100/30 hover:shadow-xl hover:shadow-blue-100/50 transition-all duration-200 overflow-hidden"
+              >
+                {/* Top accent bar based on status */}
+                <div
+                  className={`h-1.5 w-full ${
+                    status === 'accepted'
+                      ? 'bg-gradient-to-r from-emerald-500 to-emerald-400'
+                      : status === 'pending'
+                      ? 'bg-gradient-to-r from-amber-500 to-amber-400'
+                      : status === 'cancelled'
+                      ? 'bg-gradient-to-r from-rose-500 to-rose-400'
+                      : 'bg-gradient-to-r from-slate-400 to-slate-300'
+                  }`}
+                />
+
+                <div className="p-5">
+                  <div className="flex flex-col sm:flex-row sm:items-start gap-4">
+                    {/* Doctor Avatar & Info */}
+                    <div className="flex items-start gap-4 flex-1">
+                      <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-bold text-lg shadow-sm flex-shrink-0">
+                        {doctorName.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <div>
+                            <h3 className="font-bold text-slate-800 text-lg leading-tight flex items-center gap-2">
+                              Dr. {doctorName}
+                              <span
+                                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${statusStyles[status]}`}
+                              >
+                                {status.charAt(0).toUpperCase() + status.slice(1)}
+                              </span>
+                            </h3>
+                            <p className="text-blue-600 font-medium text-sm mt-0.5">{specialization}</p>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-lg font-bold text-blue-700">LKR {fee}</span>
+                            <p className="text-xs text-slate-400">consultation</p>
+                          </div>
+                        </div>
+
+                        {/* Appointment Details */}
+                        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div className="flex items-center gap-3 text-sm">
+                            <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center">
+                              <Calendar size={16} className="text-blue-600" />
+                            </div>
+                            <div>
+                              <p className="text-xs text-slate-400">Day</p>
+                              <p className="font-medium text-slate-700">{appt.dayOfWeek || '—'}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3 text-sm">
+                            <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center">
+                              <Clock size={16} className="text-blue-600" />
+                            </div>
+                            <div>
+                              <p className="text-xs text-slate-400">Time</p>
+                              <p className="font-medium text-slate-700">
+                                {appt.startTime && appt.endTime
+                                  ? `${appt.startTime} - ${appt.endTime}`
+                                  : '—'}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3 text-sm">
+                            <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center">
+                              <Video size={16} className="text-blue-600" />
+                            </div>
+                            <div>
+                              <p className="text-xs text-slate-400">Mode</p>
+                              <p className="font-medium text-slate-700">Online Consultation</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3 text-sm">
+                            <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center">
+                              <MapPin size={16} className="text-blue-600" />
+                            </div>
+                            <div>
+                              <p className="text-xs text-slate-400">Location</p>
+                              <p className="font-medium text-slate-700">Colombo (Virtual)</p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Reason */}
+                        {appt.reason && (
+                          <div className="mt-4 p-3 bg-slate-50/80 rounded-xl border border-slate-100">
+                            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">
+                              Reason for visit
+                            </p>
+                            <p className="text-sm text-slate-700">{appt.reason}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Action buttons */}
+                    <div className="flex sm:flex-col items-start gap-2 sm:border-l sm:border-slate-200 sm:pl-4">
+                      {status === 'pending' && (
+                        <button
+                          onClick={() => handleCancel(appt._id)}
+                          disabled={cancellingId === appt._id}
+                          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-rose-200 bg-white text-rose-600 hover:bg-rose-50 text-sm font-medium transition-colors disabled:opacity-50"
+                        >
+                          <XCircle size={16} />
+                          {cancellingId === appt._id ? 'Cancelling…' : 'Cancel'}
+                        </button>
+                      )}
+                      <button
+                        onClick={() => navigate(`/patient/appointment/${appt._id}`)}
+                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 text-sm font-medium transition-colors"
+                      >
+                        Details
+                        <ChevronRight size={16} />
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2 text-sm text-slate-600">
-                    <Calendar size={14} className="text-slate-400" />
-                    {appt.dayOfWeek || '—'}
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-slate-600">
-                    <Clock size={14} className="text-slate-400" />
-                    {appt.startTime && appt.endTime ? `${appt.startTime} - ${appt.endTime}` : '—'}
-                  </div>
-                  {appt.reason && (
-                    <p className="text-sm text-slate-500 mt-1">Reason: {appt.reason}</p>
+
+                  {/* Notes */}
+                  {appt.notes && (
+                    <div className="mt-4 pt-4 border-t border-slate-200/80">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">
+                        Additional Notes
+                      </p>
+                      <p className="text-sm text-slate-600">{appt.notes}</p>
+                    </div>
                   )}
                 </div>
-
-                <div className="flex flex-col items-end gap-3">
-                  <span className={`rounded-full px-3 py-1 text-xs font-bold capitalize ${statusStyles[normalizeStatus(appt.status)] || 'bg-slate-100 text-slate-600'}`}>
-                    {normalizeStatus(appt.status)}
-                  </span>
-                  {normalizeStatus(appt.status) === 'pending' && (
-                    <button
-                      onClick={() => handleCancel(appt._id)}
-                      disabled={cancellingId === appt._id}
-                      className="text-xs font-semibold text-red-600 hover:text-red-800 disabled:opacity-50"
-                    >
-                      {cancellingId === appt._id ? 'Cancelling…' : 'Cancel'}
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {appt.notes && (
-                <div className="mt-4 rounded-xl bg-slate-50 border border-slate-200 p-3">
-                  <p className="text-xs font-semibold text-slate-500 mb-1">Notes</p>
-                  <p className="text-sm text-slate-700">{appt.notes}</p>
-                </div>
-              )}
-            </article>
-          ))}
+              </article>
+            );
+          })}
         </div>
       )}
-    </section>
+    </div>
   );
 };
 
