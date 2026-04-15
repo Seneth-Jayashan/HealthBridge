@@ -3,6 +3,7 @@ import express from 'express';
 import { errorHandler } from '@healthbridge/shared';
 import connectDB from './config/db.js';
 import patientServiceRoutes from './routes/patientService.routes.js';
+import prescriptionRoutes from './routes/prescriptions.routes.js';
 
 // Connect to MongoDB
 connectDB();
@@ -14,6 +15,7 @@ const PORT = process.env.PORT || 3002;
 app.use(express.json());
 
 // Mount the routes
+app.use('/prescriptions', prescriptionRoutes);
 app.use('/', patientServiceRoutes);
 
 // Attach the shared error handler
