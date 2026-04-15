@@ -7,7 +7,6 @@ export const bookAppointmentRequest = async (payload) => {
 
 export const getMyAppointmentsRequest = async () => {
   const response = await httpClient.get('/appointments/my');
-  // Backend returns { count, appointments } — unwrap correctly
   const payload = response.data?.data || response.data;
   return Array.isArray(payload) ? payload : (payload?.appointments || []);
 };
@@ -28,6 +27,5 @@ export const getAllDoctorsRequest = async (specialization = '') => {
   const params = specialization ? { specialization } : {};
   const response = await httpClient.get('/doctor', { params });
   const payload = response.data?.data || response.data;
-  // Unwrap nested doctors array from pagination response
   return Array.isArray(payload) ? payload : (payload?.doctors || []);
 };
