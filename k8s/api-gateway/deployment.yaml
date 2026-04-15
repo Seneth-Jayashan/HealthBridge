@@ -31,5 +31,8 @@ spec:
           value: "http://patient-service:3002"
         - name: DOCTOR_SERVICE_URL
           value: "http://doctor-service:3003"
+        - name: APPOINTMENT_SERVICE_URL
+          value: "http://appointment-service:3004"
         - name: PAYMENT_SERVICE_URL
           value: "http://payment-service:3005"
+          

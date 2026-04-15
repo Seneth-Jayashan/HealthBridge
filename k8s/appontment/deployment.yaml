@@ -1,0 +1,34 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: appointment-deployment
+  namespace: healthbridge
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: appointment-service
+  template:
+    metadata:
+      labels:
+        app: appointment-service
+    spec:
+      containers:
+      - name: appointment-service
+        image: docker-appointment-service:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 3004
+        env:
+        - name: PORT
+          value: "3004"
+        - name: JWT_SECRET
+          value: "super_secret_healthbridge_key_change_this_later"
+        - name: MONGO_URI
+          value: "mongodb+srv://HealthBridge_DB:Team_Health_Bridge_12@cluster0.d8ewy6i.mongodb.net/?appName=Cluster0"
+        - name: MONGO_DB_NAME
+          value: "healthbridge_appointment_db"
+        - name: DOCTOR_SERVICE_URL
+          value: "http://doctor-service:3003"
+        - name: INTERNAL_SERVICE_SECRET
+          value: "healthbridge_internal_secret"

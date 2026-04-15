@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "dev": "nodemon index.js"
   },
   "dependencies": {
     "@healthbridge/shared": "file:../../shared",
@@ -12,5 +13,8 @@
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^9.3.3",
     "dotenv": "^17.3.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
   }
 }

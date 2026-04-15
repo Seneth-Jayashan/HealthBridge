@@ -7,7 +7,10 @@ import {
     updateDoctorAvailability,
     getDoctorAvailability,
     checkConsultationFee,
-} from '../controllers/doctorService.controller.js';
+    getDoctorAvailabilityInternal,
+    reserveDoctorSlotInternal,
+    releaseDoctorSlotInternal
+} from '../controllers/doctorService.controller.js'; 
 import { requireAuth, requireRole, createUploadMiddleware } from '@healthbridge/shared';
 
 const router = express.Router();
@@ -29,6 +32,13 @@ router.get('/internal/payment/checkFee', checkConsultationFee);
 // ==========================================
 router.route('/')
     .get(requireAuth, getVerifiedDoctors);
+
+// ==========================================
+// INTERNAL ROUTES (Service-to-service only)
+// ==========================================
+router.get('/internal/availability/:doctorId', getDoctorAvailabilityInternal);
+router.post('/internal/availability/:doctorId/reserve', reserveDoctorSlotInternal);
+router.post('/internal/availability/:doctorId/release', releaseDoctorSlotInternal);
 
 
 // ==========================================

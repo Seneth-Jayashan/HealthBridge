@@ -3,6 +3,14 @@ import Availability from '../models/Availability.js';
 import { ApiError, ApiResponse, cloudinaryService } from '@healthbridge/shared';
 import { notifyAdminsDoctorVerificationRequested } from '../services/adminNotification.service.js';
 import fs from 'fs';
+import mongoose from 'mongoose';
+
+const assertInternalAccess = (req) => {
+    const secret = req.headers['x-internal-service-key'];
+    if (!secret || secret !== process.env.INTERNAL_SERVICE_SECRET) {
+        throw new ApiError(403, 'Forbidden: Invalid internal service credentials');
+    }
+};
 
 // @desc    Get all doctors (with optional filtering for verification status)
 // @route   GET /api/doctors
@@ -253,7 +261,7 @@ export const checkConsultationFee = async (req, res, next) => {
         const { doctorId} = req.query;
 
         if (!doctorId === undefined) {
-            throw new ApiError(400, "doctorId and amount are required");
+            throw new ApiError(400, "doctorId is required");
         }
 
         const doctor = await Doctor.findById(doctorId);
@@ -266,6 +274,150 @@ export const checkConsultationFee = async (req, res, next) => {
                 consultationFee: doctor.consultationFee,
             }, "Consultation fee checked")
         );
+    } catch (error) {
+        next(error);
+    }
+};
+// @desc    Get Doctor Availability for internal service calls
+// @route   GET /internal/availability/:doctorId
+// @access  Internal
+export const getDoctorAvailabilityInternal = async (req, res, next) => {
+    try {
+        assertInternalAccess(req);
+
+        const { doctorId } = req.params;
+        if (!doctorId || !mongoose.isValidObjectId(doctorId)) {
+            throw new ApiError(400, 'Valid doctorId is required');
+        }
+
+        const doctor = await Doctor.findById(doctorId).select('_id verificationStatus');
+        if (!doctor) {
+            throw new ApiError(404, 'Doctor not found');
+        }
+
+        if (doctor.verificationStatus !== 'Approved') {
+            throw new ApiError(409, 'Doctor is not available for booking');
+        }
+
+        const availability = await Availability.find({ doctorId: doctor._id }).lean();
+
+        const sanitized = availability.map((day) => ({
+            _id: day._id,
+            doctorId: day.doctorId,
+            dayOfWeek: day.dayOfWeek,
+            timeSlots: (day.timeSlots || []).map((slot) => ({
+                _id: slot._id,
+                startTime: slot.startTime,
+                endTime: slot.endTime,
+                isBooked: Boolean(slot.isBooked),
+            })),
+        }));
+
+        res.status(200).json(new ApiResponse(200, sanitized, 'Doctor availability retrieved successfully'));
+    } catch (error) {
+        next(error);
+    }
+};
+
+// @desc    Reserve a specific doctor slot for an appointment (atomic)
+// @route   POST /internal/availability/:doctorId/reserve
+// @access  Internal
+export const reserveDoctorSlotInternal = async (req, res, next) => {
+    try {
+        assertInternalAccess(req);
+
+        const { doctorId } = req.params;
+        const { dayOfWeek, timeSlotId, patientId, patientName, appointmentId } = req.body || {};
+
+        if (!doctorId || !mongoose.isValidObjectId(doctorId)) {
+            throw new ApiError(400, 'Valid doctorId is required');
+        }
+        if (!dayOfWeek || !timeSlotId || !patientId || !appointmentId) {
+            throw new ApiError(400, 'dayOfWeek, timeSlotId, patientId and appointmentId are required');
+        }
+        if (!mongoose.isValidObjectId(timeSlotId) || !mongoose.isValidObjectId(patientId) || !mongoose.isValidObjectId(appointmentId)) {
+            throw new ApiError(400, 'timeSlotId, patientId and appointmentId must be valid ids');
+        }
+
+        const updated = await Availability.findOneAndUpdate(
+            {
+                doctorId,
+                dayOfWeek,
+                timeSlots: { $elemMatch: { _id: timeSlotId, isBooked: false } },
+            },
+            {
+                $set: {
+                    'timeSlots.$.isBooked': true,
+                    'timeSlots.$.bookingDetails': {
+                        patientId,
+                        patientName,
+                        appointmentId,
+                        bookedAt: new Date(),
+                    },
+                },
+            },
+            { new: true }
+        );
+
+        if (!updated) {
+            throw new ApiError(409, 'Time slot is already booked or not found');
+        }
+
+        res.status(200).json(new ApiResponse(200, updated, 'Slot reserved successfully'));
+    } catch (error) {
+        next(error);
+    }
+};
+
+// @desc    Release a specific doctor slot
+// @route   POST /internal/availability/:doctorId/release
+// @access  Internal
+export const releaseDoctorSlotInternal = async (req, res, next) => {
+    try {
+        assertInternalAccess(req);
+
+        const { doctorId } = req.params;
+        const { dayOfWeek, timeSlotId, appointmentId } = req.body || {};
+
+        if (!doctorId || !mongoose.isValidObjectId(doctorId)) {
+            throw new ApiError(400, 'Valid doctorId is required');
+        }
+        if (!dayOfWeek || !timeSlotId) {
+            throw new ApiError(400, 'dayOfWeek and timeSlotId are required');
+        }
+        if (!mongoose.isValidObjectId(timeSlotId)) {
+            throw new ApiError(400, 'timeSlotId must be a valid id');
+        }
+
+        const updateQuery = {
+            doctorId,
+            dayOfWeek,
+            timeSlots: { $elemMatch: { _id: timeSlotId, isBooked: true } },
+        };
+
+        if (appointmentId) {
+            if (!mongoose.isValidObjectId(appointmentId)) {
+                throw new ApiError(400, 'appointmentId must be a valid id');
+            }
+            updateQuery.timeSlots.$elemMatch['bookingDetails.appointmentId'] = appointmentId;
+        }
+
+        const updated = await Availability.findOneAndUpdate(
+            updateQuery,
+            {
+                $set: {
+                    'timeSlots.$.isBooked': false,
+                    'timeSlots.$.bookingDetails': {},
+                },
+            },
+            { new: true }
+        );
+
+        if (!updated) {
+            throw new ApiError(404, 'Booked time slot not found');
+        }
+
+        res.status(200).json(new ApiResponse(200, updated, 'Slot released successfully'));
     } catch (error) {
         next(error);
     }
