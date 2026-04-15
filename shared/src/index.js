@@ -5,6 +5,7 @@ import { requireAuth, requireRole } from './middlewares/requireAuth.middleware.j
 import {createUploadMiddleware} from './middlewares/upload.middleware.js';
 import * as cloudinaryService from './services/cloudinary.service.js';
 import { SPECIALIZATION } from './constants/specialization.js';
+import { MEDICAL_REPORT_TYPES } from './constants/medicalReportType.js';
 
 export {
     ApiError,
@@ -14,5 +15,6 @@ export {
     cloudinaryService,
     requireAuth,
     requireRole,
-    SPECIALIZATION
+    SPECIALIZATION,
+    MEDICAL_REPORT_TYPES
 };

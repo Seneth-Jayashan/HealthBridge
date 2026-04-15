@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { X, Upload, Loader2 } from 'lucide-react';
-// Import your service here: import patientService from '../../services/patientService';
+import { uploadMedicalReport } from '../../services/patient.service';
+import { MEDICAL_REPORT_TYPES } from '@healthbridge/shared/src/constants/medicalReportType.js';
 
 const UploadReportModal = ({ isOpen, onClose, onUploadSuccess }) => {
   const [formData, setFormData] = useState({
     title: '',
-    reportType: 'Scan',
+    // Default to the first type in your enum (e.g., 'Scan')
+    reportType: MEDICAL_REPORT_TYPES.scan || 'Scan', 
     notes: '',
     file: null,
   });
@@ -33,21 +35,21 @@ const UploadReportModal = ({ isOpen, onClose, onUploadSuccess }) => {
     setError('');
 
     try {
-      // Construct FormData for file upload
       const uploadData = new FormData();
       uploadData.append('title', formData.title);
       uploadData.append('reportType', formData.reportType);
       uploadData.append('notes', formData.notes);
-      uploadData.append('file', formData.file);
+      
+      // Successfully mapping 'reportFile' for the backend Multer middleware
+      uploadData.append('reportFile', formData.file);
 
-      // Example API Call: 
-      // await patientService.uploadMedicalReport(uploadData);
+      await uploadMedicalReport(uploadData);
       
       // Simulate API delay for demonstration (Remove this in production)
       await new Promise(resolve => setTimeout(resolve, 1000));
 
-      onUploadSuccess(); // Trigger refresh in parent
-      onClose(); // Close modal
+      onUploadSuccess(); 
+      onClose();
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to upload report.');
     } finally {
@@ -93,10 +95,12 @@ const UploadReportModal = ({ isOpen, onClose, onUploadSuccess }) => {
               onChange={handleChange}
               className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-600 bg-white"
             >
-              <option value="Scan">Scan</option>
-              <option value="Blood Test">Blood Test</option>
-              <option value="Prescription">Prescription</option>
-              <option value="Other">Other</option>
+              {/* Dynamically map options from the shared enum */}
+              {Object.values(MEDICAL_REPORT_TYPES).map((type) => (
+                <option key={type} value={type}>
+                  {type}
+                </option>
+              ))}
             </select>
           </div>
 

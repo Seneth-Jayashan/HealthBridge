@@ -9,7 +9,8 @@ import {
     checkConsultationFee,
     getDoctorAvailabilityInternal,
     reserveDoctorSlotInternal,
-    releaseDoctorSlotInternal
+    releaseDoctorSlotInternal,
+    getDoctorPatients
 } from '../controllers/doctorService.controller.js'; 
 import { requireAuth, requireRole, createUploadMiddleware } from '@healthbridge/shared';
 
@@ -56,6 +57,9 @@ router.route('/profile')
 router.route('/availability')
     .get(getDoctorAvailability)
     .patch(updateDoctorAvailability);
+
+router.route('/patients')
+    .get(getDoctorPatients);
 
 // --- Verification Document Route ---
 router.route('/verification-document')

@@ -278,6 +278,24 @@ export const checkConsultationFee = async (req, res, next) => {
         next(error);
     }
 };
+
+// @desc    Get all patients of a doctor
+// @route   GET /api/doctors/patients
+// @access  Private (Doctor only)
+export const getDoctorPatients = async (req, res, next) => {
+    try {
+        const doctor = await Doctor.findOne({ userId: req.user.id });
+        if (!doctor) {
+            throw new ApiError(404, "Doctor profile not found. Please submit your doctor profile first.");
+        }
+        const patients = await Patients.find({ doctorId: doctor._id });
+        res.status(200).json(new ApiResponse(200, patients, "Doctor's patients retrieved successfully"));
+    } catch (error) {
+        next(error);
+    }
+};
+
+
 // @desc    Get Doctor Availability for internal service calls
 // @route   GET /internal/availability/:doctorId
 // @access  Internal

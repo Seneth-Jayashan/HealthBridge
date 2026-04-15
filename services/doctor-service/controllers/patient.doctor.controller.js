@@ -1,6 +1,47 @@
 import Availability from '../models/Availability.js';
 import Doctor from '../models/DoctorService.js'; // Adjust your path
+import Patients from '../models/Patients.js'; // Adjust your path
 import { ApiError, ApiResponse } from '@healthbridge/shared';
+
+
+export const addToPatientList = async (req, res, next) => {
+    try {
+        const { doctorId, patientId , name, email, phoneNumber, lastAppointmentDate} = req.body;
+        if (!doctorId || !patientId) {
+            throw new ApiError(400, "Doctor ID and Patient ID are required");
+        }
+        const doctor = await Doctor.findById(doctorId);
+        if (!doctor) {
+            throw new ApiError(404, "Doctor not found");
+        }
+        const patient = await Patients.findOne({ doctorId: doctor._id, "patients.patientId": patientId });
+        if (!patient) {
+            const newPatientList = new Patients({
+                doctorId: doctor._id,
+                patients: [{
+                    patientId,
+                    name: name,
+                    email: email ,
+                    phoneNumber: phoneNumber,
+                    lastAppointmentDate: lastAppointmentDate
+                }]
+            });
+            await newPatientList.save();
+        } else {
+            const patientExists = patient.patients.some(p => p.patientId.toString() === patientId.toString());
+            if (!patientExists) {
+                patient.patients.push({
+                    lastAppointmentDate: lastAppointmentDate,
+                });
+                await patient.save();
+            }
+        }
+
+        res.status(200).json(new ApiResponse(200, null, "Patient added to doctor's list successfully"));
+    } catch (error) {
+        next(error);
+    }
+};
 
 // @desc    Add or update a rating/review for a doctor
 // @route   POST /api/patients/doctors/:doctorId/reviews
@@ -139,3 +180,4 @@ export const getDoctorByIdForPatient = async (req, res, next) => {
         next(error);
     }
 };
+

@@ -141,6 +141,13 @@ export const AuthProvider = ({ children }) => {
     return allowedRoles.some((role) => normalizeRole(role) === currentRole);
   };
 
+  // --- NEW: Function to manually update user state and cookies ---
+  const handleSetUser = (updatedData) => {
+    const newUser = { ...user, ...updatedData };
+    setUser(newUser);
+    persistSession({ token: getCookie(TOKEN_COOKIE), user: newUser });
+  };
+
   const value = useMemo(
     () => ({
       user,
@@ -150,6 +157,7 @@ export const AuthProvider = ({ children }) => {
       register,
       logout,
       hasRole,
+      setUser: handleSetUser, // Exported to be used in Profile.js
       refreshDoctorStatus: async () => {
         if (!user || normalizeRole(user.role) !== 'doctor') {
           return user;

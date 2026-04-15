@@ -10,7 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "shared": "file:../shared",
+    "@healthbridge/shared": "file:../shared",
     "agora-rtc-sdk-ng": "^4.24.3",
     "animejs": "^4.3.6",
     "axios": "^1.14.0",
