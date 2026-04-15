@@ -1,4 +1,5 @@
 import Doctor from '../models/DoctorService.js'; // Adjust path if your filename differs
+import Availability from '../models/Availability.js';
 import { ApiError, ApiResponse, cloudinaryService } from '@healthbridge/shared';
 import { notifyAdminsDoctorVerificationRequested } from '../services/adminNotification.service.js';
 import fs from 'fs';
@@ -32,21 +33,27 @@ export const getVerifiedDoctors = async (req, res, next) => {
 };
 
 
-// @desc    Get doctor profile
+// @desc    Get Doctor Profile
 // @route   GET /api/doctors/profile
 // @access  Private (Doctor only)
 export const getDoctorProfile = async (req, res, next) => {
     try {
-        // req.user.id comes from the API Gateway header
-        const doctor = await Doctor.findOne({ userId: req.user.id });
+        // 1. Fetch the doctor as a plain JavaScript object using .lean()
+        // .lean() is crucial here so we can inject the availability array into the result
+        const doctor = await Doctor.findOne({ userId: req.user.id }).lean();
 
-        // Note: Unlike the Patient model, the Doctor model has 'required' fields 
-        // like specialization and registrationNumber, so we shouldn't create an 
-        // empty document automatically. We return a 404 if it doesn't exist yet.
         if (!doctor) {
             throw new ApiError(404, "Doctor profile not found. Please complete registration.");
         }
 
+        // 2. Fetch ALL availability documents linked to this doctor's _id
+        // This automatically includes the timeSlots array and bookingDetails subdocuments
+        const availability = await Availability.find({ doctorId: doctor._id });
+
+        // 3. Attach the full availability data to the doctor object
+        doctor.availability = availability;
+
+        // 4. Send the combined response
         res.status(200).json(new ApiResponse(200, doctor, "Doctor profile retrieved successfully"));
     } catch (error) {
         next(error);
@@ -65,7 +72,6 @@ export const updateDoctorProfile = async (req, res, next) => {
             experienceYears, 
             bio, 
             consultationFee, 
-            availability 
         } = req.body;
 
         const existingDoctor = await Doctor.findOne({ userId: req.user.id });
@@ -88,7 +94,6 @@ export const updateDoctorProfile = async (req, res, next) => {
                     experienceYears,
                     bio,
                     consultationFee,
-                    availability
                 } 
             },
             { new: true, upsert: true, runValidators: true }
@@ -181,25 +186,62 @@ export const uploadVerificationDocument = async (req, res, next) => {
 // @desc    Update Doctor Availability specifically
 // @route   PATCH /api/doctors/availability
 // @access  Private (Doctor only)
-export const updateAvailability = async (req, res, next) => {
+export const updateDoctorAvailability = async (req, res, next) => {
     try {
         const { availability } = req.body;
 
-        if (!availability || !Array.isArray(availability)) {
-            throw new ApiError(400, "Valid availability array is required");
+        // 1. Validate the incoming payload
+        if (!availability || !Array.isArray(availability) || availability.length === 0) {
+            throw new ApiError(400, "Availability must be a non-empty array of daily schedules.");
         }
 
-        const updatedDoctor = await Doctor.findOneAndUpdate(
-            { userId: req.user.id },
-            { $set: { availability } },
-            { new: true, runValidators: true }
+        // 2. Verify the doctor exists
+        const doctor = await Doctor.findOne({ userId: req.user.id });
+        if (!doctor) {
+            throw new ApiError(404, "Doctor profile not found. Please submit your doctor profile first.");
+        }
+
+        // 3. Process each day's schedule
+        const updatedAvailabilities = await Promise.all(
+            availability.map(async (schedule) => {
+                const { dayOfWeek, timeSlots } = schedule;
+
+                if (!dayOfWeek || !timeSlots || !Array.isArray(timeSlots)) {
+                    throw new ApiError(400, "Each schedule item must include a valid 'dayOfWeek' and a 'timeSlots' array.");
+                }
+
+                // Upsert: Find the document by doctorId and dayOfWeek. 
+                // Update it with the new time slots, or create it if it doesn't exist.
+                return await Availability.findOneAndUpdate(
+                    { doctorId: doctor._id, dayOfWeek: dayOfWeek },
+                    { $set: { timeSlots: timeSlots } },
+                    { new: true, upsert: true, runValidators: true }
+                );
+            })
         );
 
-        if (!updatedDoctor) {
-             throw new ApiError(404, "Doctor profile not found");
-        }
+        res.status(200).json({
+            success: true,
+            message: "Doctor availability updated successfully.",
+            data: updatedAvailabilities
+        });
 
-        res.status(200).json(new ApiResponse(200, updatedDoctor.availability, "Availability updated successfully"));
+    } catch (error) {
+        next(error);
+    }
+};
+
+// @desc    Get Doctor Availability
+// @route   GET /api/doctors/availability
+// @access  Private (Doctor only)
+export const getDoctorAvailability = async (req, res, next) => {
+    try {
+        const doctor = await Doctor.findOne({ userId: req.user.id });
+        if (!doctor) {
+            throw new ApiError(404, "Doctor profile not found. Please submit your doctor profile first.");
+        }
+        const availability = await Availability.find({ doctorId: doctor._id });
+        res.status(200).json(new ApiResponse(200, availability, "Doctor availability retrieved successfully"));
     } catch (error) {
         next(error);
     }

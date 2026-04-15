@@ -99,18 +99,7 @@ export const getMe = async (req, res, next) => {
     }
 };
 
-// @desc    Get all users (Admin only)
-// @route   GET /api/auth/admin/users
-export const getAllUsers = async (req, res, next) => {
-    try {
-        // Fetch all users, but exclude their hashed passwords for security
-        const users = await User.find({}).select('-password');
-        
-        res.status(200).json(new ApiResponse(200, users, "All platform users retrieved successfully"));
-    } catch (error) {
-        next(error);
-    }
-};
+
 
 // @desc    Get admin users for internal service calls
 // @route   GET /api/auth/internal/admins

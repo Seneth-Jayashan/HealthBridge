@@ -4,6 +4,7 @@ import errorHandler from './middlewares/error.middleware.js';
 import { requireAuth, requireRole } from './middlewares/requireAuth.middleware.js';
 import {createUploadMiddleware} from './middlewares/upload.middleware.js';
 import * as cloudinaryService from './services/cloudinary.service.js';
+import { SPECIALIZATION } from './constants/specialization.js';
 
 export {
     ApiError,
@@ -12,5 +13,6 @@ export {
     createUploadMiddleware,
     cloudinaryService,
     requireAuth,
-    requireRole
+    requireRole,
+    SPECIALIZATION
 };

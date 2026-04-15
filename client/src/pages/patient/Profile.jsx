@@ -54,7 +54,6 @@ const Profile = () => {
             dateOfBirth: data.dateOfBirth ? data.dateOfBirth.split('T')[0] : '', // Format for <input type="date">
             gender: data.gender || 'Prefer not to say',
             bloodGroup: data.bloodGroup || '',
-            contactNumber: data.contactNumber || '',
             address: data.address || '',
             // Convert arrays to strings for easy text input
             allergies: data.allergies?.join(', ') || '',
@@ -247,7 +246,7 @@ const Profile = () => {
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                     <Phone size={18} className="text-slate-400" />
                   </div>
-                  <input type="text" name="contactNumber" value={formData.contactNumber} onChange={handleChange} className={`w-full pl-11 pr-4 py-3.5 rounded-xl border text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-colors ${isDark ? 'bg-slate-900/50 border-slate-700 text-white focus:bg-slate-900' : 'bg-slate-50 border-slate-200 text-slate-900 focus:bg-white'}`} />
+                  <input type="text" readOnly name="contactNumber" value={user.phoneNumber || ''} className={`w-full pl-11 pr-4 py-3.5 rounded-xl border text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-colors ${isDark ? 'bg-slate-900/50 border-slate-700 text-white focus:bg-slate-900' : 'bg-slate-50 border-slate-200 text-slate-900 focus:bg-white'}`} />
                 </div>
               </div>
 

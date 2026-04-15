@@ -1,7 +1,7 @@
 import httpClient from '../api/Axios';
 
 export const getPlatformUsers = async () => {
-  const response = await httpClient.get('/auth/admin/users');
+  const response = await httpClient.get('/auth/users/admin/all');
   return response.data?.data || response.data;
 };
 

@@ -98,8 +98,15 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (credentials) => {
     const response = await loginRequest(credentials);
-    const normalizedUser = await hydrateDoctorStatus(normalizeUser(response));
+    const baseUser = normalizeUser(response);
 
+    // 1. FAST PERSIST: Save the token immediately so Axios/fetch can use it
+    persistSession({ token: response.token, user: baseUser });
+
+    // 2. HYDRATE: Now fetch the profile (this will succeed because the token is in the cookie)
+    const normalizedUser = await hydrateDoctorStatus(baseUser);
+
+    // 3. FINAL PERSIST: Update the cookie with the fully hydrated user and set state
     persistSession({ token: response.token, user: normalizedUser });
     setUser(normalizedUser);
 
@@ -108,8 +115,15 @@ export const AuthProvider = ({ children }) => {
 
   const register = async (payload) => {
     const response = await registerRequest(payload);
-    const normalizedUser = await hydrateDoctorStatus(normalizeUser(response));
+    const baseUser = normalizeUser(response);
 
+    // 1. FAST PERSIST: Save the token immediately
+    persistSession({ token: response.token, user: baseUser });
+
+    // 2. HYDRATE
+    const normalizedUser = await hydrateDoctorStatus(baseUser);
+
+    // 3. FINAL PERSIST
     persistSession({ token: response.token, user: normalizedUser });
     setUser(normalizedUser);
 

@@ -1,7 +1,8 @@
 import express from 'express';
 import { 
     addOrUpdateDoctorReview, 
-    deleteDoctorReview 
+    deleteDoctorReview,
+    getDoctorByIdForPatient
 } from '../controllers/patient.doctor.controller.js';
 import { requireAuth, requireRole } from '@healthbridge/shared';
 
@@ -18,5 +19,10 @@ router.use(requireAuth, requireRole('Patient'));
 router.route('/:doctorId/reviews')
     .post(addOrUpdateDoctorReview)
     .delete(deleteDoctorReview);
+
+    
+// --- Doctor Profile Route ---
+router.route('/:doctorId')
+    .get(getDoctorByIdForPatient);
 
 export default router;

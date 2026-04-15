@@ -1,10 +1,11 @@
 import React from 'react';
 import { Routes, Route } from 'react-router-dom';
 import RequireRole from '../components/auth/RequireRole';
-import RequirePatientProfileComplete from '../components/auth/RequirePatientProfileComplete';
+import RequirePatientProfileComplete from '../components/patients/RequirePatientProfileComplete';
 
 // Import Patient Pages
 import PatientDashboard from '../pages/patient/Dashboard';
+import MedicalReports from '../pages/patient/MedicalReports';
 // import PatientAppointments from '../pages/patient/Appointments'; // Ready for when you build it!
 import PatientProfile from '../pages/patient/Profile';
 
@@ -19,6 +20,7 @@ export default function PatientRoutes() {
         <Route element={<RequirePatientProfileComplete />}>
           {/* The path "dashboard" combines with the parent to become "/patient/dashboard" */}
           <Route path="dashboard" element={<PatientDashboard />} />
+          <Route path="reports" element={<MedicalReports />} />
 
           <Route path="appointment/book" element={<BookAppointment />} />
           <Route path="appointment/my" element={<MyAppointments />} />

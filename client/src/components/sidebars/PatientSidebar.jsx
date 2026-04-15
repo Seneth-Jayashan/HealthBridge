@@ -9,7 +9,8 @@ import { useAuth } from '../../context/AuthContext';
 
 const navItems = [
   { label: 'Overview', to: '/patient/dashboard', icon: Activity },
-  { label: 'Medical Records', to: '/patient/records', icon: HeartPulse },
+  { label: 'Appointments', to: '/patient/appointments', icon: Calendar },
+  { label: 'Medical Reports', to: '/patient/reports', icon: HeartPulse },
   { label: 'Prescriptions', to: '/patient/prescriptions', icon: FileText },
   { label: 'Messages', to: '/patient/messages', icon: MessageCircle },
   { label: 'Profile Settings', to: '/patient/profile', icon: UserRound },
