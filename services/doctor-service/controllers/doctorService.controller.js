@@ -339,32 +339,6 @@ export const getDoctorAvailabilityInternal = async (req, res, next) => {
     }
 };
 
-// @desc    Get basic doctor identity details for internal service calls
-// @route   GET /internal/doctors/:doctorId/basic
-// @access  Internal
-export const getDoctorBasicInternal = async (req, res, next) => {
-    try {
-        assertInternalAccess(req);
-
-        const { doctorId } = req.params;
-        if (!doctorId || !mongoose.isValidObjectId(doctorId)) {
-            throw new ApiError(400, 'Valid doctorId is required');
-        }
-
-        const doctor = await Doctor.findById(doctorId)
-            .select('_id userId doctorID specialization verificationStatus')
-            .lean();
-
-        if (!doctor) {
-            throw new ApiError(404, 'Doctor not found');
-        }
-
-        res.status(200).json(new ApiResponse(200, doctor, 'Doctor basic profile retrieved successfully'));
-    } catch (error) {
-        next(error);
-    }
-};
-
 // @desc    Reserve a specific doctor slot for an appointment (atomic)
 // @route   POST /internal/availability/:doctorId/reserve
 // @access  Internal

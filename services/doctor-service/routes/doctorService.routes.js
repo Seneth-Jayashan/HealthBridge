@@ -8,7 +8,6 @@ import {
     getDoctorAvailability,
     checkConsultationFee,
     getDoctorAvailabilityInternal,
-    getDoctorBasicInternal,
     reserveDoctorSlotInternal,
     releaseDoctorSlotInternal,
     getDoctorPatients,
@@ -40,7 +39,6 @@ router.route('/')
 // INTERNAL ROUTES (Service-to-service only)
 // ==========================================
 router.get('/internal/availability/:doctorId', getDoctorAvailabilityInternal);
-router.get('/internal/doctors/:doctorId/basic', getDoctorBasicInternal);
 router.post('/internal/availability/:doctorId/reserve', reserveDoctorSlotInternal);
 router.post('/internal/availability/:doctorId/release', releaseDoctorSlotInternal);
 
