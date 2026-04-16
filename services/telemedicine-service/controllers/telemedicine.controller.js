@@ -268,28 +268,6 @@ export const listMyVideoSessions = async (req, res, next) => {
     }
 };
 
-export const getVideoSessionById = async (req, res, next) => {
-    try {
-        const { sessionId } = req.params;
-
-        if (!mongoose.Types.ObjectId.isValid(sessionId)) {
-            throw new ApiError(400, 'Invalid sessionId.');
-        }
-
-        const session = await VideoSession.findById(sessionId);
-
-        if (!session) {
-            throw new ApiError(404, 'Video session not found.');
-        }
-
-        await ensureCanViewSession(session, req.user);
-
-        res.status(200).json(new ApiResponse(200, session, 'Video session retrieved successfully.'));
-    } catch (error) {
-        next(error);
-    }
-};
-
 export const issueVideoSessionToken = async (req, res, next) => {
     try {
         const { sessionId } = req.params;
@@ -404,39 +382,6 @@ export const endVideoSession = async (req, res, next) => {
     }
 };
 
-// ─── Get online appointments with video sessions (for telehealth) ──
-export const getOnlineAppointmentsWithSessions = async (req, res, next) => {
-    try {
-        let query = {};
-
-        // Filter by role
-        if (req.user.role === 'Doctor') {
-            query.doctorId = await resolveDoctorProfileIdFromUser(req.user);
-        } else if (req.user.role === 'Patient') {
-            const patient = await getPatientByIdInternal(req.user.id);
-            query.patientId = patient._id;
-        } else if (req.user.role !== 'Admin') {
-            throw new ApiError(403, 'Unauthorized');
-        }
-
-        // Get video sessions from telemedicine service
-        const sessions = await VideoSession.find(query)
-            .sort({ createdAt: -1 })
-            .limit(100)
-            .lean();
-
-        // Fetch online appointments from appointment service (internal API)
-        const appointments = await fetchUserOnlineAppointments(req.user.id, req.user.role);
-
-        // Return combined data
-        res.status(200).json(
-            new ApiResponse(200, { sessions, appointments }, 'Online appointments with video sessions retrieved successfully.')
-        );
-    } catch (error) {
-        next(error);
-    }
-};
-
 // ─── Get patient's online appointments (internal use for Telehealth) ──
 export const getPatientOnlineAppointments = async (req, res, next) => {
     try {
@@ -469,53 +414,6 @@ export const getDoctorOnlineAppointments = async (req, res, next) => {
 
         res.status(200).json(
             new ApiResponse(200, appointments, 'Doctor online appointments retrieved successfully.')
-        );
-    } catch (error) {
-        next(error);
-    }
-};
-
-// ─── Update video session status linked to appointment ──
-export const updateSessionStatus = async (req, res, next) => {
-    try {
-        const { sessionId } = req.params;
-        const { status } = req.body;
-
-        if (!mongoose.Types.ObjectId.isValid(sessionId)) {
-            throw new ApiError(400, 'Invalid sessionId.');
-        }
-
-        const validStatuses = ['scheduled', 'active', 'completed', 'cancelled'];
-        if (!validStatuses.includes(status)) {
-            throw new ApiError(400, 'Invalid status');
-        }
-
-        const session = await VideoSession.findById(sessionId);
-
-        if (!session) {
-            throw new ApiError(404, 'Video session not found.');
-        }
-
-        await ensureDoctorOwnsSession(session, req.user);
-
-        session.status = status;
-
-        if (status === 'active' && !session.startedAt) {
-            session.startedAt = new Date();
-        }
-
-        if (status === 'completed' && !session.endedAt) {
-            session.endedAt = new Date();
-        }
-
-        if (status === 'cancelled' && !session.endedAt) {
-            session.endedAt = new Date();
-        }
-
-        await session.save();
-
-        res.status(200).json(
-            new ApiResponse(200, session, `Video session status updated to ${status}.`)
         );
     } catch (error) {
         next(error);

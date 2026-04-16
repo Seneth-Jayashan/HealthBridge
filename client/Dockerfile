@@ -1,5 +1,5 @@
 # Stage 1: Build the React Application
-FROM node:22-alpine as build
+FROM node:22-alpine AS build
 
 # Set the working directory to the ROOT of your project inside the container
 WORKDIR /app
