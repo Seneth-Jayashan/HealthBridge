@@ -16,6 +16,11 @@ import RequireAuth from './components/auth/RequireAuth';
 import { AuthProvider } from './context/AuthContext';
 
 // Role Routes
+// Import AI components
+import SymptomChecker from './pages/ai/SymptomChecker';
+import SymptomHistoryPage from './pages/ai/SymptomHistoryPage';
+
+// Import Modular Role Routes
 import PatientRoutes from './routes/PatientRoutes';
 import DoctorRoutes from './routes/DoctorRoutes';
 import AdminRoutes from './routes/AdminRoutes';
@@ -40,6 +45,9 @@ export default function App() {
               <Route path="/patient/*" element={<PatientRoutes />} />
               <Route path="/doctor/*" element={<DoctorRoutes />} />
               <Route path="/admin/*" element={<AdminRoutes />} />
+              <Route path="/symptom-checker" element={<SymptomChecker />} />
+              <Route path="/symptom-history" element={<SymptomHistoryPage />} />
+              
             </Route>
           </Route>
 
