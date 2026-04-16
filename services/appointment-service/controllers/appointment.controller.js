@@ -379,6 +379,7 @@ export const getAllOnlineAppointmentsInternal = async (req, res) => {
             return res.status(404).json({ message: 'Appointment not found' });
         }
         appointment.paymentStatus = paymentStatus;
+        appointment.status = paymentStatus;
         await appointment.save();
 
         

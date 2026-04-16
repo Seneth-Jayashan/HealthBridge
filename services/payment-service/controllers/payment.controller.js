@@ -166,7 +166,7 @@ export const payHereWebhook = async (req, res) => {
                 }
             });
 
-            await axios.post(`http://doctor-service:3003/internal/confirm/add-to-patient-list`, {
+            await axios.post(`http://doctor-service:3003/patients/internal/confirm/add-to-patient-list`, {
                 appointmentId: payment.appointmentId,
                 doctorId: payment.doctorId,
                 patientId: payment.patientId

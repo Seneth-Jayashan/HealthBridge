@@ -14,8 +14,31 @@ const getAppointmentServiceUrl = () => {
     return process.env.APPOINTMENT_SERVICE_URL || 'http://localhost:3004';
 };
 
+const getPatientServiceUrl = () => {
+    return process.env.PATIENT_SERVICE_URL || 'http://localhost:3002';
+};
+
 const getInternalServiceKey = () => {
     return process.env.INTERNAL_SERVICE_SECRET || 'internal-service-key';
+};
+
+const getPatientByIdInternal = async (patientId) => {
+    try {
+        const patientBaseUrl = getPatientServiceUrl();
+        const endpoint = `${patientBaseUrl}/internal/get-patient/${patientId}`;
+
+        const response = await axios.get(endpoint, {
+            headers: {
+                'x-internal-service-key': getInternalServiceKey(),
+            },
+            timeout: 8000,
+        });
+
+        return response.data?.data || response.data;
+    } catch (error) {
+        console.error('[Telemedicine] Failed to fetch patient:', error.message);
+        throw new ApiError(404, 'Patient not found or appointment service is unavailable');
+    }
 };
 
 /**
@@ -370,7 +393,8 @@ export const getOnlineAppointmentsWithSessions = async (req, res, next) => {
         if (req.user.role === 'Doctor') {
             query.doctorId = req.user.id;
         } else if (req.user.role === 'Patient') {
-            query.patientId = req.user.id;
+            const patient = await getPatientByIdInternal(req.user.id);
+            query.patientId = patient._id;
         } else if (req.user.role !== 'Admin') {
             throw new ApiError(403, 'Unauthorized');
         }
@@ -507,6 +531,12 @@ export const handlePaymentSuccess = async (req, res, next) => {
             throw new ApiError(400, 'Appointment must have both doctorId and patientId');
         }
 
+        const patient = await getPatientByIdInternal(patientId);
+
+        if (!patient) {
+            throw new ApiError(404, 'Patient not found');
+        }
+
         // Check if session already exists for this appointment
         let session = await VideoSession.findOne({ appointmentId });
 
@@ -542,7 +572,7 @@ export const handlePaymentSuccess = async (req, res, next) => {
             appointmentId,
             channelName: `hb-${crypto.randomBytes(8).toString('hex')}`,
             doctorId: toObjectId(doctorId, 'doctorId'),
-            patientId: toObjectId(patientId, 'patientId'),
+            patientId: toObjectId(patient._id, 'patientId'),
             createdBy: toObjectId(doctorId, 'createdBy'),
             scheduledAt: appointment.createdAt || new Date(),
             status: 'scheduled',

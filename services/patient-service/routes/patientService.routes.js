@@ -4,7 +4,8 @@ import {
     updatePatientProfile,
     uploadMedicalReport,
     deleteMedicalReport,
-    getIsProfileUpdated // <-- 1. Added new controller import
+    getIsProfileUpdated,
+    getPatientById
 } from '../controllers/patientService.controller.js';
 import { requireAuth, requireRole, createUploadMiddleware } from '@healthbridge/shared';
 
@@ -16,6 +17,9 @@ const uploadReport = createUploadMiddleware(
     ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'], 
     10 
 );
+
+// internal route
+router.get('/internal/get-patient/:patientId', getPatientById);
 
 // Global Route Protection
 router.use(requireAuth, requireRole('Patient'));
