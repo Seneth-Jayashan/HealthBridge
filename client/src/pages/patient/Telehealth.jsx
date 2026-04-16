@@ -1,5 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ListChecks, LoaderCircle, RefreshCw, Video } from 'lucide-react';
+import { 
+  CalendarDays, Loader2, RefreshCcw, Video, 
+  AlertCircle, CheckCircle2, Stethoscope, ChevronRight,
+  Clock, User, ShieldCheck
+} from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import {
   getMyTelemedicineSessions,
@@ -37,7 +41,6 @@ const PatientTelehealth = () => {
   const loadSessions = async () => {
     setLoading(true);
     setError('');
-
     try {
       const [data, appts] = await Promise.all([
         getMyTelemedicineSessions(),
@@ -53,7 +56,7 @@ const PatientTelehealth = () => {
         setSelectedSessionId(safeList[0]._id);
       }
     } catch (requestError) {
-      setError(requestError?.response?.data?.message || 'Unable to load your telehealth sessions.');
+      setError(requestError?.response?.data?.message || 'Unable to load your appointments.');
     } finally {
       setLoading(false);
     }
@@ -65,7 +68,6 @@ const PatientTelehealth = () => {
 
   useEffect(() => {
     if (!joinPayload?.sessionId) return;
-
     const terminalStatuses = new Set(['ended', 'completed', 'cancelled']);
 
     const syncSessionState = async () => {
@@ -79,34 +81,28 @@ const PatientTelehealth = () => {
           setJoinPayload(null);
           setCurrentAppointment(null);
           setSelectedSessionId('');
-          setMessage('Call ended by doctor.');
+          setMessage('The consultation has ended.');
           await loadSessions();
         }
       } catch {
-        // Keep the active call UI stable during transient polling failures.
+        // Silent catch for transient polling failures
       }
     };
 
     const intervalId = window.setInterval(syncSessionState, 5000);
-
-    return () => {
-      window.clearInterval(intervalId);
-    };
+    return () => window.clearInterval(intervalId);
   }, [joinPayload?.sessionId]);
 
   const joinSelectedSession = async () => {
     if (!selectedSession) {
-      setError('Please select a session first.');
+      setError('Please select an appointment first.');
       return;
     }
-
     setJoining(true);
     setError('');
 
     try {
       const tokenData = await getTelemedicineJoinToken(selectedSession._id);
-
-      // Find the associated appointment
       const appointment = appointments.find(a => a._id === selectedSession.appointmentId);
 
       setJoinPayload({
@@ -119,123 +115,227 @@ const PatientTelehealth = () => {
       });
       
       setCurrentAppointment(appointment);
-      setMessage('Joining secure consultation room...');
+      setMessage('Secure connection established.');
     } catch (requestError) {
-      setError(requestError?.response?.data?.message || 'Unable to join this session right now.');
+      setError(requestError?.response?.data?.message || 'Unable to join the room right now.');
     } finally {
       setJoining(false);
     }
   };
 
+  const getStatusDisplay = (status) => {
+    const s = String(status).toLowerCase();
+    if (s.includes('active') || s.includes('ongoing')) return { text: 'Live Now', color: 'bg-emerald-500 text-white animate-pulse' };
+    if (s.includes('waiting')) return { text: 'Waiting Room', color: 'bg-amber-100 text-amber-700' };
+    if (s.includes('ended') || s.includes('completed')) return { text: 'Completed', color: 'bg-slate-100 text-slate-600' };
+    return { text: status, color: 'bg-blue-100 text-blue-700' };
+  };
+
   return (
-    <section className="space-y-6">
-      <div className="rounded-2xl border border-blue-200 bg-gradient-to-r from-blue-50 to-cyan-50 p-6 shadow-sm">
-        <p className="text-xs font-black uppercase tracking-wider text-blue-700">✅ Patient Portal</p>
-        <h1 className="mt-2 text-3xl font-black text-slate-900">📞 Telehealth Hub</h1>
-        <p className="mt-2 text-sm font-medium text-slate-600">Manage online appointments, review session details, and join secure video consultations with confidence.</p>
-      </div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-slate-50 to-blue-50/30 py-8 px-4 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl space-y-6">
+        
+        {/* Page Header */}
+        <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4">
+          <div>
+            <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">
+              Welcome, {user?.name?.split(' ')[0] || 'Patient'}
+            </h1>
+            <p className="mt-1 text-base text-slate-500">
+              Manage your upcoming online consultations here.
+            </p>
+          </div>
+          <button
+            onClick={loadSessions}
+            disabled={loading}
+            className="inline-flex w-fit items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 shadow-sm ring-1 ring-slate-200 transition-all hover:bg-slate-50 hover:shadow disabled:opacity-50"
+          >
+            <RefreshCcw size={16} className={loading ? "animate-spin text-blue-600" : "text-slate-400"} />
+            Refresh
+          </button>
+        </header>
 
-      {error && <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">❌ {error}</div>}
-      {message && <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">✅ {message}</div>}
+        {/* Global Notifications */}
+        <div className="space-y-3">
+          {error && (
+            <div className="flex items-center gap-3 rounded-2xl bg-red-50 p-4 text-sm font-semibold text-red-800 ring-1 ring-red-200">
+              <AlertCircle size={20} className="text-red-500 shrink-0" />
+              <p>{error}</p>
+            </div>
+          )}
+          {message && !joinPayload && (
+            <div className="flex items-center gap-3 rounded-2xl bg-emerald-50 p-4 text-sm font-semibold text-emerald-800 ring-1 ring-emerald-200">
+              <CheckCircle2 size={20} className="text-emerald-500 shrink-0" />
+              <p>{message}</p>
+            </div>
+          )}
+        </div>
 
-      <div className="grid gap-5 xl:grid-cols-5">
-          <div className="space-y-5 xl:col-span-2">
-            <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/8 to-white/3 p-5 hover:border-white/20 transition-all duration-200">
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2 text-slate-900">
-                  <ListChecks size={18} className="text-blue-600" />
-                  <h2 className="text-lg font-black">📋 Active Sessions</h2>
+        {/* Main Interface */}
+        <div className="grid gap-8 lg:grid-cols-12">
+          
+          {/* Left Column: Appointments List */}
+          <div className="lg:col-span-5 xl:col-span-4 flex flex-col gap-4">
+            <h2 className="text-lg font-bold text-slate-800 px-1">Your Appointments</h2>
+
+            <div className="flex flex-col gap-3">
+              {loading && sessions.length === 0 ? (
+                <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-slate-200 bg-white/50 py-16 text-slate-400">
+                  <Loader2 size={32} className="animate-spin text-blue-500 mb-4" />
+                  <p className="font-medium">Finding your appointments...</p>
                 </div>
-                <button
-                  type="button"
-                  onClick={loadSessions}
-                  className="inline-flex items-center gap-1 rounded-md border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50 transition"
-                >
-                  <RefreshCw size={14} />
-                  <span>Refresh</span>
-                </button>
-              </div>
+              ) : sessions.length === 0 ? (
+                <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-slate-200 bg-white py-16 text-center shadow-sm">
+                  <div className="rounded-full bg-blue-50 p-4 mb-4">
+                    <CalendarDays size={32} className="text-blue-500" />
+                  </div>
+                  <p className="text-base font-bold text-slate-700">No appointments</p>
+                  <p className="mt-1 text-sm text-slate-500 px-6">You don't have any scheduled video consultations at the moment.</p>
+                </div>
+              ) : (
+                sessions.map((session) => {
+                  const appointment = appointmentsById[session.appointmentId];
+                  const sessionTopic = appointment?.reason || session?.metadata?.reason || 'General Consultation';
+                  const isSelected = selectedSessionId === session._id;
+                  const status = getStatusDisplay(session.status);
 
-              <div className="mt-4 space-y-2">
-                {loading ? (
-                  <div className="text-sm font-medium text-slate-500">Loading sessions...</div>
-                ) : sessions.length === 0 ? (
-                  <div className="rounded-lg border border-dashed border-slate-300 p-4 text-sm font-medium text-slate-500">No active sessions yet.</div>
-                ) : (
-                  sessions.map((session) => (
-                    (() => {
-                      const appointment = appointmentsById[session.appointmentId];
-                      const sessionTopic = appointment?.reason || session?.metadata?.reason || 'General consultation';
-
-                      return (
+                  return (
                     <button
                       key={session._id}
-                      type="button"
                       onClick={() => setSelectedSessionId(session._id)}
-                      className={`w-full rounded-lg border px-3 py-3 text-left transition ${
-                        selectedSessionId === session._id
-                          ? 'border-blue-500 bg-blue-50 shadow-sm'
-                          : 'border-slate-200 bg-white hover:bg-slate-50'
+                      className={`group relative flex w-full flex-col overflow-hidden rounded-3xl border-2 text-left transition-all duration-300 ${
+                        isSelected
+                          ? 'border-blue-500 bg-white shadow-xl shadow-blue-500/10'
+                          : 'border-transparent bg-white shadow-sm hover:border-slate-200 hover:shadow-md'
                       }`}
                     >
-                      <p className="text-sm font-bold text-slate-900">{session.channelName}</p>
-                      <p className="mt-1 text-xs font-medium text-slate-600">🔄 Status: {session.status}</p>
-                      <div className="mt-2 rounded-md border border-blue-200 bg-blue-50 px-2.5 py-2">
-                        <p className="text-[10px] font-black uppercase tracking-wider text-blue-700">Session Topic</p>
-                        <p className="mt-0.5 text-sm font-extrabold leading-snug text-blue-900">{sessionTopic}</p>
+                      <div className="p-5">
+                        <div className="flex items-start justify-between gap-4 mb-4">
+                          <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl transition-colors ${isSelected ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-500'}`}>
+                            <Video size={24} />
+                          </div>
+                          <span className={`inline-flex rounded-full px-3 py-1 text-xs font-bold tracking-wide ${status.color}`}>
+                            {status.text}
+                          </span>
+                        </div>
+                        
+                        <h3 className="text-xl font-bold text-slate-900 mb-1">{session.channelName}</h3>
+                        <div className="flex items-center gap-2 text-sm font-medium text-slate-500">
+                          <Stethoscope size={16} />
+                          <span className="line-clamp-1">{sessionTopic}</span>
+                        </div>
                       </div>
+                      
+                      {/* Selection Indicator Strip */}
+                      <div className={`h-1.5 w-full transition-colors ${isSelected ? 'bg-blue-500' : 'bg-transparent group-hover:bg-slate-100'}`} />
                     </button>
-                      );
-                    })()
-                  ))
-                )}
-              </div>
+                  );
+                })
+              )}
             </div>
           </div>
 
-          <div className="space-y-5 xl:col-span-3">
-            <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/8 to-white/3 p-5 hover:border-white/20 transition-all duration-200">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <div className="inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1 text-xs font-bold uppercase tracking-wider text-blue-700 border border-blue-200">
-                    <Video size={14} />
-                    <span>Session Details</span>
+          {/* Right Column: Dynamic Stage (Lobby or Video Room) */}
+          <div className="lg:col-span-7 xl:col-span-8 relative">
+            
+            {!selectedSession ? (
+              /* Empty State Stage */
+              <div className="hidden lg:flex h-full min-h-[500px] flex-col items-center justify-center rounded-[2.5rem] border border-slate-200/60 bg-white/50 text-slate-400">
+                <Video size={64} className="mb-6 opacity-20" />
+                <p className="text-lg font-medium text-slate-500">Select an appointment to view details</p>
+              </div>
+            ) : joinPayload ? (
+              /* Active Video Room Stage */
+              <div className="animate-in zoom-in-95 fade-in duration-500">
+                <VideoConsultRoom
+                  joinPayload={joinPayload}
+                  displayName={user?.name || 'Patient'}
+                  appointmentDetails={currentAppointment}
+                  onLeave={() => {
+                    setJoinPayload(null);
+                    setCurrentAppointment(null);
+                  }}
+                />
+              </div>
+            ) : (
+              /* Pre-Call Lobby Stage */
+              <div className="flex min-h-[500px] flex-col overflow-hidden rounded-[2.5rem] bg-white shadow-xl shadow-slate-200/40 ring-1 ring-slate-200 animate-in fade-in slide-in-from-bottom-4">
+                
+                {/* Lobby Header Art */}
+                <div className="relative h-48 bg-gradient-to-br from-blue-600 to-indigo-700 p-8 text-white flex flex-col justify-end">
+                  <div className="absolute top-6 right-6 rounded-2xl bg-white/20 p-3 backdrop-blur-md">
+                    <ShieldCheck size={32} className="text-white" />
                   </div>
-                  <h3 className="mt-2 text-lg font-black text-slate-900">{selectedSession?.channelName || '📞 Select a session'}</h3>
+                  <span className="mb-2 w-fit rounded-full bg-white/20 px-3 py-1 text-xs font-bold uppercase tracking-wider backdrop-blur-md">
+                    Pre-Call Lobby
+                  </span>
+                  <h2 className="text-3xl font-extrabold tracking-tight">
+                    {selectedSession.channelName}
+                  </h2>
                 </div>
 
-                <div className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 font-bold text-xs text-slate-700 border border-slate-200">
-                  {selectedSession?.status || '⏱️ idle'}
+                {/* Lobby Details */}
+                <div className="flex-1 p-8">
+                  <div className="grid gap-6 sm:grid-cols-2 mb-10">
+                    <div className="flex items-center gap-4 rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-100">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-100 text-blue-600">
+                        <Stethoscope size={24} />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Reason</p>
+                        <p className="font-semibold text-slate-800 line-clamp-1">
+                          {appointmentsById[selectedSession.appointmentId]?.reason || 'General'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-4 rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-100">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-indigo-100 text-indigo-600">
+                        <User size={24} />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Patient</p>
+                        <p className="font-semibold text-slate-800 line-clamp-1">
+                          {user?.name || 'You'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Big Action Button */}
+                  <div className="flex flex-col items-center justify-center pt-4 border-t border-slate-100">
+                    <button
+                      onClick={joinSelectedSession}
+                      disabled={joining}
+                      className="group relative flex w-full sm:w-auto items-center justify-center gap-3 overflow-hidden rounded-full bg-blue-600 px-10 py-5 text-lg font-bold text-white shadow-xl shadow-blue-600/30 transition-all hover:-translate-y-1 hover:bg-blue-500 hover:shadow-2xl hover:shadow-blue-500/40 disabled:pointer-events-none disabled:opacity-70"
+                    >
+                      {joining ? (
+                        <>
+                          <Loader2 size={24} className="animate-spin" />
+                          <span>Preparing Secure Room...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Video size={24} />
+                          <span>Join Video Consultation</span>
+                          <ChevronRight size={24} className="transition-transform group-hover:translate-x-2" />
+                        </>
+                      )}
+                    </button>
+                    <p className="mt-4 flex items-center gap-2 text-sm font-medium text-slate-500">
+                      <ShieldCheck size={16} className="text-emerald-500" />
+                      End-to-end encrypted call
+                    </p>
+                  </div>
                 </div>
-              </div>
 
-              <div className="mt-4 flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={joinSelectedSession}
-                  disabled={joining || !selectedSession}
-                  className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 px-4 py-2 text-sm font-bold text-white hover:shadow-lg hover:shadow-blue-500/30 disabled:opacity-50 transition-all"
-                >
-                  {joining ? <LoaderCircle size={16} className="animate-spin" /> : '📹'}
-                  Join Video Call
-                </button>
               </div>
-            </div>
-
-            {joinPayload && (
-              <VideoConsultRoom
-                joinPayload={joinPayload}
-                displayName={user?.name || 'Patient'}
-                appointmentDetails={currentAppointment}
-                onLeave={() => {
-                  setJoinPayload(null);
-                  setCurrentAppointment(null);
-                }}
-              />
             )}
           </div>
+
         </div>
-    </section>
+      </div>
+    </div>
   );
 };
 
