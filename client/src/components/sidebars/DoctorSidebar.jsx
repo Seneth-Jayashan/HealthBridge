@@ -33,41 +33,41 @@ const DoctorSidebar = () => {
   const initials = name.replace(/^Dr\.\s*/i, '').split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() || 'MD';
 
   return (
-    <aside className={`${isCollapsed ? 'w-20' : 'w-72'} bg-slate-900 border-r border-slate-800 hidden md:flex md:flex-col shadow-[4px_0_24px_rgba(0,0,0,0.15)] z-20 h-screen sticky top-0 text-slate-200 transition-all duration-300 ease-in-out`}>
+    <aside className={`${isCollapsed ? 'w-20' : 'w-72'} bg-white border-r border-slate-100 hidden md:flex md:flex-col shadow-[4px_0_24px_rgba(0,0,0,0.02)] z-20 h-screen sticky top-0 transition-all duration-300 ease-in-out`}>
       
       {/* Floating Toggle Button */}
       <button 
         onClick={() => setIsCollapsed(!isCollapsed)}
-        className="absolute -right-3 top-8 bg-slate-800 border border-slate-700 text-slate-400 rounded-full p-1.5 shadow-md hover:text-teal-400 hover:border-teal-500/50 transition-colors z-50"
+        className="absolute -right-3 top-8 bg-white border border-slate-200 text-slate-500 rounded-full p-1.5 shadow-sm hover:text-blue-600 hover:border-blue-300 transition-colors z-50"
       >
         {isCollapsed ? <ChevronRight size={14} strokeWidth={3} /> : <ChevronLeft size={14} strokeWidth={3} />}
       </button>
 
       {/* Brand & Logo Section */}
-      <div className={`h-20 flex items-center border-b border-slate-800/80 overflow-hidden transition-all ${isCollapsed ? 'px-0 justify-center' : 'px-6 gap-3'}`}>
-        <div className="bg-teal-600 p-2 rounded-xl shadow-lg shadow-teal-900/20 shrink-0">
+      <div className={`h-20 flex items-center border-b border-slate-50 overflow-hidden transition-all ${isCollapsed ? 'px-0 justify-center' : 'px-6 gap-3'}`}>
+        <div className="bg-blue-700 p-2 rounded-xl shadow-md shadow-blue-700/20 shrink-0">
           <Stethoscope className="text-white" size={20} />
         </div>
         {!isCollapsed && (
-          <Link to="/" className="text-xl font-black tracking-tight text-white whitespace-nowrap">
-            Health<span className="text-teal-500">Bridge</span>
+          <Link to="/" className="text-xl font-black tracking-tight text-slate-900 whitespace-nowrap">
+            Health<span className="text-blue-700">Bridge</span>
           </Link>
         )}
       </div>
 
       {/* Provider Profile Card */}
-      <div className={`py-6 border-b border-slate-800/80 transition-all ${isCollapsed ? 'px-3' : 'px-5'}`}>
-        <div className={`flex items-center bg-slate-800/50 rounded-2xl border border-slate-700/50 hover:bg-slate-800 cursor-pointer ${isCollapsed ? 'p-2 justify-center' : 'p-3 gap-3'}`}>
-          <div className="h-10 w-10 shrink-0 rounded-full bg-teal-500/10 text-teal-400 flex items-center justify-center font-black text-sm border border-teal-500/20 shadow-inner" title={displayName}>
+      <div className={`py-6 border-b border-slate-100 transition-all ${isCollapsed ? 'px-3' : 'px-5'}`}>
+        <div className={`flex items-center bg-slate-50 rounded-2xl border border-slate-100 hover:bg-slate-100 cursor-pointer ${isCollapsed ? 'p-2 justify-center' : 'p-3 gap-3'}`}>
+          <div className="h-10 w-10 shrink-0 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-black text-sm border border-blue-200" title={displayName}>
             {initials}
           </div>
           {!isCollapsed && (
             <div className="overflow-hidden">
               <div className="flex items-center gap-1.5">
-                <p className="text-sm font-bold text-white truncate">{displayName}</p>
-                <BadgeCheck size={14} className="text-teal-500 shrink-0" title="Board Certified" />
+                <p className="text-sm font-bold text-slate-900 truncate">{displayName}</p>
+                <BadgeCheck size={14} className="text-blue-700 shrink-0" title="Board Certified" />
               </div>
-              <p className="text-xs font-medium text-slate-400 truncate">{user?.specialty || 'General Practitioner'}</p>
+              <p className="text-xs font-semibold text-slate-500 truncate">{user?.specialty || 'General Practitioner'}</p>
             </div>
           )}
         </div>
@@ -76,7 +76,7 @@ const DoctorSidebar = () => {
       {/* Navigation Menu */}
       <div className={`flex-1 overflow-y-auto py-6 ${isCollapsed ? 'px-3' : 'px-4'}`}>
         {!isCollapsed && (
-          <p className="px-4 text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-3 whitespace-nowrap">
+          <p className="px-4 text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 whitespace-nowrap">
             Provider Console
           </p>
         )}
@@ -89,8 +89,8 @@ const DoctorSidebar = () => {
               className={({ isActive }) =>
                 `w-full rounded-xl py-3 text-sm font-bold flex items-center transition-all duration-200 ${isCollapsed ? 'px-0 justify-center' : 'px-4 gap-3'} ${
                   isActive
-                    ? 'bg-teal-600 text-white shadow-lg shadow-teal-900/20'
-                    : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+                    ? 'bg-blue-700 text-white shadow-md shadow-blue-700/20'
+                    : 'text-slate-500 hover:bg-slate-50 hover:text-blue-700'
                 }`
               }
             >
@@ -106,11 +106,11 @@ const DoctorSidebar = () => {
       </div>
 
       {/* Footer / Logout Section */}
-      <div className={`p-4 border-t border-slate-800/80 bg-slate-900 ${isCollapsed ? 'flex justify-center' : ''}`}>
+      <div className={`p-4 border-t border-slate-100 bg-slate-50/50 ${isCollapsed ? 'flex justify-center' : ''}`}>
         <button 
           onClick={handleLogout}
           title={isCollapsed ? "End Shift" : ""}
-          className={`rounded-xl py-3 text-sm font-bold flex items-center text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors border border-transparent hover:border-red-500/20 ${isCollapsed ? 'px-3 justify-center' : 'w-full px-4 gap-3'}`}
+          className={`rounded-xl py-3 text-sm font-bold flex items-center text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors ${isCollapsed ? 'px-3 justify-center' : 'w-full px-4 gap-3'}`}
         >
           <LogOut size={18} strokeWidth={2.5} className="shrink-0" />
           {!isCollapsed && <span className="whitespace-nowrap">End Shift</span>}
