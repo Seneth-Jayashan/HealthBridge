@@ -145,7 +145,7 @@ export const payHereWebhook = async (req, res) => {
 
     // 3. Determine Status
     const isSuccess = Number(status_code) === 2;
-    const paymentStatus = isSuccess ? "completed" : Number(status_code) === 0 ? "pending" : "failed";
+    const paymentStatus = isSuccess ? "Completed" : Number(status_code) === 0 ? "Pending" : "Failed";
 
     // 4. Update Database Record
     payment.status = paymentStatus;
@@ -159,7 +159,7 @@ export const payHereWebhook = async (req, res) => {
         console.log(`Payment successful for order_id: ${order_id}, appointmentId: ${payment.appointmentId}`);
         try {
             await axios.post(`http://appointment-service:3004/internal/confirm/${payment.appointmentId}`, {
-                paymentStatus: "completed"
+                paymentStatus: "Completed"
             }, {
                 headers: {
                     'x-internal-service-key': process.env.INTERNAL_SERVICE_SECRET,

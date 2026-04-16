@@ -57,7 +57,7 @@ const fetchUserOnlineAppointments = async (userId, userRole) => {
 const fetchAppointmentById = async (appointmentId) => {
     try {
         const appointmentBaseUrl = getAppointmentServiceUrl();
-        const endpoint = `${appointmentBaseUrl}/internal/appointment/${appointmentId}`;
+        const endpoint = `${appointmentBaseUrl}/internal/appointments/${appointmentId}`;
 
         const response = await axios.get(endpoint, {
             headers: {
