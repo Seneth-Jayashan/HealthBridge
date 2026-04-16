@@ -12,7 +12,6 @@ const navItems = [
   { label: 'Clinical Overview', to: '/doctor/dashboard', icon: Activity },
   { label: 'Appointments', to: '/doctor/appointment', icon: CalendarCheck2 },
   { label: 'Live Telehealth', to: '/doctor/telehealth', icon: Video },
-  { label: 'My Schedule', to: '/doctor/schedule', icon: CalendarClock },
   { label: 'Patient Directory', to: '/doctor/patients', icon: Users },
   { label: 'My Payments', to: '/doctor/payments', icon: CreditCard },
   { label: 'Profile', to: '/doctor/profile', icon: UserRound },

@@ -74,6 +74,7 @@ const DoctorRequest = () => {
     setForm((previous) => ({ ...previous, [name]: value }));
   };
 
+  // must refresh after submit to get the latest doctor status for redirection logic
   const handleSubmit = async (event) => {
     event.preventDefault();
     setError('');
@@ -81,36 +82,54 @@ const DoctorRequest = () => {
     setSubmitting(true);
 
     try {
-      const profilePayload = {
-        specialization: form.specialization.trim(),
-        registrationNumber: form.registrationNumber.trim(),
-        qualifications: form.qualifications
-          .split(',')
-          .map((item) => item.trim())
-          .filter(Boolean),
-        experienceYears: form.experienceYears === '' ? 0 : Number(form.experienceYears),
-        bio: form.bio.trim(),
-        consultationFee: form.consultationFee === '' ? 0 : Number(form.consultationFee),
-      };
+        // Optional frontend validation block here
+        if (!form.specialization.trim() || !form.registrationNumber.trim()) {
+            throw new Error('Please fill in all required fields.');
+        }
 
-      await updateDoctorProfile(profilePayload);
+        const parsedFee = parseFloat(form.consultationFee);
+        const parsedExperience = parseInt(form.experienceYears, 10);
 
-      if (documentFile) {
-        await uploadVerificationDocument(documentFile, documentType);
-      }
+        const profilePayload = {
+            specialization: form.specialization.trim(),
+            registrationNumber: form.registrationNumber.trim(),
+            qualifications: form.qualifications
+                .split(',')
+                .map((item) => item.trim())
+                .filter(Boolean),
+            experienceYears: isNaN(parsedExperience) ? 0 : parsedExperience,
+            bio: form.bio.trim(),
+            consultationFee: isNaN(parsedFee) ? 0 : parsedFee,
+        };
 
-      const refreshedUser = await refreshDoctorStatus();
-      setSuccess('Doctor request submitted. Admin review is now pending.');
+        // 1. Update Profile
+        await updateDoctorProfile(profilePayload);
 
-      if (refreshedUser?.doctorStatus === 'Approved') {
-        navigate('/doctor/dashboard', { replace: true });
-      }
+        // 2. Upload Document
+        if (documentFile) {
+            await uploadVerificationDocument(documentFile, documentType);
+        }
+
+        // 3. Check Status
+        const refreshedUser = await refreshDoctorStatus();
+
+        // 4. Handle Routing vs Messaging safely
+        if (refreshedUser?.doctorStatus === 'Approved') {
+            navigate('/doctor/dashboard', { replace: true });
+        } else {
+            // Only show the message if they are staying on this page
+            setSuccess('Doctor request submitted. Admin review is now pending.');
+            
+            // Optional: You might want to clear the form or disable it here 
+            // so they don't submit it twice while pending.
+        }
+
     } catch (requestError) {
-      setError(requestError.response?.data?.message || 'Unable to submit doctor request.');
+        setError(requestError.response?.data?.message || requestError.message || 'Unable to submit doctor request.');
     } finally {
-      setSubmitting(false);
+        setSubmitting(false);
     }
-  };
+};
 
   return (
     <section className={`min-h-full rounded-3xl border p-6 md:p-10 shadow-sm transition-colors duration-300 ${isDark ? 'bg-[#131C31] border-slate-800 shadow-black/20' : 'bg-white border-slate-200'}`}>

@@ -55,7 +55,5 @@ spec:
               value: "healthbridge_internal_secret"
             - name: NOTIFICATION_SERVICE_URL
               value: "http://notification-service:3006"
-            - name: PATIENT_SERVICE_URL
-              value: "http://patient-service:3002"
             - name : INTERNAL_SERVICE_SECRET
               value: "healthbridge_internal_secret"
