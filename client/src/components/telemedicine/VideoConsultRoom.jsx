@@ -57,41 +57,45 @@ const VideoConsultRoom = ({ joinPayload, displayName, onLeave, appointmentDetail
   }, []);
 
   const leaveCall = useCallback(async (notifyParent = true) => {
-    const { audioTrack, videoTrack } = localTracksRef.current;
+    try {
+      const { audioTrack, videoTrack } = localTracksRef.current;
 
-    if (audioTrack) {
-      audioTrack.stop();
-      audioTrack.close();
-    }
-    if (videoTrack) {
-      videoTrack.stop();
-      videoTrack.close();
-    }
-
-    localTracksRef.current = { audioTrack: null, videoTrack: null };
-    remoteVideoTracksRef.current.clear();
-
-    if (clientRef.current) {
-      if (AGORA_PROXY_MODE && typeof clientRef.current.stopProxyServer === 'function') {
-        clientRef.current.stopProxyServer();
+      if (audioTrack) {
+        audioTrack.stop();
+        audioTrack.close();
       }
-      clientRef.current.removeAllListeners();
-      await clientRef.current.leave();
-      clientRef.current = null;
-    }
+      if (videoTrack) {
+        videoTrack.stop();
+        videoTrack.close();
+      }
 
-    // Exit fullscreen if leaving
-    if (document.fullscreenElement) {
-      await document.exitFullscreen().catch(() => {});
-    }
+      localTracksRef.current = { audioTrack: null, videoTrack: null };
+      remoteVideoTracksRef.current.clear();
 
-    setRemoteParticipants([]);
-    setIsMicEnabled(true);
-    setIsCameraEnabled(true);
-    setConnectionState('idle');
+      if (clientRef.current) {
+        if (AGORA_PROXY_MODE && typeof clientRef.current.stopProxyServer === 'function') {
+          clientRef.current.stopProxyServer();
+        }
+        clientRef.current.removeAllListeners();
+        await clientRef.current.leave();
+        clientRef.current = null;
+      }
 
-    if (notifyParent) {
-      onLeave?.();
+      // Exit fullscreen if leaving
+      if (document.fullscreenElement) {
+        await document.exitFullscreen().catch(() => {});
+      }
+    } catch (leaveError) {
+      setError(leaveError?.message || 'There was an issue while leaving the call.');
+    } finally {
+      setRemoteParticipants([]);
+      setIsMicEnabled(true);
+      setIsCameraEnabled(true);
+      setConnectionState('idle');
+
+      if (notifyParent) {
+        await onLeave?.();
+      }
     }
   }, [onLeave]);
 
