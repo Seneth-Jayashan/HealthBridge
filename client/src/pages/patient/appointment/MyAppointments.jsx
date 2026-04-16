@@ -763,7 +763,11 @@ const MyAppointments = () => {
                       
                       {!isEditing && (
                         <button
-                          onClick={() => navigate(`/patient/appointment/${appt._id}`)}
+                          onClick={() =>
+                            navigate(`/patient/appointment/${appt._id}`, {
+                              state: { appointment: appt },
+                            })
+                          }
                           className="inline-flex justify-center items-center gap-1.5 px-4 py-2 rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 text-sm font-bold transition-colors"
                         >
                           Details
