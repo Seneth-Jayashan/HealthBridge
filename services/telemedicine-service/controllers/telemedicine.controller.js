@@ -138,6 +138,76 @@ const clampTtl = (value) => {
     return Math.max(MIN_TTL_SECONDS, Math.min(MAX_TTL_SECONDS, parsed));
 };
 
+export const createVideoSession = async (req, res, next) => {
+    try {
+        const { appointmentId, patientId, doctorId, scheduledAt, metadata } = req.body;
+
+        if (!patientId) {
+            throw new ApiError(400, 'patientId is required.');
+        }
+
+        let resolvedDoctorId = doctorId;
+
+        if (req.user.role === 'Doctor') {
+            resolvedDoctorId = req.user.id;
+        }
+
+        if (!resolvedDoctorId) {
+            throw new ApiError(400, 'doctorId is required.');
+        }
+
+        // ─── Validate Payment Status if appointmentId is provided ──
+        if (appointmentId) {
+            try {
+                const appointment = await fetchAppointmentById(appointmentId);
+                
+                if (!appointment) {
+                    throw new ApiError(404, 'Appointment not found');
+                }
+
+                // Check if payment is completed
+                if (appointment.paymentStatus !== 'Completed') {
+                    throw new ApiError(402, `Session can only be created after payment is completed. Current payment status: ${appointment.paymentStatus}`);
+                }
+
+                // Check if appointment is accepted
+                if (appointment.status !== 'Accepted') {
+                    throw new ApiError(409, `Appointment must be accepted by doctor first. Current status: ${appointment.status}`);
+                }
+            } catch (error) {
+                if (error instanceof ApiError) {
+                    throw error;
+                }
+                // If appointment service is down, still allow creation (fallback)
+                console.warn('[Telemedicine] Warning: Could not verify appointment payment status');
+            }
+        }
+
+        const session = await VideoSession.create({
+            appointmentId,
+            channelName: `hb-${crypto.randomBytes(8).toString('hex')}`,
+            doctorId: toObjectId(resolvedDoctorId, 'doctorId'),
+            patientId: toObjectId(patientId, 'patientId'),
+            createdBy: toObjectId(req.user.id, 'createdBy'),
+            scheduledAt,
+            metadata,
+            agora: {
+                tokenTTLSeconds: DEFAULT_TTL_SECONDS
+            }
+        });
+
+        res.status(201).json(
+            new ApiResponse(
+                201,
+                session,
+                'Video consultation session created successfully.'
+            )
+        );
+    } catch (error) {
+        next(error);
+    }
+};
+
 export const listMyVideoSessions = async (req, res, next) => {
     try {
         const { status } = req.query;
@@ -343,6 +413,44 @@ export const getOnlineAppointmentsWithSessions = async (req, res, next) => {
         // Return combined data
         res.status(200).json(
             new ApiResponse(200, { sessions, appointments }, 'Online appointments with video sessions retrieved successfully.')
+        );
+    } catch (error) {
+        next(error);
+    }
+};
+
+// ─── Get patient's online appointments (internal use for Telehealth) ──
+export const getPatientOnlineAppointments = async (req, res, next) => {
+    try {
+        const userId = req.params.userId || req.user.id;
+
+        if (req.user.role === 'Patient' && String(req.user.id) !== String(userId)) {
+            throw new ApiError(403, 'Forbidden: You can only access your own appointments.');
+        }
+
+        const appointments = await fetchUserOnlineAppointments(userId, 'Patient');
+
+        res.status(200).json(
+            new ApiResponse(200, appointments, 'Patient online appointments retrieved successfully.')
+        );
+    } catch (error) {
+        next(error);
+    }
+};
+
+// ─── Get doctor's online appointments (internal use for Telehealth) ──
+export const getDoctorOnlineAppointments = async (req, res, next) => {
+    try {
+        const userId = req.params.userId || req.user.id;
+
+        if (req.user.role === 'Doctor' && String(req.user.id) !== String(userId)) {
+            throw new ApiError(403, 'Forbidden: You can only access your own appointments.');
+        }
+
+        const appointments = await fetchUserOnlineAppointments(userId, 'Doctor');
+
+        res.status(200).json(
+            new ApiResponse(200, appointments, 'Doctor online appointments retrieved successfully.')
         );
     } catch (error) {
         next(error);
