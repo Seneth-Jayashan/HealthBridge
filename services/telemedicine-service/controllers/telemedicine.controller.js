@@ -222,7 +222,8 @@ export const listMyVideoSessions = async (req, res, next) => {
         }
 
         if (req.user.role === 'Patient') {
-            query.patientId = req.user.id;
+            const patient = await getPatientByIdInternal(req.user.id);
+            query.patientId = patient._id;
         }
 
         if (req.user.role === 'Admin') {
@@ -235,6 +236,7 @@ export const listMyVideoSessions = async (req, res, next) => {
         }
 
         const sessions = await VideoSession.find(query).sort({ createdAt: -1 }).limit(100);
+        console.log(`[Telemedicine] Retrieved ${sessions.length} sessions for user ${req.user.id} with role ${req.user.role}`);
 
         res.status(200).json(new ApiResponse(200, sessions, 'Video sessions retrieved successfully.'));
     } catch (error) {

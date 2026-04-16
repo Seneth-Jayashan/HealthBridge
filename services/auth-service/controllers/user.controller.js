@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 import User from '../models/User.js';
-
+import { ApiError, ApiResponse } from '@healthbridge/shared';
 
 // Get user Profile
 export const getProfile = async (req, res) => {
