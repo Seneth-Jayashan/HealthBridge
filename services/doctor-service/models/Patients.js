@@ -8,7 +8,7 @@ const patientSchema = new mongoose.Schema({
             email: { type: String, required: true },
             phoneNumber: { type: String, required: true },
             patientId: { type: mongoose.Schema.Types.ObjectId, required: true },
-            lastAppointmentDate: { type: Date },
+            lastAppointmentData: { type: Object }
         }
     ],
 }, { timestamps: true });

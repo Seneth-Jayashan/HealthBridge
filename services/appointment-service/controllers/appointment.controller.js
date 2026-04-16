@@ -376,3 +376,22 @@ export const getAllOnlineAppointmentsInternal = async (req, res) => {
       res.status(500).json({ message: error.message });
     }
   };
+
+  // ---- [INTERNAL API] Get appointment by ID (for doctor-service to confirm attendance and add to patient list) ----
+  export const getAppointmentByIdInternal = async (req, res) => {
+    try {
+        const { appointmentId } = req.params;
+        if (!appointmentId) {
+            return res.status(400).json({ message: 'appointmentId is required' });
+        }
+        const appointment = await Appointment.findById(appointmentId);
+        if (!appointment) {
+            return res.status(404).json({ message: 'Appointment not found' });
+        }
+        res.status(200).json({ 
+            data: appointment
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+  };

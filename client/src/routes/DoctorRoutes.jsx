@@ -10,6 +10,7 @@ import AppointmentList from '../pages/doctor/appointment/AppointmentList';
 import DoctorTelehealth from "../pages/doctor/Telehealth";
 import DoctorProfile from '../pages/doctor/Profile';
 import MyPayments from '../pages/doctor/MyPayments';
+import Patients from '../pages/doctor/Patients';
 
 export default function DoctorRoutes() {
   return (
@@ -26,6 +27,7 @@ export default function DoctorRoutes() {
           <Route path="telehealth" element={<DoctorTelehealth />} />
           <Route path="payments" element={<MyPayments />} />
           <Route path="profile" element={<DoctorProfile />} />
+          <Route path="patients" element={<Patients />} />
         </Route>
         
       {/* Protects all nested routes ensuring ONLY Doctors can access them */}

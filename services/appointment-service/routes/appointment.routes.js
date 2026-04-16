@@ -10,7 +10,8 @@ import {
   getPatientOnlineAppointmentsInternal,
   getDoctorOnlineAppointmentsInternal,
   getAllOnlineAppointmentsInternal,
-  updatePaymentStatusInternal
+  updatePaymentStatusInternal,
+  getAppointmentByIdInternal
 } from '../controllers/appointment.controller.js';
 
 const router = express.Router();
@@ -37,8 +38,10 @@ router.post('/appointments/:id/decision', requireAuth, requireRole('Doctor'), do
 router.get('/internal/patient/online/:userId', getPatientOnlineAppointmentsInternal);
 router.get('/internal/doctor/online/:userId', getDoctorOnlineAppointmentsInternal);
 router.get('/internal/appointments/online', getAllOnlineAppointmentsInternal);
+router.get('/internal/appointments/:appointmentId', getAppointmentByIdInternal);
 
 // payment status update endpoint 
 router.post('/internal/confirm/:appointmentId', updatePaymentStatusInternal);
+
 
 export default router;

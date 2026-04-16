@@ -163,6 +163,16 @@ export const payHereWebhook = async (req, res) => {
     if (isSuccess) {
         try {
             // await axios.post(`http://appointment-service/internal/confirm/${payment.appointmentId}`);
+            await axios.post(`http://doctor-service:3003/internal/confirm/add-to-patient-list`, {
+                appointmentId: payment.appointmentId,
+                doctorId: payment.doctorId,
+                patientId: payment.patientId
+            }, {
+                headers: {
+                    'x-internal-service-key': process.env.INTERNAL_SERVICE_SECRET,
+                }
+            }
+            );
             console.log(`Payment ${payment.orderId} successful for Appointment ${payment.appointmentId}`);
         } catch (e) {
             console.error("Failed to notify appointment service:", e.message);
