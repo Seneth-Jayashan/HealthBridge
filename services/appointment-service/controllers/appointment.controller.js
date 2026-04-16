@@ -1,6 +1,10 @@
 import Appointment from '../models/Appointment.js';
 import { ApiError, ApiResponse } from '@healthbridge/shared';
 import axios from 'axios';
+import {
+  resolveDoctorUserIdForNotification,
+  sendInAppNotification,
+} from '../src/services/notificationClient.js';
 
 const normalizeBaseUrl = (url) => String(url || '').replace(/\/$/, '');
 const doctorBaseUrl = () => normalizeBaseUrl(process.env.DOCTOR_SERVICE_URL || 'http://localhost:3003');
@@ -131,6 +135,22 @@ export const createAppointment = async (req, res, next) => {
       await releaseSlotInternal({ doctorId, dayOfWeek, timeSlotId, appointmentId: appt._id }).catch(() => {});
       throw dbErr;
     }
+
+    // Notify doctor that a new appointment request was placed.
+    sendInAppNotification({
+      actorUserId: req.user.id,
+      actorRole: req.user.role,
+      targetUserId: await resolveDoctorUserIdForNotification({
+        doctorId,
+        actorUserId: req.user.id,
+        actorRole: req.user.role,
+      }),
+      title: 'New Appointment Request',
+      message: `A patient placed an appointment request for ${dayOfWeek} (${startTime}-${endTime}).`,
+      notificationTemplate: 'APPOINTMENT_PLACED',
+    }).catch((error) => {
+      console.error('[Appointment Service] Failed to notify doctor for new appointment:', error?.message || error);
+    });
 
     res.status(201).json(new ApiResponse(201, appt, 'Appointment created (Pending)'));
   } catch (err) {
@@ -328,6 +348,24 @@ export const doctorDecision = async (req, res, next) => {
         appointmentId: appt._id,
       }).catch(() => {});
     }
+
+    const normalizedDecision = String(decision).toLowerCase();
+    const decisionLabel = normalizedDecision === 'accept' ? 'confirmed' : 'rejected';
+
+    // Notify patient when doctor confirms/rejects the appointment.
+    sendInAppNotification({
+      actorUserId: req.user.id,
+      actorRole: req.user.role,
+      targetUserId: String(appt.patientId),
+      title: normalizedDecision === 'accept' ? 'Appointment Confirmed' : 'Appointment Rejected',
+      message:
+        normalizedDecision === 'accept'
+          ? `Your appointment on ${appt.dayOfWeek} (${appt.startTime}-${appt.endTime}) has been confirmed by the doctor.`
+          : `Your appointment on ${appt.dayOfWeek} (${appt.startTime}-${appt.endTime}) was rejected by the doctor.`,
+      notificationTemplate: normalizedDecision === 'accept' ? 'APPOINTMENT_CONFIRMED' : 'APPOINTMENT_REJECTED',
+    }).catch((error) => {
+      console.error(`[Appointment Service] Failed to notify patient for ${decisionLabel} appointment:`, error?.message || error);
+    });
 
     res.status(200).json(new ApiResponse(200, appt, `Appointment ${appt.status.toLowerCase()}`));
   } catch (err) {
