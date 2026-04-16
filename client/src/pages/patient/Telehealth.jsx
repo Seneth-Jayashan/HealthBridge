@@ -63,6 +63,37 @@ const PatientTelehealth = () => {
     loadSessions();
   }, []);
 
+  useEffect(() => {
+    if (!joinPayload?.sessionId) return;
+
+    const terminalStatuses = new Set(['ended', 'completed', 'cancelled']);
+
+    const syncSessionState = async () => {
+      try {
+        const data = await getMyTelemedicineSessions();
+        const safeList = Array.isArray(data) ? data : [];
+        const liveSession = safeList.find((session) => session._id === joinPayload.sessionId);
+        const status = String(liveSession?.status || '').toLowerCase();
+
+        if (!liveSession || terminalStatuses.has(status)) {
+          setJoinPayload(null);
+          setCurrentAppointment(null);
+          setSelectedSessionId('');
+          setMessage('Call ended by doctor.');
+          await loadSessions();
+        }
+      } catch {
+        // Keep the active call UI stable during transient polling failures.
+      }
+    };
+
+    const intervalId = window.setInterval(syncSessionState, 5000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [joinPayload?.sessionId]);
+
   const joinSelectedSession = async () => {
     if (!selectedSession) {
       setError('Please select a session first.');
