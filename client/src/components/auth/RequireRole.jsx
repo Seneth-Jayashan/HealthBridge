@@ -1,5 +1,5 @@
 import React from 'react';
-import { Navigate, Outlet } from 'react-router-dom';
+import { Navigate, Outlet, UNSAFE_getTurboStreamSingleFetchDataStrategy } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 
 const RequireRole = ({ allowedRoles }) => {
