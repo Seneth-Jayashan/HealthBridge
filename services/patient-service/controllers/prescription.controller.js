@@ -7,11 +7,8 @@ import { ApiError, ApiResponse } from "@healthbridge/shared";
 // @access  Private (Patient only)
 export const getPrescriptions = async (req, res, next) => {
     try {
-        const patient = await Patient.findOne({ userId: req.user.id });
-        if (!patient) {
-            return next(new ApiError(404, "Patient not found"));
-        }
-        const prescriptions = await Prescriptions.find({ patientId: patient._id }).sort({ createdAt: -1 });
+        const prescriptions = await Prescriptions.find({ patientId: req.user.id }).sort({ createdAt: -1 });
+        console.log("Retrieved prescriptions:", prescriptions);
         return res.status(200).json(new ApiResponse(200, prescriptions, "Prescriptions retrieved successfully"));
     } catch (error) {
         next(error);
@@ -23,11 +20,7 @@ export const getPrescriptions = async (req, res, next) => {
 // @access  Private (Patient only)
 export const getPrescriptionByIdPatient = async (req, res, next) => {
     try {
-        const patient = await Patient.findOne({ userId: req.user.id });
-        if (!patient) {
-            return next(new ApiError(404, "Patient not found"));
-        }
-        const prescription = await Prescriptions.findOne({ _id: req.params.id, patientId: patient._id });
+        const prescription = await Prescriptions.findOne({ _id: req.params.id, patientId: req.user.id });
         if (!prescription) {
             return next(new ApiError(404, "Prescription not found"));
         }
@@ -42,11 +35,7 @@ export const getPrescriptionByIdPatient = async (req, res, next) => {
 // @access  Private (Patient only)
 export const deletePrescriptionPatient = async (req, res, next) => {
     try {
-        const patient = await Patient.findOne({ userId: req.user.id });
-        if (!patient) {
-            return next(new ApiError(404, "Patient not found"));
-        }
-        const prescription = await Prescriptions.findOneAndDelete({ _id: req.params.id, patientId: patient._id });
+        const prescription = await Prescriptions.findOneAndDelete({ _id: req.params.id, patientId: req.user.id });
         if (!prescription) {
             return next(new ApiError(404, "Prescription not found"));
         }

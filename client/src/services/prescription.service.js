@@ -7,6 +7,7 @@ import httpClient from '../api/Axios';
 // --- View Prescriptions ---
 export const getMyPrescriptions = async () => {
   const response = await httpClient.get('/patients/prescriptions');
+  console.log("Received prescriptions response:", response.data);
   return response.data?.data || response.data;
 };
 

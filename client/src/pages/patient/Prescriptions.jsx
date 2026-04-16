@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { getMyPrescriptions } from '../../services/prescription.service'; // Adjust path as needed
 import { useAuth } from '../../context/AuthContext';
+import { getDoctorById } from '../../services/user.service';
 
 const PatientPrescriptions = () => {
   const { isDark = false } = useOutletContext() || {};
@@ -36,6 +37,28 @@ const PatientPrescriptions = () => {
 
     fetchPrescriptions();
   }, []);
+
+  useEffect(() => {
+    const fetchDoctorDetails = async () => {
+      const updatedPrescriptions = await Promise.all(prescriptions.map(async (rx) => {
+        if (rx.doctorId && typeof rx.doctorId === 'string') {
+          try {
+            const doctorDetails = await getDoctorById(rx.doctorId);
+            return { ...rx, doctorId: doctorDetails };
+          } catch (err) {
+            console.error(`Failed to fetch doctor details for ID ${rx.doctorId}:`, err);
+            return rx; // Return original if doctor details fail to load
+          }
+        }
+        return rx; // Return original if doctorId is already an object or missing
+      }));
+      setPrescriptions(updatedPrescriptions);
+    };
+
+    if (prescriptions.length > 0) {
+      fetchDoctorDetails();
+    }
+  }, [prescriptions.length]);
 
   useEffect(() => {
     if (!isLoading && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {

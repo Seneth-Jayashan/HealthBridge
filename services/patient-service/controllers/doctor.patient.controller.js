@@ -7,7 +7,7 @@ import { ApiError, ApiResponse } from "@healthbridge/shared";
 export const getPatientById = async (req, res, next) => {
     try {
         const { patientId } = req.params;
-        const patient = await Patient.findById(patientId);
+        const patient = await Patient.findOne({userId: patientId});
 
         if (!patient) {
             throw new ApiError(404, "Patient not found");
@@ -25,7 +25,7 @@ export const uploadMedicalReport = async (req, res, next) => {
     try {
         const { patientId } = req.params;
         const { title, description, fileUrl } = req.body;
-        const patient = await Patient.findById(patientId);
+        const patient = await Patient.findOne({userId: patientId});
 
         if (!patient) {
             throw new ApiError(404, "Patient not found");
@@ -50,7 +50,7 @@ export const uploadMedicalReport = async (req, res, next) => {
 export const deleteMedicalReport = async (req, res, next) => {
     try {
         const { patientId, reportId } = req.params;
-        const patient = await Patient.findById(patientId);
+        const patient = await Patient.findOne({userId: patientId});
 
         if (!patient) {
             throw new ApiError(404, "Patient not found");

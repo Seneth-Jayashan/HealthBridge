@@ -29,7 +29,7 @@ export const createPrescription = async (req, res, next) => {
         if (!patientId || !medication || !startDate || !endDate) {
             return next(new ApiError(400, "All fields are required"));
         }
-        const patient = await Patient.findById(patientId);
+        const patient = await Patient.findOne({userId: patientId});
         if (!patient) {
             return next(new ApiError(404, "Patient not found"));
         }
