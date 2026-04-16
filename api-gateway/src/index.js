@@ -6,6 +6,7 @@ import helmet from 'helmet';
 import verifyToken from './middlewares/auth.middleware.js';
 import errorHandler from './middlewares/error.middleware.js';
 import routes from './routes/index.js';
+import publicRoutes from './routes/public.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -20,6 +21,7 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(helmet()); 
 
+app.use('/public', publicRoutes);
 app.use(verifyToken);
 app.use('/', routes);
 

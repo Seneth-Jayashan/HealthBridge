@@ -16,7 +16,7 @@ import { requireAuth, requireRole } from '@healthbridge/shared';
 
 const router = express.Router();
 
-router.post('/payhere-webhook', payHereWebhook);
+router.post('/notify', payHereWebhook);
 
 router.get('/appointment-status/:appointmentId', requireAuth, getPaymentStatus);
 

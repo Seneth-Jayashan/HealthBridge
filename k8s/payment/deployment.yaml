@@ -40,7 +40,7 @@ spec:
         - name: PAYHERE_MERCHANT_ID
           value: "1233185"
         - name: PAYHERE_MERCHANT_SECRET
-          value: "Mzk1OTEwNzkyODIwNTE5ODU2MDAxNjI3OTE1NjExMTcxMzYwMDgwOQ=="
+          value: "Mjk1MzIxMDAyODQyMDc1MjQ0NDYyMTAzNjExMTY2Mjc2NzkzMjgzOQ=="
         - name: PAYHERE_RETURN_URL
           value: "http://localhost:5173/payment/success"
         - name: PAYHERE_CANCEL_URL

@@ -345,19 +345,19 @@ export const getAllOnlineAppointmentsInternal = async (req, res) => {
   export const updatePaymentStatusInternal = async (req, res) => {
    try {
        const { appointmentId } = req.params;
-       const { status } = req.body;
-        if (!appointmentId || !status) {
-            return res.status(400).json({ message: 'appointmentId and status are required' });
+       const { paymentStatus } = req.body;
+        if (!appointmentId || !paymentStatus) {
+            return res.status(400).json({ message: 'appointmentId and paymentStatus are required' });
         }
         const appointment = await Appointment.findById(appointmentId);
         if (!appointment) {
             return res.status(404).json({ message: 'Appointment not found' });
         }
-        appointment.status = status;
+        appointment.paymentStatus = paymentStatus;
         await appointment.save();
 
         // Call Telemdicine Internal API to notify about time to create session if appointment payment is completed
-        if (status === 'Completed') {
+        if (paymentStatus === 'Completed') {
             const authBaseUrl = process.env.TELEMEDICINE_SERVICE_URL || 'http://localhost:3008';
             const endpoint = `${authBaseUrl.replace(/\/$/, '')}/internal/success/${appointmentId}`;
 

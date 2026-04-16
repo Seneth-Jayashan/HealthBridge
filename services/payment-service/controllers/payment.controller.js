@@ -4,7 +4,7 @@ import axios from "axios";
 
 // -- HELPERS --
 const MERCHANT_ID = process.env.PAYHERE_MERCHANT_ID || "your_merchant_id"; 
-const MERCHANT_SECRET = process.env.PAYHERE_SECRET || "your_merchant_secret"; 
+const MERCHANT_SECRET = process.env.PAYHERE_MERCHANT_SECRET || process.env.PAYHERE_SECRET || "your_merchant_secret"; 
 
 // Fix: Corrected the MD5 Signature Generator for the Webhook
 const computePayHereMd5sig = ({ merchant_id, order_id, payhere_amount, payhere_currency, status_code, merchant_secret }) => {
@@ -49,13 +49,6 @@ export const createPayment = async (req, res) => {
     if (!patientId || !doctorId || !appointmentId) {
       return res.status(400).json({ message: "Missing required fields" });
     }
-
-    // check appointment is already exists or not
-    const existingPayment = await Payment.findOne({ appointmentId });
-    if (existingPayment) {
-        return res.status(400).json({ message: "Payment Data for this appointment already exists" });
-    }
-
     const isAmountValid = await checkConsultingFee(doctorId);
     if(isAmountValid.consultationFee === undefined || isAmountValid.consultationFee === null) {
         return res.status(400).json({ message: "Unable to verify consultation fee. Please try again later." });
@@ -80,12 +73,13 @@ export const createPayment = async (req, res) => {
     await newPayment.save();
 
     // Generate Hash for Checkout Form
+
     const hashedSecret = crypto.createHash('md5')
             .update(MERCHANT_SECRET)
             .digest('hex')
             .toUpperCase();
 
-    const mainString = MERCHANT_ID + newPayment.orderId + amountForPayHere + currency + hashedSecret;
+    const mainString = MERCHANT_ID + String(newPayment.orderId) + String(amountForPayHere) + String(currency) + hashedSecret;
         
     const hash = crypto.createHash('md5')
             .update(mainString)
@@ -99,6 +93,7 @@ export const createPayment = async (req, res) => {
         order_id: newPayment.orderId, // This is what Payhere will send back
         currency: currency
     });
+
   } catch (err) {
     console.error("Error creating payment:", err);
     res.status(500).json({ message: "Server error" ,error: err.message});   
@@ -161,8 +156,16 @@ export const payHereWebhook = async (req, res) => {
     await payment.save();
 
     if (isSuccess) {
+        console.log(`Payment successful for order_id: ${order_id}, appointmentId: ${payment.appointmentId}`);
         try {
-            // await axios.post(`http://appointment-service/internal/confirm/${payment.appointmentId}`);
+            await axios.post(`http://appointment-service:3004/internal/confirm/${payment.appointmentId}`, {
+                paymentStatus: "completed"
+            }, {
+                headers: {
+                    'x-internal-service-key': process.env.INTERNAL_SERVICE_SECRET,
+                }
+            });
+
             await axios.post(`http://doctor-service:3003/internal/confirm/add-to-patient-list`, {
                 appointmentId: payment.appointmentId,
                 doctorId: payment.doctorId,
@@ -171,11 +174,10 @@ export const payHereWebhook = async (req, res) => {
                 headers: {
                     'x-internal-service-key': process.env.INTERNAL_SERVICE_SECRET,
                 }
-            }
-            );
-            console.log(`Payment ${payment.orderId} successful for Appointment ${payment.appointmentId}`);
+            });
+            console.log(`Successfully notified appointment and doctor services for appointment ${payment.appointmentId}`);
         } catch (e) {
-            console.error("Failed to notify appointment service:", e.message);
+            console.log("Failed to notify appointment service:", e.message);
         }
     }
 
@@ -183,7 +185,7 @@ export const payHereWebhook = async (req, res) => {
     return res.status(200).send("OK");
 
   } catch (err) {
-    console.error("PayHere Webhook Error:", err);
+    console.log("PayHere Webhook Error:", err);
     return res.status(500).send("Server Error");
   }
 };

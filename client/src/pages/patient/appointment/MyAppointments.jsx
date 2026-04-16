@@ -2,14 +2,19 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getMyAppointmentsRequest, cancelAppointmentRequest, getAllDoctorsRequest } from '../../../services/appointment.service';
 import { getDoctorByIdForPatient } from '../../../services/patient.service';
-import { Calendar, Clock, Stethoscope, Plus, Video, MapPin, User, ChevronRight, XCircle, X } from 'lucide-react';
-import httpClient from '../../../api/Axios';
+import { createPayment } from '../../../services/payment.service'; 
+import { useAuth } from '../../../context/AuthContext'; // To get the logged-in patient's ID
+import { 
+  Calendar, Clock, Stethoscope, Plus, Video, 
+  MapPin, User, ChevronRight, XCircle, CreditCard, Loader2 
+} from 'lucide-react';
 
 const statusStyles = {
   pending: 'bg-amber-50 text-amber-700 border-amber-200',
   accepted: 'bg-emerald-50 text-emerald-700 border-emerald-200',
   cancelled: 'bg-rose-50 text-rose-700 border-rose-200',
   rejected: 'bg-slate-50 text-slate-600 border-slate-200',
+  completed: 'bg-blue-50 text-blue-700 border-blue-200', // Added completed style
 };
 
 const normalizeStatus = (s) => String(s || '').trim().toLowerCase();
@@ -35,10 +40,18 @@ const getDoctorDisplayName = (doctor) => {
 
 const MyAppointments = () => {
   const navigate = useNavigate();
+  const { user } = useAuth(); // Fallback for patientId if not explicitly in the appt object
+  
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  
+  // Action States
   const [cancellingId, setCancellingId] = useState(null);
+  const [payingId, setPayingId] = useState(null);
+  
+  // Tab State
+  const [activeTab, setActiveTab] = useState('upcoming'); // 'upcoming' or 'completed'
 
   const loadAppointments = async () => {
     setLoading(true);
@@ -77,7 +90,6 @@ const MyAppointments = () => {
         const doctorId = extractDoctorId(appt);
         const matchedDoctor = doctorById[doctorId];
 
-        // Keep existing appointment doctor data, then overlay doctor list fields used by booking page.
         const doctor = {
           ...(appt?.doctor || {}),
           ...(matchedDoctor || {}),
@@ -114,7 +126,86 @@ const MyAppointments = () => {
     }
   };
 
+  const handlePayment = async (appt) => {
+    setPayingId(appt._id);
+    try {
+      if (!window.payhere) {
+        throw new Error('PayHere SDK not loaded. Please refresh the page.');
+      }
 
+      const doctorId = extractDoctorId(appt);
+      const patientId = appt.patient?._id || appt.patientId || appt.patient || user?._id || user?.id;
+      const doctorName = getDoctorDisplayName(appt.doctor || appt.doctorId);
+
+      const paymentData = {
+        patientId: String(patientId),
+        doctorId: String(doctorId),
+        appointmentId: String(appt._id),
+        currency: 'LKR',
+      };
+
+      // Call your backend to create the order and generate the hash
+      const response = await createPayment(paymentData);
+
+      // Verify the backend actually returned what we need for Checkout API
+      if (!response.hash || !response.order_id || !response.amount || !response.merchant_id) {
+        throw new Error("Invalid payment data received from server.");
+      }
+      
+      const paymentObject = {
+        sandbox: response.sandbox ?? true,
+        merchant_id: response.merchant_id,
+        return_url: response.return_url || `${window.location.origin}/patient/appointments`,
+        cancel_url: response.cancel_url || `${window.location.origin}/patient/appointments`,
+        notify_url: `https://eufemia-chromic-treasa.ngrok-free.dev/public/api/payments/notify` || `${window.location.origin}/api/payments/notify`,
+
+        order_id: response.order_id,
+        items: response.items || `Consultation Fee - Dr. ${doctorName}`,
+
+        // Use EXACTLY what the backend returns to keep the hash valid.
+        amount: response.amount,
+        currency: response.currency || 'LKR',
+        hash: response.hash,
+
+        first_name: user?.name?.split(' ')[0] || 'Patient',
+        last_name: user?.name?.split(' ')[1] || 'Name',
+        email: user?.email || 'patient@healthbridge.com',
+        phone: user?.phoneNumber || '0770000000',
+        address: user?.address || 'HealthBridge Clinic',
+        city: response.city || 'Colombo',
+        country: response.country || 'Sri Lanka',
+
+        custom_1: response.custom_1 || String(appt._id),
+        custom_2: response.custom_2 || String(patientId),
+      };
+      console.log("Initiating payment with object:", paymentObject);
+
+      // Define Callbacks
+      window.payhere.onCompleted = async function onCompleted(orderId) {
+        console.log("Payment completed. OrderID:" + orderId);
+        alert("Payment Successful! Your appointment is confirmed.");
+        await loadAppointments(); 
+      };
+
+      window.payhere.onDismissed = function onDismissed() {
+        console.log("Payment dismissed");
+      };
+
+      window.payhere.onError = function onError(error) {
+        console.log("Payment Error:" + error);
+        alert("An error occurred during payment: " + error);
+      };
+
+      // Trigger the PayHere Popup
+      window.payhere.startPayment(paymentObject);
+
+    } catch (err) {
+      console.error("Payment Initiation Error:", err);
+      alert(err?.response?.data?.message || err.message || 'Failed to initiate payment.');
+    } finally {
+      setPayingId(null);
+    }
+  };
 
   if (loading) {
     return (
@@ -131,9 +222,14 @@ const MyAppointments = () => {
     );
   }
 
+  // Filter appointments based on active tab
+  const displayedAppointments = appointments.filter((appt) => {
+    const isCompleted = normalizeStatus(appt.status) === 'completed';
+    return activeTab === 'completed' ? isCompleted : !isCompleted;
+  });
+
   return (
     <div className="max-w-5xl mx-auto px-4 py-6 md:py-10">
-
 
       {/* Header */}
       <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -145,10 +241,36 @@ const MyAppointments = () => {
         </div>
         <button
           onClick={() => navigate('/patient/appointment/book')}
-          className="inline-flex items-center gap-2 px-5 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-2xl shadow-md shadow-blue-200 transition-all self-start sm:self-auto"
+          className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-2xl shadow-md shadow-blue-200 transition-all self-start sm:self-auto"
         >
           <Plus size={18} />
           Book New
+        </button>
+      </div>
+
+      {/* Custom Tabs */}
+      <div className="flex items-center gap-4 border-b border-slate-200 mb-8">
+        <button
+          onClick={() => setActiveTab('upcoming')}
+          className={`pb-4 px-2 text-sm font-bold transition-colors relative ${
+            activeTab === 'upcoming' ? 'text-blue-600' : 'text-slate-500 hover:text-slate-700'
+          }`}
+        >
+          Upcoming & Active
+          {activeTab === 'upcoming' && (
+            <span className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-600 rounded-t-full" />
+          )}
+        </button>
+        <button
+          onClick={() => setActiveTab('completed')}
+          className={`pb-4 px-2 text-sm font-bold transition-colors relative ${
+            activeTab === 'completed' ? 'text-blue-600' : 'text-slate-500 hover:text-slate-700'
+          }`}
+        >
+          Completed History
+          {activeTab === 'completed' && (
+            <span className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-600 rounded-t-full" />
+          )}
         </button>
       </div>
 
@@ -160,28 +282,37 @@ const MyAppointments = () => {
       )}
 
       {/* Empty State */}
-      {!error && appointments.length === 0 && (
+      {!error && displayedAppointments.length === 0 && (
         <div className="mt-16 flex flex-col items-center justify-center text-center">
-          <div className="rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 p-6 mb-6 shadow-xl shadow-blue-200">
+          <div className={`rounded-2xl p-6 mb-6 shadow-xl ${activeTab === 'completed' ? 'bg-gradient-to-br from-slate-400 to-slate-500 shadow-slate-200' : 'bg-gradient-to-br from-blue-500 to-blue-600 shadow-blue-200'}`}>
             <Calendar size={48} className="text-white" />
           </div>
-          <h2 className="text-2xl font-bold text-slate-800">No appointments yet</h2>
-          <p className="mt-2 text-slate-500">Book your first consultation with a specialist.</p>
-          <button
-            onClick={() => navigate('/patient/appointment/book')}
-            className="mt-6 inline-flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-2xl shadow-md shadow-blue-200 transition-all"
-          >
-            <Plus size={18} />
-            Find a Doctor
-          </button>
+          <h2 className="text-2xl font-bold text-slate-800">
+            {activeTab === 'completed' ? 'No completed appointments' : 'No upcoming appointments'}
+          </h2>
+          <p className="mt-2 text-slate-500">
+            {activeTab === 'completed' 
+              ? "You haven't completed any consultations yet." 
+              : "Book your first consultation with a specialist."}
+          </p>
+          {activeTab === 'upcoming' && (
+            <button
+              onClick={() => navigate('/patient/appointment/book')}
+              className="mt-6 inline-flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-2xl shadow-md shadow-blue-200 transition-all"
+            >
+              <Plus size={18} />
+              Find a Doctor
+            </button>
+          )}
         </div>
       )}
 
       {/* Appointments Grid */}
-      {appointments.length > 0 && (
+      {displayedAppointments.length > 0 && (
         <div className="grid grid-cols-1 gap-5">
-          {appointments.map((appt) => {
+          {displayedAppointments.map((appt) => {
             const status = normalizeStatus(appt.status);
+            const paymentStatus = normalizeStatus(appt.paymentStatus);
             const doctor = appt.doctor || appt.doctorId || {};
             const doctorName = getDoctorDisplayName(doctor);
             const specialization = doctor?.specialization || 'General Medicine';
@@ -195,12 +326,14 @@ const MyAppointments = () => {
                 {/* Top accent bar based on status */}
                 <div
                   className={`h-1.5 w-full ${
-                    status === 'accepted'
+                    status === 'accepted' && paymentStatus === 'pending'
                       ? 'bg-gradient-to-r from-emerald-500 to-emerald-400'
                       : status === 'pending'
                       ? 'bg-gradient-to-r from-amber-500 to-amber-400'
                       : status === 'cancelled'
                       ? 'bg-gradient-to-r from-rose-500 to-rose-400'
+                      : status === 'completed'
+                      ? 'bg-gradient-to-r from-blue-500 to-blue-400'
                       : 'bg-gradient-to-r from-slate-400 to-slate-300'
                   }`}
                 />
@@ -218,7 +351,7 @@ const MyAppointments = () => {
                             <h3 className="font-bold text-slate-800 text-lg leading-tight flex items-center gap-2">
                               Dr. {doctorName}
                               <span
-                                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${statusStyles[status]}`}
+                                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold border ${statusStyles[status] || statusStyles.rejected}`}
                               >
                                 {status.charAt(0).toUpperCase() + status.slice(1)}
                               </span>
@@ -288,20 +421,38 @@ const MyAppointments = () => {
                     </div>
 
                     {/* Action buttons */}
-                    <div className="flex sm:flex-col items-start gap-2 sm:border-l sm:border-slate-200 sm:pl-4">
+                    <div className="flex sm:flex-col items-stretch gap-2 sm:border-l sm:border-slate-200 sm:pl-4">
+                      
+                      {/* Show Payment Button if Status is Accepted */}
+                      {status === 'accepted' && (
+                        <button
+                          onClick={() => handlePayment(appt)}
+                          disabled={payingId === appt._id}
+                          className="inline-flex justify-center items-center gap-1.5 px-4 py-2 rounded-xl border border-transparent bg-emerald-600 text-white hover:bg-emerald-700 text-sm font-bold transition-all shadow-md shadow-emerald-200 disabled:opacity-50"
+                        >
+                          {payingId === appt._id ? (
+                            <Loader2 size={16} className="animate-spin" />
+                          ) : (
+                            <CreditCard size={16} />
+                          )}
+                          {payingId === appt._id ? 'Processing...' : 'Pay Now'}
+                        </button>
+                      )}
+
                       {status === 'pending' && (
                         <button
                           onClick={() => handleCancel(appt._id)}
                           disabled={cancellingId === appt._id}
-                          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-rose-200 bg-white text-rose-600 hover:bg-rose-50 text-sm font-medium transition-colors disabled:opacity-50"
+                          className="inline-flex justify-center items-center gap-1.5 px-4 py-2 rounded-xl border border-rose-200 bg-white text-rose-600 hover:bg-rose-50 text-sm font-bold transition-colors disabled:opacity-50"
                         >
                           <XCircle size={16} />
                           {cancellingId === appt._id ? 'Cancelling…' : 'Cancel'}
                         </button>
                       )}
+                      
                       <button
                         onClick={() => navigate(`/patient/appointment/${appt._id}`)}
-                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 text-sm font-medium transition-colors"
+                        className="inline-flex justify-center items-center gap-1.5 px-4 py-2 rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 text-sm font-bold transition-colors"
                       >
                         Details
                         <ChevronRight size={16} />
