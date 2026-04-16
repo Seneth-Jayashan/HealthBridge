@@ -1,6 +1,6 @@
 import Doctor from '../models/DoctorService.js';
 import { ApiError, ApiResponse } from '@healthbridge/shared';
-import { notifyDoctorVerificationDecision } from '../services/doctorDecisionNotification.service.js';
+import { notifyDoctorVerificationDecision } from '../services/verification/doctorNotification.service.js';
 
 // @desc    Get all doctors (with optional filtering for verification status)
 // @route   GET /api/admin/doctors

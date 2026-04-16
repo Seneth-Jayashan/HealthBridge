@@ -7,6 +7,7 @@ import { ApiError, ApiResponse } from '@healthbridge/shared';
 
 export const addToPatientList = async (req, res, next) => {
     try {
+
         const { doctorId, patientId, appointmentId} = req.body;
         if (!doctorId || !patientId) {
             throw new ApiError(400, "Doctor ID and Patient ID are required");
@@ -16,19 +17,19 @@ export const addToPatientList = async (req, res, next) => {
             throw new ApiError(404, "Doctor not found");
         }
 
-        const patient = await axios.get(`http://auth-service:3001/api/auth/internal/users/${patientId}`, {
+        const patient = await axios.get(`http://auth-service:3001/internal/users/${patientId}`, {
             headers: {
                 'x-internal-service-key': process.env.INTERNAL_SERVICE_SECRET,
             }
         });
-        const patientData = patient.data;
+        const patientData = patient.data.data; 
 
-        const appointment = await axios.get(`http://appointment-service:3002/api/appointments/internal/appointments/${appointmentId}`, {
+        const appointment = await axios.get(`http://appointment-service:3004/internal/appointments/${appointmentId}`, {
             headers: {
                 'x-internal-service-key': process.env.INTERNAL_SERVICE_SECRET,
             }
         });
-        const appointmentData = appointment.data;
+        const appointmentData = appointment.data.data;
 
         const existingPatient = await Patients.findOne({ doctorId: doctor._id, "patients.patientId": patientId });
         if (!existingPatient) {
@@ -44,18 +45,25 @@ export const addToPatientList = async (req, res, next) => {
             });
             await newPatientList.save();
         } else {
-            const patientExists = patient.patients.some(p => p.patientId.toString() === patientId.toString());
+           const patientExists = existingPatient.patients.some(p => p.patientId.toString() === patientId.toString());
+    
             if (!patientExists) {
-                patient.patients.push({
-                    lastAppointmentDate: lastAppointmentDate,
+                existingPatient.patients.push({
+                    patientId: patientId,
+                    name: patientData.name,
+                    email: patientData.email,
+                    phoneNumber: patientData.phoneNumber,
+                    // Assuming your appointmentData object has a date field, use that:
+                    lastAppointmentData: appointmentData 
                 });
-                await patient.save();
+                await existingPatient.save();
             }
         }
 
         res.status(200).json(new ApiResponse(200, null, "Patient added to doctor's list successfully"));
     } catch (error) {
         next(error);
+        console.log("Error in addToPatientList:", error);
     }
 };
 

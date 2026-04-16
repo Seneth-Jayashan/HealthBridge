@@ -156,7 +156,6 @@ export const payHereWebhook = async (req, res) => {
     await payment.save();
 
     if (isSuccess) {
-        console.log(`Payment successful for order_id: ${order_id}, appointmentId: ${payment.appointmentId}`);
         try {
             await axios.post(`http://appointment-service:3004/internal/confirm/${payment.appointmentId}`, {
                 paymentStatus: "Completed"
@@ -165,19 +164,25 @@ export const payHereWebhook = async (req, res) => {
                     'x-internal-service-key': process.env.INTERNAL_SERVICE_SECRET,
                 }
             });
+            console.log(`Payment successful for order_id: ${order_id}, appointmentId: ${payment.appointmentId}`);
 
-            await axios.post(`http://doctor-service:3003/patients/internal/confirm/add-to-patient-list`, {
-                appointmentId: payment.appointmentId,
+
+
+            const authBaseUrl = process.env.DOCTOR_SERVICE_URL || 'http://localhost:3003';
+            const endpoint = `${authBaseUrl.replace(/\/$/, '')}/internal/confirm/add-to-patient-list`;
+
+            const response = await axios.post(endpoint, {
                 doctorId: payment.doctorId,
-                patientId: payment.patientId
+                patientId: payment.patientId,
+                appointmentId: payment.appointmentId
             }, {
                 headers: {
                     'x-internal-service-key': process.env.INTERNAL_SERVICE_SECRET,
-                }
+                },
             });
-            console.log(`Successfully notified appointment and doctor services for appointment ${payment.appointmentId}`);
+            console.log(`Successfully notified appointment and doctor services: ${response.data?.message || 'No message returned'}`);
         } catch (e) {
-            console.log("Failed to notify appointment service:", e.message);
+            console.log("Failed to notify appointment service:", e);
         }
     }
 

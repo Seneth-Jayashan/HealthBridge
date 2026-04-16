@@ -166,10 +166,21 @@ export const getIsProfileUpdated = async (req, res, next) => {
 };
 
 
+export const getPatientByUserId = async (req, res, next) => {
+    try {
+        const { userId } = req.params;
+        let patient = await Patient.findOne({ userId });
+
+        res.status(200).json(new ApiResponse(200, patient, "Patient profile retrieved"));
+    } catch (error) {
+        next(error);
+    }
+};
+
 export const getPatientById = async (req, res, next) => {
     try {
         const { patientId } = req.params;
-        let patient = await Patient.findOne({ userId: patientId });
+        let patient = await Patient.findOne({ _id: patientId });
 
         res.status(200).json(new ApiResponse(200, patient, "Patient profile retrieved"));
     } catch (error) {

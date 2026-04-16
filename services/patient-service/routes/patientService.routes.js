@@ -5,6 +5,7 @@ import {
     uploadMedicalReport,
     deleteMedicalReport,
     getIsProfileUpdated,
+    getPatientByUserId,
     getPatientById
 } from '../controllers/patientService.controller.js';
 import { requireAuth, requireRole, createUploadMiddleware } from '@healthbridge/shared';
@@ -19,7 +20,8 @@ const uploadReport = createUploadMiddleware(
 );
 
 // internal route
-router.get('/internal/get-patient/:patientId', getPatientById);
+router.get('/internal/get-patient-by-userId/:userId', getPatientByUserId);
+router.get('/internal/get-patient-by-id/:patientId', getPatientById); // <-- 1. Added new internal route for profile status check
 
 // Global Route Protection
 router.use(requireAuth, requireRole('Patient'));

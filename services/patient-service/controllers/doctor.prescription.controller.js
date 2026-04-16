@@ -1,5 +1,7 @@
 import Prescriptions from "../models/Prescriptions.js"; // Ensure you include .js for ES Modules
+import Patient from "../models/PatientService.js";
 import { ApiError, ApiResponse } from "@healthbridge/shared";
+import { notifyPatientNewPrescription } from "../services/notifyPatientPrescription.service.js";
 
 // @desc    Get all prescriptions issued by the logged-in doctor for a specific patient
 // @route   GET /api/doctor/prescriptions
@@ -27,6 +29,10 @@ export const createPrescription = async (req, res, next) => {
         if (!patientId || !medication || !startDate || !endDate) {
             return next(new ApiError(400, "All fields are required"));
         }
+        const patient = await Patient.findById(patientId);
+        if (!patient) {
+            return next(new ApiError(404, "Patient not found"));
+        }
         const prescription = new Prescriptions({
             patientId,
             doctorId: req.user.id,
@@ -36,6 +42,19 @@ export const createPrescription = async (req, res, next) => {
             endDate
         });
         await prescription.save();
+
+        const medicationNames = Array.isArray(medication)
+            ? medication.map((item) => item?.medicineName).filter(Boolean).join(", ")
+            : "";
+
+        await notifyPatientNewPrescription({
+            doctorUserId: req.user.id,
+            patientUserId: patient.userId,
+            prescriptionId: prescription.prescriptionId,
+            medicationNames,
+            startDate,
+            endDate,
+        });
         return res.status(201).json(new ApiResponse(201, prescription, "Prescription created successfully"));
     } catch (error) {
         next(error);
