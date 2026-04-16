@@ -1,239 +1,509 @@
-import React, { useEffect, useState } from 'react';
-import { useOutletContext } from 'react-router-dom';
-import { 
-  CalendarDays, 
-  HeartPulse, 
-  MessageSquare, 
-  Pill, 
-  AlertCircle, 
-  Save, 
-  User 
+import React, { useEffect, useMemo, useState } from 'react';
+import { Link, useOutletContext } from 'react-router-dom';
+import { animate, stagger } from 'animejs';
+import {
+	Bell,
+	CalendarCheck2,
+	ClipboardList,
+	CreditCard,
+	FileHeart,
+	Loader2,
+	Sparkles,
+	Stethoscope,
+	Video,
 } from 'lucide-react';
-// Make sure to import your service functions!
-import { 
-  getPatientDashboard, 
-  getIsProfileUpdated, 
-  updatePatientProfile 
-} from '../../services/patient.service'; // Adjust path if needed
 
-const fallbackMetrics = [
-  { label: 'Upcoming Appointments', value: '0', icon: CalendarDays },
-  { label: 'Unread Care Messages', value: '0', icon: MessageSquare },
-  { label: 'Active Prescriptions', value: '0', icon: Pill },
-  { label: 'Health Score', value: '--', icon: HeartPulse },
-];
+import { useAuth } from '../../context/AuthContext';
+import { getMyAppointmentsRequest } from '../../services/appointment.service';
+import { getNotifications } from '../../services/notification.service';
+import { getPatientProfile } from '../../services/patient.service';
+import { getMyPayments } from '../../services/payment.service';
+import { getPatientOnlineAppointments } from '../../services/telemedicine.service';
+
+const statusClassMap = {
+	pending: 'bg-amber-100 text-amber-700',
+	accepted: 'bg-emerald-100 text-emerald-700',
+	cancelled: 'bg-rose-100 text-rose-700',
+	completed: 'bg-blue-100 text-blue-700',
+	rejected: 'bg-slate-200 text-slate-700',
+};
+
+const normalizeList = (value) => (Array.isArray(value) ? value : []);
+
+const normalizeStatus = (value) => String(value || '').trim().toLowerCase();
+
+const formatDate = (value) => {
+	if (!value) return 'Date not available';
+	const parsed = new Date(value);
+	if (Number.isNaN(parsed.getTime())) return 'Date not available';
+
+	return parsed.toLocaleDateString('en-US', {
+		month: 'short',
+		day: 'numeric',
+		year: 'numeric',
+	});
+};
+
+const formatMoney = (amount, currency = 'LKR') => {
+	const safeAmount = Number.isFinite(Number(amount)) ? Number(amount) : 0;
+	return new Intl.NumberFormat('en-US', {
+		style: 'currency',
+		currency,
+		maximumFractionDigits: 2,
+	}).format(safeAmount);
+};
+
+const greetingByHour = (date = new Date()) => {
+	const hour = date.getHours();
+	if (hour < 12) return 'Good morning';
+	if (hour < 18) return 'Good afternoon';
+	return 'Good evening';
+};
+
+const getDoctorName = (appointment) => {
+	const name =
+		appointment?.doctor?.userId?.name ||
+		appointment?.doctor?.user?.name ||
+		appointment?.doctor?.name ||
+		appointment?.doctorId?.userId?.name ||
+		appointment?.doctorId?.name;
+
+	return name ? `Dr. ${name}` : 'Doctor';
+};
 
 const PatientDashboard = () => {
-  const { isDark = false } = useOutletContext() || {};
-  
-  const [metrics, setMetrics] = useState(fallbackMetrics);
-  const [isLoading, setIsLoading] = useState(true);
-  
-  // Modal State
-  const [showProfileModal, setShowProfileModal] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  
-  // Quick Setup Form Data
-  const [formData, setFormData] = useState({
-    dateOfBirth: '',
-    gender: 'Prefer not to say',
-    contactNumber: '',
-    address: '',
-    emergencyName: '',
-    emergencyPhone: ''
-  });
+	const { isDark = false } = useOutletContext() || {};
+	const { user } = useAuth();
+	const [now, setNow] = useState(() => new Date());
 
-  useEffect(() => {
-    const initializeDashboard = async () => {
-      try {
-        // 1. Check if the profile needs to be updated
-        const statusData = await getIsProfileUpdated();
-        if (statusData && statusData.isUpdated === false) {
-          setShowProfileModal(true);
-        }
+	const [isLoading, setIsLoading] = useState(true);
+	const [error, setError] = useState('');
 
-        // 2. Load Dashboard Metrics
-        const dashData = await getPatientDashboard();
-        if (Array.isArray(dashData?.metrics) && dashData.metrics.length > 0) {
-          setMetrics(dashData.metrics);
-        }
-      } catch (error) {
-        console.error("Failed to load dashboard data:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+	const [profile, setProfile] = useState(null);
+	const [appointments, setAppointments] = useState([]);
+	const [payments, setPayments] = useState([]);
+	const [notifications, setNotifications] = useState([]);
+	const [onlineAppointments, setOnlineAppointments] = useState([]);
 
-    initializeDashboard();
-  }, []);
+	const loadDashboard = async () => {
+		setIsLoading(true);
+		setError('');
 
-  const handleInputChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
+		const [
+			profileResult,
+			appointmentResult,
+			paymentResult,
+			notificationResult,
+			onlineAppointmentResult,
+		] = await Promise.allSettled([
+			getPatientProfile(),
+			getMyAppointmentsRequest(),
+			getMyPayments(),
+			getNotifications(),
+			getPatientOnlineAppointments(),
+		]);
 
-  const handleCompleteProfile = async (e) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-    
-    try {
-      // Map the flat form data back to the nested Mongoose schema structure
-      const payload = {
-        dateOfBirth: formData.dateOfBirth,
-        gender: formData.gender,
-        contactNumber: formData.contactNumber,
-        address: formData.address,
-        emergencyContact: {
-          name: formData.emergencyName,
-          phoneNumber: formData.emergencyPhone
-        }
-      };
+		if (profileResult.status === 'fulfilled') {
+			setProfile(profileResult.value || null);
+		}
 
-      await updatePatientProfile(payload);
-      
-      // Success! Close the modal
-      setShowProfileModal(false);
-    } catch (error) {
-      console.error("Failed to setup profile:", error);
-      // Optional: Add a toast notification here for the error
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+		if (appointmentResult.status === 'fulfilled') {
+			setAppointments(normalizeList(appointmentResult.value));
+		}
 
-  if (isLoading) {
-    return (
-      <div className="flex h-full min-h-[60vh] items-center justify-center">
-        <div className="h-10 w-10 animate-spin rounded-full border-4 border-blue-200 border-t-blue-600"></div>
-      </div>
-    );
-  }
+		if (paymentResult.status === 'fulfilled') {
+			setPayments(normalizeList(paymentResult.value));
+		}
 
-  return (
-    <section className={`min-h-screen p-6 md:p-10 transition-colors duration-300 ${isDark ? 'bg-[#0B1120] text-slate-100' : 'bg-[#FAFAFA] text-slate-900'}`}>
-      
-      {/* Dashboard Header */}
-      <h1 className={`text-3xl font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>
-        Patient Dashboard
-      </h1>
-      <p className={`mt-2 font-medium ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
-        Track your care plan, appointments, and messages.
-      </p>
+		if (notificationResult.status === 'fulfilled') {
+			setNotifications(normalizeList(notificationResult.value));
+		}
 
-      {/* Metrics Grid */}
-      <div className="mt-8 grid gap-6 md:grid-cols-2 xl:grid-cols-4">
-        {metrics.map((card, index) => {
-          const Icon = card.icon || HeartPulse;
-          return (
-            <article 
-              key={index} 
-              className={`rounded-3xl border p-6 shadow-lg transition-transform hover:-translate-y-1 ${
-                isDark 
-                  ? 'border-slate-800 bg-[#131C31] shadow-black/20' 
-                  : 'border-slate-200 bg-white shadow-blue-900/5'
-              }`}
-            >
-              <div className={`inline-flex rounded-xl p-3 ${isDark ? 'bg-blue-900/30' : 'bg-blue-50'}`}>
-                <Icon size={24} className={isDark ? 'text-blue-400' : 'text-blue-600'} />
-              </div>
-              <p className={`mt-4 text-3xl font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                {card.value}
-              </p>
-              <p className={`mt-1 text-sm font-bold uppercase tracking-wide ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                {card.label}
-              </p>
-            </article>
-          );
-        })}
-      </div>
+		if (onlineAppointmentResult.status === 'fulfilled') {
+			setOnlineAppointments(normalizeList(onlineAppointmentResult.value));
+		}
 
-      {/* --- Mandatory Setup Modal --- */}
-      {showProfileModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
-          <div className={`relative w-full max-w-2xl overflow-hidden rounded-3xl shadow-2xl ${isDark ? 'bg-[#131C31] border border-slate-700' : 'bg-white'}`}>
-            
-            {/* Modal Header */}
-            <div className={`border-b px-8 py-6 ${isDark ? 'border-slate-800 bg-slate-900/50' : 'border-slate-100 bg-slate-50'}`}>
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 text-blue-600 dark:bg-blue-900/50 dark:text-blue-400">
-                  <AlertCircle size={20} />
-                </div>
-                <div>
-                  <h2 className={`text-xl font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                    Welcome to HealthBridge!
-                  </h2>
-                  <p className={`text-sm font-medium ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                    Please complete your basic medical profile to continue.
-                  </p>
-                </div>
-              </div>
-            </div>
+		const hasCriticalFailure =
+			profileResult.status === 'rejected' &&
+			appointmentResult.status === 'rejected' &&
+			paymentResult.status === 'rejected';
 
-            {/* Modal Body / Form */}
-            <form onSubmit={handleCompleteProfile} className="p-8">
-              <div className="grid gap-6 md:grid-cols-2">
-                
-                <div className="space-y-2">
-                  <label className={`text-sm font-bold ${isDark ? 'text-slate-400' : 'text-slate-700'}`}>Date of Birth *</label>
-                  <input required type="date" name="dateOfBirth" value={formData.dateOfBirth} onChange={handleInputChange} className={`w-full rounded-xl border px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/50 ${isDark ? 'border-slate-700 bg-slate-900/50 text-white' : 'border-slate-200 bg-slate-50 text-slate-900'}`} />
-                </div>
+		if (hasCriticalFailure) {
+			setError('We could not load your dashboard right now. Please try again.');
+		}
 
-                <div className="space-y-2">
-                  <label className={`text-sm font-bold ${isDark ? 'text-slate-400' : 'text-slate-700'}`}>Gender *</label>
-                  <select required name="gender" value={formData.gender} onChange={handleInputChange} className={`w-full rounded-xl border px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/50 ${isDark ? 'border-slate-700 bg-slate-900/50 text-white' : 'border-slate-200 bg-slate-50 text-slate-900'}`}>
-                    <option value="Prefer not to say">Prefer not to say</option>
-                    <option value="Male">Male</option>
-                    <option value="Female">Female</option>
-                    <option value="Other">Other</option>
-                  </select>
-                </div>
+		setIsLoading(false);
+	};
 
-                <div className="space-y-2 md:col-span-2">
-                  <label className={`text-sm font-bold ${isDark ? 'text-slate-400' : 'text-slate-700'}`}>Phone Number *</label>
-                  <input required type="tel" name="contactNumber" placeholder="+1 (555) 000-0000" value={formData.contactNumber} onChange={handleInputChange} className={`w-full rounded-xl border px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/50 ${isDark ? 'border-slate-700 bg-slate-900/50 text-white' : 'border-slate-200 bg-slate-50 text-slate-900'}`} />
-                </div>
+	useEffect(() => {
+		loadDashboard();
+	}, []);
 
-                <div className="space-y-2 md:col-span-2">
-                  <label className={`text-sm font-bold ${isDark ? 'text-slate-400' : 'text-slate-700'}`}>Home Address *</label>
-                  <input required type="text" name="address" placeholder="123 Health Ave..." value={formData.address} onChange={handleInputChange} className={`w-full rounded-xl border px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/50 ${isDark ? 'border-slate-700 bg-slate-900/50 text-white' : 'border-slate-200 bg-slate-50 text-slate-900'}`} />
-                </div>
+	useEffect(() => {
+		const tick = () => setNow(new Date());
+		const intervalId = window.setInterval(tick, 30000);
 
-                <div className="md:col-span-2 border-t pt-4 mt-2 dark:border-slate-800">
-                  <h3 className={`text-sm font-bold mb-4 ${isDark ? 'text-slate-300' : 'text-slate-800'}`}>Emergency Contact (Optional)</h3>
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <input type="text" name="emergencyName" placeholder="Contact Name" value={formData.emergencyName} onChange={handleInputChange} className={`w-full rounded-xl border px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/50 ${isDark ? 'border-slate-700 bg-slate-900/50 text-white' : 'border-slate-200 bg-slate-50 text-slate-900'}`} />
-                    <input type="tel" name="emergencyPhone" placeholder="Contact Phone" value={formData.emergencyPhone} onChange={handleInputChange} className={`w-full rounded-xl border px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/50 ${isDark ? 'border-slate-700 bg-slate-900/50 text-white' : 'border-slate-200 bg-slate-50 text-slate-900'}`} />
-                  </div>
-                </div>
+		return () => {
+			window.clearInterval(intervalId);
+		};
+	}, []);
 
-              </div>
+	useEffect(() => {
+		if (!isLoading && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+			animate('.hb-patient-dash-item', {
+				y: [20, 0],
+				opacity: [0, 1],
+				ease: 'outCubic',
+				duration: 700,
+				delay: stagger(80),
+			});
+		}
+	}, [isLoading]);
 
-              {/* Submit Button */}
-              <div className="mt-8 flex justify-end">
-                <button 
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-8 py-3.5 text-sm font-bold text-white shadow-lg shadow-blue-600/20 transition-all hover:bg-blue-700 hover:-translate-y-0.5 active:scale-95 disabled:opacity-70 disabled:hover:translate-y-0 md:w-auto"
-                >
-                  {isSubmitting ? (
-                    <span className="flex items-center gap-2">
-                      <svg className="h-4 w-4 animate-spin text-white" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                      Saving Setup...
-                    </span>
-                  ) : (
-                    <>
-                      <Save size={18} />
-                      Complete Profile
-                    </>
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+	const upcomingAppointments = useMemo(
+		() => appointments.filter((item) => {
+			const status = normalizeStatus(item?.status);
+			return status === 'pending' || status === 'accepted';
+		}),
+		[appointments],
+	);
 
-    </section>
-  );
+	const completedAppointments = useMemo(
+		() => appointments.filter((item) => normalizeStatus(item?.status) === 'completed'),
+		[appointments],
+	);
+
+	const unreadNotifications = useMemo(
+		() => notifications.filter((item) => !item?.isRead),
+		[notifications],
+	);
+
+	const pendingPayments = useMemo(
+		() => payments.filter((item) => normalizeStatus(item?.status) === 'pending'),
+		[payments],
+	);
+
+	const latestPayments = useMemo(() => {
+		return [...payments]
+			.sort((a, b) => {
+				const aDate = new Date(a?.createdAt || a?.paymentDate || 0).getTime();
+				const bDate = new Date(b?.createdAt || b?.paymentDate || 0).getTime();
+				return bDate - aDate;
+			})
+			.slice(0, 4);
+	}, [payments]);
+
+	const latestNotifications = useMemo(() => {
+		return [...notifications]
+			.sort((a, b) => {
+				const aDate = new Date(a?.createdAt || 0).getTime();
+				const bDate = new Date(b?.createdAt || 0).getTime();
+				return bDate - aDate;
+			})
+			.slice(0, 5);
+	}, [notifications]);
+
+	if (isLoading) {
+		return (
+			<div className={`min-h-[60vh] flex flex-col items-center justify-center gap-3 ${isDark ? 'bg-[#0B1120]' : 'bg-[#FAFAFA]'}`}>
+				<Loader2 className="animate-spin text-blue-600" size={32} />
+				<p className={`font-medium ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Preparing your health dashboard...</p>
+			</div>
+		);
+	}
+
+	return (
+		<section className={`min-h-screen p-6 md:p-10 font-sans transition-colors duration-300 ${isDark ? 'bg-[#0B1120] text-slate-100' : 'bg-[#FAFAFA] text-slate-900'}`}>
+			<div className="max-w-7xl mx-auto space-y-7">
+
+				<div className={`hb-patient-dash-item opacity-0 p-6 md:p-8 rounded-3xl border shadow-lg ${isDark ? 'bg-[#131C31] border-slate-800 shadow-black/20' : 'bg-white border-slate-100 shadow-blue-900/5'}`}>
+					<div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+						<div>
+							<p className={`text-xs font-black uppercase tracking-[0.18em] ${isDark ? 'text-cyan-300/70' : 'text-cyan-700'}`}>
+								{greetingByHour(now)}
+							</p>
+							<h1 className={`mt-2 text-3xl md:text-4xl font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>
+								{user?.name ? user.name : 'Patient'}
+							</h1>
+							<p className={`mt-2 max-w-2xl font-medium ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+								Keep your care plan organized. Track appointments, payments, reports, and online visits from one place.
+							</p>
+						</div>
+
+						<div className="flex flex-wrap gap-3">
+							<Link
+								to="/patient/appointment/book"
+								className="px-5 py-3 rounded-xl font-bold bg-blue-700 text-white hover:bg-blue-800 transition-colors"
+							>
+								Book Appointment
+							</Link>
+							<Link
+								to="/patient/telehealth"
+								className={`px-5 py-3 rounded-xl font-bold border transition-colors ${isDark ? 'border-slate-700 bg-slate-900/50 text-slate-200 hover:bg-slate-800' : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'}`}
+							>
+								Open Telehealth
+							</Link>
+						</div>
+					</div>
+				</div>
+
+				{error && (
+					<div className="hb-patient-dash-item opacity-0 rounded-2xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
+						{error}
+					</div>
+				)}
+
+				<div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+					<article className={`hb-patient-dash-item opacity-0 rounded-3xl border p-5 shadow-lg ${isDark ? 'bg-[#131C31] border-slate-800 shadow-black/20' : 'bg-white border-slate-100 shadow-blue-900/5'}`}>
+						<div className="flex items-center justify-between">
+							<div>
+								<p className={`text-xs font-bold uppercase tracking-wider ${isDark ? 'text-slate-500' : 'text-slate-500'}`}>Upcoming Appointments</p>
+								<p className={`mt-2 text-3xl font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>{upcomingAppointments.length}</p>
+							</div>
+							<div className={`rounded-2xl p-3 ${isDark ? 'bg-blue-500/10 text-blue-300' : 'bg-blue-50 text-blue-600'}`}>
+								<CalendarCheck2 size={23} strokeWidth={2.5} />
+							</div>
+						</div>
+					</article>
+
+					<article className={`hb-patient-dash-item opacity-0 rounded-3xl border p-5 shadow-lg ${isDark ? 'bg-[#131C31] border-slate-800 shadow-black/20' : 'bg-white border-slate-100 shadow-blue-900/5'}`}>
+						<div className="flex items-center justify-between">
+							<div>
+								<p className={`text-xs font-bold uppercase tracking-wider ${isDark ? 'text-slate-500' : 'text-slate-500'}`}>Medical Reports</p>
+								<p className={`mt-2 text-3xl font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>{normalizeList(profile?.medicalReports).length}</p>
+							</div>
+							<div className={`rounded-2xl p-3 ${isDark ? 'bg-emerald-500/10 text-emerald-300' : 'bg-emerald-50 text-emerald-600'}`}>
+								<FileHeart size={23} strokeWidth={2.5} />
+							</div>
+						</div>
+					</article>
+
+					<article className={`hb-patient-dash-item opacity-0 rounded-3xl border p-5 shadow-lg ${isDark ? 'bg-[#131C31] border-slate-800 shadow-black/20' : 'bg-white border-slate-100 shadow-blue-900/5'}`}>
+						<div className="flex items-center justify-between">
+							<div>
+								<p className={`text-xs font-bold uppercase tracking-wider ${isDark ? 'text-slate-500' : 'text-slate-500'}`}>Unread Notifications</p>
+								<p className={`mt-2 text-3xl font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>{unreadNotifications.length}</p>
+							</div>
+							<div className={`rounded-2xl p-3 ${isDark ? 'bg-amber-500/10 text-amber-300' : 'bg-amber-50 text-amber-600'}`}>
+								<Bell size={23} strokeWidth={2.5} />
+							</div>
+						</div>
+					</article>
+
+					<article className={`hb-patient-dash-item opacity-0 rounded-3xl border p-5 shadow-lg ${isDark ? 'bg-[#131C31] border-slate-800 shadow-black/20' : 'bg-white border-slate-100 shadow-blue-900/5'}`}>
+						<div className="flex items-center justify-between">
+							<div>
+								<p className={`text-xs font-bold uppercase tracking-wider ${isDark ? 'text-slate-500' : 'text-slate-500'}`}>Pending Payments</p>
+								<p className={`mt-2 text-3xl font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>{pendingPayments.length}</p>
+							</div>
+							<div className={`rounded-2xl p-3 ${isDark ? 'bg-cyan-500/10 text-cyan-300' : 'bg-cyan-50 text-cyan-700'}`}>
+								<CreditCard size={23} strokeWidth={2.5} />
+							</div>
+						</div>
+					</article>
+				</div>
+
+				<div className="grid gap-6 xl:grid-cols-3">
+					<div className={`hb-patient-dash-item opacity-0 xl:col-span-2 rounded-3xl border p-6 md:p-7 shadow-lg ${isDark ? 'bg-[#131C31] border-slate-800 shadow-black/20' : 'bg-white border-slate-100 shadow-blue-900/5'}`}>
+						<div className="flex items-center justify-between gap-3">
+							<div>
+								<h2 className={`text-xl font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>Upcoming Visits</h2>
+								<p className={`mt-1 text-sm font-medium ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>Your next consultations and current request statuses.</p>
+							</div>
+							<Link
+								to="/patient/appointment/my"
+								className={`text-sm font-bold ${isDark ? 'text-blue-300 hover:text-blue-200' : 'text-blue-700 hover:text-blue-800'}`}
+							>
+								Manage all
+							</Link>
+						</div>
+
+						<div className="mt-5 space-y-3">
+							{upcomingAppointments.length === 0 ? (
+								<div className={`rounded-2xl border-2 border-dashed p-8 text-center ${isDark ? 'border-slate-800 bg-slate-900/50' : 'border-slate-200 bg-slate-50'}`}>
+									<ClipboardList size={42} className={`mx-auto ${isDark ? 'text-slate-700' : 'text-slate-300'}`} />
+									<h3 className={`mt-3 text-base font-bold ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>No upcoming appointments</h3>
+									<p className={`mt-1 text-sm ${isDark ? 'text-slate-500' : 'text-slate-500'}`}>Book a new consultation and it will appear here instantly.</p>
+								</div>
+							) : (
+								upcomingAppointments.slice(0, 4).map((appointment) => {
+									const status = normalizeStatus(appointment?.status);
+									return (
+										<article
+											key={appointment?._id || `${appointment?.doctorId}-${appointment?.startTime}`}
+											className={`rounded-2xl border p-4 ${isDark ? 'border-slate-700 bg-slate-900/40' : 'border-slate-100 bg-slate-50'}`}
+										>
+											<div className="flex flex-wrap items-start justify-between gap-3">
+												<div>
+													<p className={`font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>{getDoctorName(appointment)}</p>
+													<p className={`mt-1 text-sm font-medium ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+														{appointment?.dayOfWeek || 'Day pending'} | {appointment?.startTime || '--:--'} - {appointment?.endTime || '--:--'}
+													</p>
+												</div>
+												<span className={`inline-flex rounded-full px-3 py-1 text-xs font-bold capitalize ${statusClassMap[status] || statusClassMap.rejected}`}>
+													{status || 'unknown'}
+												</span>
+											</div>
+											{appointment?.reason && (
+												<p className={`mt-3 text-sm ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>{appointment.reason}</p>
+											)}
+										</article>
+									);
+								})
+							)}
+						</div>
+					</div>
+
+					<div className={`hb-patient-dash-item opacity-0 rounded-3xl border p-6 md:p-7 shadow-lg ${isDark ? 'bg-[#131C31] border-slate-800 shadow-black/20' : 'bg-white border-slate-100 shadow-blue-900/5'}`}>
+						<h2 className={`text-xl font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>Care Snapshot</h2>
+
+						<div className={`mt-5 rounded-2xl p-4 border ${isDark ? 'border-slate-700 bg-slate-900/40' : 'border-slate-100 bg-slate-50'}`}>
+							<p className={`text-xs font-bold uppercase tracking-wider ${isDark ? 'text-slate-500' : 'text-slate-500'}`}>Profile completion</p>
+							<p className={`mt-2 text-sm font-bold ${profile?.isUpdated ? 'text-emerald-500' : 'text-amber-500'}`}>
+								{profile?.isUpdated ? 'Completed' : 'Incomplete'}
+							</p>
+						</div>
+
+						<div className={`mt-3 rounded-2xl p-4 border ${isDark ? 'border-slate-700 bg-slate-900/40' : 'border-slate-100 bg-slate-50'}`}>
+							<p className={`text-xs font-bold uppercase tracking-wider ${isDark ? 'text-slate-500' : 'text-slate-500'}`}>Blood group</p>
+							<p className={`mt-2 text-lg font-black ${isDark ? 'text-cyan-300' : 'text-cyan-700'}`}>{profile?.bloodGroup || 'Not set'}</p>
+						</div>
+
+						<div className={`mt-3 rounded-2xl p-4 border ${isDark ? 'border-slate-700 bg-slate-900/40' : 'border-slate-100 bg-slate-50'}`}>
+							<p className={`text-xs font-bold uppercase tracking-wider ${isDark ? 'text-slate-500' : 'text-slate-500'}`}>Completed visits</p>
+							<p className={`mt-2 text-lg font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>{completedAppointments.length}</p>
+						</div>
+
+						<div className={`mt-3 rounded-2xl p-4 border ${isDark ? 'border-slate-700 bg-slate-900/40' : 'border-slate-100 bg-slate-50'}`}>
+							<p className={`text-xs font-bold uppercase tracking-wider ${isDark ? 'text-slate-500' : 'text-slate-500'}`}>Online consultations</p>
+							<p className={`mt-2 text-lg font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>{onlineAppointments.length}</p>
+						</div>
+
+						<Link
+							to="/patient/profile"
+							className={`mt-5 inline-flex w-full items-center justify-center rounded-xl px-4 py-3 text-sm font-bold transition-colors ${isDark ? 'bg-slate-800 text-slate-200 hover:bg-slate-700' : 'bg-slate-900 text-white hover:bg-slate-800'}`}
+						>
+							Update profile details
+						</Link>
+					</div>
+				</div>
+
+				<div className="grid gap-6 lg:grid-cols-2">
+					<div className={`hb-patient-dash-item opacity-0 rounded-3xl border p-6 shadow-lg ${isDark ? 'bg-[#131C31] border-slate-800 shadow-black/20' : 'bg-white border-slate-100 shadow-blue-900/5'}`}>
+						<div className="flex items-center justify-between gap-3">
+							<div className="flex items-center gap-2">
+								<Sparkles size={18} className={isDark ? 'text-emerald-300' : 'text-emerald-700'} />
+								<h2 className={`text-lg font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>Recent Notifications</h2>
+							</div>
+							<Link
+								to="/patient/telehealth"
+								className={`text-xs font-bold uppercase tracking-wider ${isDark ? 'text-blue-300 hover:text-blue-200' : 'text-blue-700 hover:text-blue-800'}`}
+							>
+								View services
+							</Link>
+						</div>
+
+						<div className="mt-4 space-y-3">
+							{latestNotifications.length === 0 ? (
+								<p className={`text-sm ${isDark ? 'text-slate-500' : 'text-slate-500'}`}>No notifications yet.</p>
+							) : (
+								latestNotifications.map((item) => (
+									<div
+										key={item?._id || `${item?.type}-${item?.createdAt}`}
+										className={`rounded-2xl border px-4 py-3 ${isDark ? 'border-slate-700 bg-slate-900/40' : 'border-slate-100 bg-slate-50'}`}
+									>
+										<div className="flex items-center justify-between gap-3">
+											<p className={`text-xs font-bold uppercase tracking-wider ${isDark ? 'text-slate-500' : 'text-slate-500'}`}>
+												{item?.type || 'Notification'}
+											</p>
+											{!item?.isRead && (
+												<span className="rounded-full bg-blue-600 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-white">New</span>
+											)}
+										</div>
+										<p className={`mt-2 text-sm font-medium ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>{item?.message || 'No message'}</p>
+										<p className={`mt-1 text-xs ${isDark ? 'text-slate-500' : 'text-slate-500'}`}>{formatDate(item?.createdAt)}</p>
+									</div>
+								))
+							)}
+						</div>
+					</div>
+
+					<div className={`hb-patient-dash-item opacity-0 rounded-3xl border p-6 shadow-lg ${isDark ? 'bg-[#131C31] border-slate-800 shadow-black/20' : 'bg-white border-slate-100 shadow-blue-900/5'}`}>
+						<div className="flex items-center justify-between gap-3">
+							<div className="flex items-center gap-2">
+								<Stethoscope size={18} className={isDark ? 'text-cyan-300' : 'text-cyan-700'} />
+								<h2 className={`text-lg font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>Latest Payments</h2>
+							</div>
+							<Link
+								to="/patient/payments"
+								className={`text-xs font-bold uppercase tracking-wider ${isDark ? 'text-blue-300 hover:text-blue-200' : 'text-blue-700 hover:text-blue-800'}`}
+							>
+								Open history
+							</Link>
+						</div>
+
+						<div className="mt-4 space-y-3">
+							{latestPayments.length === 0 ? (
+								<p className={`text-sm ${isDark ? 'text-slate-500' : 'text-slate-500'}`}>No payments recorded yet.</p>
+							) : (
+								latestPayments.map((payment) => (
+									<div
+										key={payment?._id || payment?.orderId}
+										className={`rounded-2xl border px-4 py-3 ${isDark ? 'border-slate-700 bg-slate-900/40' : 'border-slate-100 bg-slate-50'}`}
+									>
+										<div className="flex flex-wrap items-center justify-between gap-2">
+											<p className={`text-sm font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>{payment?.orderId || 'Order'}</p>
+											<span className={`rounded-full px-3 py-1 text-xs font-bold capitalize ${statusClassMap[normalizeStatus(payment?.status)] || statusClassMap.rejected}`}>
+												{normalizeStatus(payment?.status) || 'unknown'}
+											</span>
+										</div>
+										<p className={`mt-2 text-sm ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+											{formatMoney(payment?.amount, payment?.payhere_currency || 'LKR')}
+										</p>
+										<p className={`mt-1 text-xs ${isDark ? 'text-slate-500' : 'text-slate-500'}`}>
+											{formatDate(payment?.paymentDate || payment?.createdAt)}
+										</p>
+									</div>
+								))
+							)}
+						</div>
+					</div>
+				</div>
+
+				<div className="grid gap-4 sm:grid-cols-3">
+					<Link
+						to="/patient/reports"
+						className={`hb-patient-dash-item opacity-0 rounded-2xl border p-4 font-bold transition-colors ${isDark ? 'bg-[#131C31] border-slate-800 text-slate-200 hover:bg-slate-800' : 'bg-white border-slate-100 text-slate-800 hover:bg-slate-50'}`}
+					>
+						<div className="flex items-center gap-2">
+							<FileHeart size={18} />
+							Medical Reports
+						</div>
+					</Link>
+
+					<Link
+						to="/patient/prescriptions"
+						className={`hb-patient-dash-item opacity-0 rounded-2xl border p-4 font-bold transition-colors ${isDark ? 'bg-[#131C31] border-slate-800 text-slate-200 hover:bg-slate-800' : 'bg-white border-slate-100 text-slate-800 hover:bg-slate-50'}`}
+					>
+						<div className="flex items-center gap-2">
+							<ClipboardList size={18} />
+							Prescriptions
+						</div>
+					</Link>
+
+					<Link
+						to="/patient/telehealth"
+						className={`hb-patient-dash-item opacity-0 rounded-2xl border p-4 font-bold transition-colors ${isDark ? 'bg-[#131C31] border-slate-800 text-slate-200 hover:bg-slate-800' : 'bg-white border-slate-100 text-slate-800 hover:bg-slate-50'}`}
+					>
+						<div className="flex items-center gap-2">
+							<Video size={18} />
+							Telehealth
+						</div>
+					</Link>
+				</div>
+			</div>
+		</section>
+	);
 };
 
 export default PatientDashboard;
