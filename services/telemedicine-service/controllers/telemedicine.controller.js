@@ -544,7 +544,7 @@ export const handlePaymentSuccess = async (req, res, next) => {
             doctorId: toObjectId(doctorId, 'doctorId'),
             patientId: toObjectId(patientId, 'patientId'),
             createdBy: toObjectId(doctorId, 'createdBy'),
-            scheduledAt: new Date(startTime || new Date()),
+            scheduledAt: appointment.createdAt || new Date(),
             status: 'scheduled',
             metadata: {
                 reason: reason || 'Telehealth consultation',
