@@ -16,7 +16,7 @@ const appointmentSchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: ['Pending', 'Accepted', 'Rejected', 'Cancelled'],
+      enum: ['Pending', 'Accepted', 'Rejected', 'Cancelled', 'Completed'],
       default: 'Pending',
       index: true,
     },
@@ -31,6 +31,7 @@ const appointmentSchema = new mongoose.Schema(
     doctorDecisionNote: { type: String },
     decidedAt: { type: Date },
     cancelledAt: { type: Date },
+    completedAt: { type: Date },
 
     paymentStatus: {
       type: String,

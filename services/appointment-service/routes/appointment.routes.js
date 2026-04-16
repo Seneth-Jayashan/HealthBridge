@@ -35,12 +35,13 @@ router.post('/appointments/:id/decision', requireAuth, requireRole('Doctor'), do
 
 // ─── [INTERNAL API] Routes for service-to-service communication ──
 // These endpoints are called by the telemedicine service with service-to-service authentication
-router.get('/internal/appointment/:appointmentId', getAppointmentByIdInternal);
 router.get('/internal/patient/online/:userId', getPatientOnlineAppointmentsInternal);
 router.get('/internal/doctor/online/:userId', getDoctorOnlineAppointmentsInternal);
 router.get('/internal/appointments/online', getAllOnlineAppointmentsInternal);
+router.get('/internal/appointments/:appointmentId', getAppointmentByIdInternal);
 
 // payment status update endpoint 
 router.post('/internal/confirm/:appointmentId', updatePaymentStatusInternal);
+
 
 export default router;

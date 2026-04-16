@@ -4,6 +4,7 @@ import { ApiError, ApiResponse, cloudinaryService } from '@healthbridge/shared';
 import { notifyAdminsDoctorVerificationRequested } from '../services/adminNotification.service.js';
 import fs from 'fs';
 import mongoose from 'mongoose';
+import Patients from '../models/Patients.js';
 
 const assertInternalAccess = (req) => {
     const secret = req.headers['x-internal-service-key'];
@@ -437,6 +438,36 @@ export const releaseDoctorSlotInternal = async (req, res, next) => {
         }
 
         res.status(200).json(new ApiResponse(200, updated, 'Slot released successfully'));
+    } catch (error) {
+        next(error);
+    }
+};
+
+// @desc    remove Patient from Doctor's Patient List (called when appointment is cancelled or rejected)
+export const removePatientFromDoctorList = async (req, res, next) => {
+    try {
+        const { doctorId, patientId } = req.params;
+
+        if (!doctorId || !patientId) {
+            throw new ApiError(400, "Doctor ID and Patient ID are required");
+        }
+
+        const doctor = await Doctor.findById(doctorId);
+        if (!doctor) {
+            throw new ApiError(404, "Doctor not found");
+        }
+
+        const updatedPatients = await Patients.findOneAndUpdate(
+            { doctorId: doctor._id },
+            { $pull: { patients: { patientId } } },
+            { new: true }
+        );
+
+        if (!updatedPatients) {
+            throw new ApiError(404, "Patient not found in doctor's list");
+        }
+
+        res.status(200).json(new ApiResponse(200, updatedPatients.patients, "Patient removed from doctor's list successfully"));
     } catch (error) {
         next(error);
     }

@@ -369,34 +369,40 @@ export const getAllOnlineAppointmentsInternal = async (req, res) => {
   export const updatePaymentStatusInternal = async (req, res) => {
    try {
        const { appointmentId } = req.params;
-       const { status } = req.body;
-        if (!appointmentId || !status) {
-            return res.status(400).json({ message: 'appointmentId and status are required' });
+       const { paymentStatus } = req.body;
+
+        if (!appointmentId || !paymentStatus) {
+            return res.status(400).json({ message: 'appointmentId and paymentStatus are required' });
         }
         const appointment = await Appointment.findById(appointmentId);
         if (!appointment) {
             return res.status(404).json({ message: 'Appointment not found' });
         }
-        appointment.status = status;
+        appointment.paymentStatus = paymentStatus;
+        appointment.status = paymentStatus;
         await appointment.save();
 
+        
         // Call Telemdicine Internal API to notify about time to create session if appointment payment is completed
-        if (status === 'Completed') {
+        if (paymentStatus === 'Completed') {
             const authBaseUrl = process.env.TELEMEDICINE_SERVICE_URL || 'http://localhost:3008';
             const endpoint = `${authBaseUrl.replace(/\/$/, '')}/internal/success/${appointmentId}`;
-
+            console.log(`Notifying telemedicine service about payment completion for appointment ${appointmentId} at endpoint ${endpoint}`);
             const response = await axios.get(endpoint, {
                 headers: {
                     'x-internal-service-key': process.env.INTERNAL_SERVICE_SECRET,
                 },
                 timeout: 8000,
             });
+
+            console.log(`Notified telemedicine service about payment completion for appointment ${appointmentId}. Response:`, response.data);
         }
         res.status(200).json({ 
             data: appointment,
             message: 'Appointment status updated'
         });
    } catch (error) {
+      console.error("Error in updatePaymentStatusInternal:", error);
       res.status(500).json({ message: error.message });
     }
   };

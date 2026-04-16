@@ -1,12 +1,13 @@
 import Availability from '../models/Availability.js';
 import Doctor from '../models/DoctorService.js'; // Adjust your path
 import Patients from '../models/Patients.js'; // Adjust your path
+import axios from 'axios';
 import { ApiError, ApiResponse } from '@healthbridge/shared';
 
 
 export const addToPatientList = async (req, res, next) => {
     try {
-        const { doctorId, patientId , name, email, phoneNumber, lastAppointmentDate} = req.body;
+        const { doctorId, patientId, appointmentId} = req.body;
         if (!doctorId || !patientId) {
             throw new ApiError(400, "Doctor ID and Patient ID are required");
         }
@@ -14,16 +15,31 @@ export const addToPatientList = async (req, res, next) => {
         if (!doctor) {
             throw new ApiError(404, "Doctor not found");
         }
-        const patient = await Patients.findOne({ doctorId: doctor._id, "patients.patientId": patientId });
-        if (!patient) {
+
+        const patient = await axios.get(`http://auth-service:3001/api/auth/internal/users/${patientId}`, {
+            headers: {
+                'x-internal-service-key': process.env.INTERNAL_SERVICE_SECRET,
+            }
+        });
+        const patientData = patient.data;
+
+        const appointment = await axios.get(`http://appointment-service:3002/api/appointments/internal/appointments/${appointmentId}`, {
+            headers: {
+                'x-internal-service-key': process.env.INTERNAL_SERVICE_SECRET,
+            }
+        });
+        const appointmentData = appointment.data;
+
+        const existingPatient = await Patients.findOne({ doctorId: doctor._id, "patients.patientId": patientId });
+        if (!existingPatient) {
             const newPatientList = new Patients({
                 doctorId: doctor._id,
                 patients: [{
                     patientId,
-                    name: name,
-                    email: email ,
-                    phoneNumber: phoneNumber,
-                    lastAppointmentDate: lastAppointmentDate
+                    name: patientData.name,
+                    email: patientData.email ,
+                    phoneNumber: patientData.phoneNumber,
+                    lastAppointmentData: appointmentData
                 }]
             });
             await newPatientList.save();

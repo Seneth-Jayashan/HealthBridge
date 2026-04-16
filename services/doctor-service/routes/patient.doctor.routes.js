@@ -27,7 +27,7 @@ router.route('/:doctorId')
     .get(getDoctorByIdForPatient);
 
 // --- Add Patient to Doctor's List ---
-router.route('/add-to-patient-list')
+router.route('/internal/add-to-patient-list')
     .post(addToPatientList);
 
 export default router;

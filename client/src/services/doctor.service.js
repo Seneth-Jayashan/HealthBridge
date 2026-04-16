@@ -77,6 +77,17 @@ export const uploadVerificationDocument = async (file, documentType) => {
   return response.data?.data || response.data;
 };
 
+export const getPatientListForDoctor = async () => {
+  const response = await httpClient.get(`${DOCTOR_API}/patients-list`);
+  return response.data?.data || response.data;
+};
+
+export const removePatientFromDoctorList = async (patientId) => {
+  const response = await httpClient.post(`${DOCTOR_API}/patients-list/remove`, { patientId });
+  return response.data?.data || response.data;
+};
+
+
 // -----------------------------------------
 // --- PATIENT-SPECIFIC DOCTOR ENDPOINTS ---
 // -----------------------------------------
@@ -100,3 +111,8 @@ export const deleteMedicalReportForPatient = async (patientId, reportId) => {
   const response = await httpClient.delete(`/patients/doctor/patients/${patientId}/reports/${reportId}`);
   return response.data?.data || response.data;
 }
+
+export const getMedicalReportsForPatient = async (patientId) => {
+  const response = await httpClient.get(`/patients/doctor/patients/${patientId}/reports`);
+  return response.data?.data || response.data;
+};
