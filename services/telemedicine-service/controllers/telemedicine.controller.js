@@ -395,16 +395,10 @@ export const endVideoSession = async (req, res, next) => {
             throw new ApiError(409, 'Cannot end a cancelled session.');
         }
 
-        session.status = 'completed';
-        session.endedAt = new Date();
+        // Delete the session from database
+        await VideoSession.findByIdAndDelete(sessionId);
 
-        if (!session.startedAt) {
-            session.startedAt = session.endedAt;
-        }
-
-        await session.save();
-
-        res.status(200).json(new ApiResponse(200, session, 'Video session ended.'));
+        res.status(200).json(new ApiResponse(200, { sessionId }, 'Video session ended and deleted.'));
     } catch (error) {
         next(error);
     }
