@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Bell, CheckCheck, Loader2 } from 'lucide-react';
 import {
+  deleteNotification,
   getNotifications,
   markNotificationAsRead,
 } from '../../services/notification.service';
@@ -22,11 +23,6 @@ const NotificationBell = () => {
 
   const unreadCount = useMemo(
     () => notifications.filter((item) => !item?.isRead).length,
-    [notifications]
-  );
-
-  const visibleNotifications = useMemo(
-    () => notifications.filter((item) => !item?.isRead),
     [notifications]
   );
 
@@ -63,21 +59,33 @@ const NotificationBell = () => {
   };
 
   const clearAllNotifications = async () => {
-    const unreadItems = notifications.filter((item) => !item?.isRead && item?._id);
-    if (!unreadItems.length || clearing) return;
+    const removableItems = notifications.filter((item) => item?._id);
+    if (!removableItems.length || clearing) return;
 
     setClearing(true);
     setError('');
 
     try {
-      const results = await Promise.allSettled(unreadItems.map((item) => markNotificationAsRead(item._id)));
-      const failedCount = results.filter((result) => result.status === 'rejected').length;
+      const results = await Promise.all(
+        removableItems.map(async (item) => {
+          try {
+            await deleteNotification(item._id);
+            return { id: item._id, ok: true };
+          } catch {
+            return { id: item._id, ok: false };
+          }
+        })
+      );
+
+      const successIds = new Set(results.filter((result) => result.ok).map((result) => result.id));
+      const failedCount = results.filter((result) => !result.ok).length;
+
+      if (successIds.size > 0) {
+        setNotifications((prev) => prev.filter((item) => !successIds.has(item?._id)));
+      }
 
       if (failedCount > 0) {
-        setError('Some notifications could not be cleared. Please try again.');
-        await loadNotifications();
-      } else {
-        setNotifications((prev) => prev.map((item) => ({ ...item, isRead: true })));
+        setError('Some notifications could not be deleted. Please try again.');
       }
     } catch {
       setError('Failed to clear notifications. Please try again.');
@@ -145,7 +153,7 @@ const NotificationBell = () => {
                   Mark all
                 </button>
               )}
-              {visibleNotifications.length > 0 && (
+              {notifications.length > 0 && (
                 <button
                   type="button"
                   onClick={clearAllNotifications}
@@ -168,13 +176,13 @@ const NotificationBell = () => {
 
             {!loading && error && <div className="px-4 py-6 text-sm text-rose-600">{error}</div>}
 
-            {!loading && !error && visibleNotifications.length === 0 && (
+            {!loading && !error && notifications.length === 0 && (
               <div className="px-4 py-8 text-sm text-slate-500">No notifications yet.</div>
             )}
 
-            {!loading && !error && visibleNotifications.length > 0 && (
+            {!loading && !error && notifications.length > 0 && (
               <ul className="divide-y divide-slate-100">
-                {visibleNotifications.map((item) => (
+                {notifications.map((item) => (
                   <li
                     key={item._id}
                     onClick={() => item?._id && !item?.isRead && markOneAsRead(item._id)}
