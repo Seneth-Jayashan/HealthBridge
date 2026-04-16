@@ -49,5 +49,7 @@ spec:
               value: "http://appointment-service:3004"
             - name: PATIENT_SERVICE_URL
               value: "http://patient-service:3002"
+            - name: DOCTOR_SERVICE_URL
+              value: "http://doctor-service:3003"
             - name: INTERNAL_SERVICE_SECRET
               value: "healthbridge_internal_secret"
