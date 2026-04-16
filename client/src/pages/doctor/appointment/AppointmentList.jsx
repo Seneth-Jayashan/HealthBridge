@@ -5,6 +5,7 @@ import {
 	getDoctorAppointmentsRequest,
 } from '../../../services/appointment.service';
 import { getDoctorProfile } from '../../../services/doctor.service';
+import { getPatientById } from '../../../services/user.service';
 
 const statusStyles = {
 	pending: 'bg-amber-50 text-amber-700 border-amber-200',
@@ -14,6 +15,13 @@ const statusStyles = {
 };
 
 const normalizeStatus = (value) => String(value || '').toLowerCase();
+
+const extractPatientId = (appt) => {
+	if (appt?.patient?._id) return String(appt.patient._id);
+	if (appt?.patientId?._id) return String(appt.patientId._id);
+	if (appt?.patientId) return String(appt.patientId);
+	return '';
+};
 
 const formatDateTime = (value) => {
 	if (!value) return 'N/A';
@@ -51,7 +59,46 @@ const AppointmentList = () => {
 
 		try {
 			const list = await getDoctorAppointmentsRequest(doctorId);
-			setAppointments(Array.isArray(list) ? list : []);
+			const normalizedList = Array.isArray(list) ? list : [];
+
+			const missingNamePatientIds = [
+				...new Set(
+					normalizedList
+						.filter((appt) => !String(appt?.patientName || '').trim())
+						.map(extractPatientId)
+						.filter(Boolean)
+				),
+			];
+
+			let patientNameById = {};
+			if (missingNamePatientIds.length > 0) {
+				const patientEntries = await Promise.all(
+					missingNamePatientIds.map(async (patientId) => {
+						try {
+							const profile = await getPatientById(patientId);
+							return [patientId, profile?.name || ''];
+						} catch {
+							return [patientId, ''];
+						}
+					})
+				);
+
+				patientNameById = Object.fromEntries(patientEntries);
+			}
+
+			const enriched = normalizedList.map((appt) => {
+				if (String(appt?.patientName || '').trim()) return appt;
+				const patientId = extractPatientId(appt);
+				const fallbackName = patientNameById[patientId];
+				if (!fallbackName) return appt;
+
+				return {
+					...appt,
+					patientName: fallbackName,
+				};
+			});
+
+			setAppointments(enriched);
 		} catch (err) {
 			setError(err?.response?.data?.message || err?.message || 'Failed to load appointments.');
 			setAppointments([]);
