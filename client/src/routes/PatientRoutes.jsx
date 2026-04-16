@@ -13,6 +13,7 @@ import MyPayments from '../pages/patient/MyPayments'; // Import the MyPayments p
 
 import BookAppointment from '../pages/patient/appointment/BookAppointment';
 import MyAppointments from '../pages/patient/appointment/MyAppointments';
+import AppointmentDetails from '../pages/patient/appointment/AppointmentDetails';
 import MyPrescriptions from '../pages/patient/Prescriptions'; // Import the MyPrescriptions page
 
 export default function PatientRoutes() {
@@ -28,6 +29,7 @@ export default function PatientRoutes() {
 
           <Route path="appointment/book" element={<BookAppointment />} />
           <Route path="appointment/my" element={<MyAppointments />} />
+          <Route path="appointment/:id" element={<AppointmentDetails />} />
           <Route path="payments" element={<MyPayments />} />
           <Route path="prescriptions" element={<MyPrescriptions />} />
 
