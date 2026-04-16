@@ -8,6 +8,6 @@ const { validateSymptomCheck }           = require('../middleware/validateMiddle
 router.post('/check', authenticate, authorize(['Patient']), validateSymptomCheck, checkSymptoms);
 
 // GET /api/ai/symptoms/:id
-router.get('/:id', authenticate, authorize(['Patient', 'doctor', 'admin']), getSymptomCheck);
+router.get('/:id', authenticate, authorize(['Patient',]), getSymptomCheck);
 
 module.exports = router;

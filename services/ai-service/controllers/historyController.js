@@ -55,32 +55,6 @@ const deleteHistory = async (req, res) => {
   }
 };
 
-// GET /api/ai/history/admin  — admin sees all records
-const getAllHistory = async (req, res) => {
-  try {
-    const page  = Math.max(1, parseInt(req.query.page)  || 1);
-    const limit = Math.min(50, parseInt(req.query.limit) || 20);
-    const skip  = (page - 1) * limit;
 
-    const [records, total] = await Promise.all([
-      SymptomCheck.find()
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limit)
-        .select('-aiResponse.rawResponse')
-        .populate('patientId', 'name email')
-        .lean(),
-      SymptomCheck.countDocuments(),
-    ]);
 
-    return res.status(200).json({
-      success: true,
-      data: { records, pagination: { total, page, limit, totalPages: Math.ceil(total / limit) } },
-    });
-  } catch (err) {
-    logger.error(`getAllHistory error: ${err.message}`);
-    return res.status(500).json({ success: false, message: 'Server error.' });
-  }
-};
-
-module.exports = { getHistory, deleteHistory, getAllHistory };
+module.exports = { getHistory, deleteHistory, };
