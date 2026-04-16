@@ -8,6 +8,7 @@ import {
 } from '../../../services/appointment.service';
 import { getDoctorByIdForPatient } from '../../../services/patient.service';
 import { getDoctorById } from '../../../services/user.service';
+import { useAuth } from '../../../context/AuthContext';
 
 const specialties = [
   'Cardiology',
@@ -68,6 +69,7 @@ const normalizeAvailability = (value) => {
 
 const BookAppointment = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const [specialty, setSpecialty] = useState('');
   const [doctors, setDoctors] = useState([]);
@@ -172,6 +174,7 @@ const BookAppointment = () => {
     setSelectedDoctor(doc);
     setSelectedDate('');
     setTimeSlotId('');
+    setPatientPhone(String(user?.phoneNumber || '').trim());
     setDoctorAvailability([]);
     setBookingError('');
 
