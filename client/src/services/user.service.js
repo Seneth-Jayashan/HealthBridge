@@ -22,13 +22,13 @@ export const getAllUsers = async () => {
 };
 
 // For Patients: Get Doctor Profile by ID
-export const getDoctorByIdForPatient = async (doctorId) => {
-  const response = await httpClient.get(`/auth/users/doctors/patients/${doctorId}`);
+export const getDoctorById = async (doctorId) => {
+  const response = await httpClient.get(`/auth/users/doctors/${doctorId}`);
   return response.data?.data || response.data;
 };
 
 // For Doctors: Get Patient Profile by ID
-export const getPatientByIdForDoctor = async (patientId) => {
-  const response = await httpClient.get(`/auth/users/patients/doctors/${patientId}`);
+export const getPatientById = async (patientId) => {
+  const response = await httpClient.get(`/auth/users/patients/${patientId}`);
   return response.data?.data || response.data;
 };

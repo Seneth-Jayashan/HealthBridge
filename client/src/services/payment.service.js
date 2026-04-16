@@ -29,7 +29,7 @@ export const getPaymentStatus = async (orderId) => {
 export const getMyPayments = async () => {
   const response = await httpClient.get('/payments/my-payments');
   return response.data?.data || response.data;
-};
+}
 
 
 // ==========================================
@@ -39,8 +39,8 @@ export const getMyPayments = async () => {
 /**
  * Gets all payments belonging to the currently logged-in doctor.
  */
-export const getMyDoctorPayments = async () => {
-  const response = await httpClient.get('/payments/doctor/payments');
+export const getMyDoctorPayments = async (doctorId) => {
+  const response = await httpClient.get(`/payments/doctor/payments/${doctorId}`);
   return response.data?.data || response.data;
 };
 

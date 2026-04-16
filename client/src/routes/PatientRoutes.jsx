@@ -9,6 +9,7 @@ import MedicalReports from '../pages/patient/MedicalReports';
 import PatientTelehealth from '../pages/patient/Telehealth';
 // import PatientAppointments from '../pages/patient/Appointments'; // Ready for when you build it!
 import PatientProfile from '../pages/patient/Profile';
+import MyPayments from '../pages/patient/MyPayments'; // Import the MyPayments page
 
 import BookAppointment from '../pages/patient/appointment/BookAppointment';
 import MyAppointments from '../pages/patient/appointment/MyAppointments';
@@ -26,6 +27,7 @@ export default function PatientRoutes() {
 
           <Route path="appointment/book" element={<BookAppointment />} />
           <Route path="appointment/my" element={<MyAppointments />} />
+          <Route path="payments" element={<MyPayments />} />
 
           {/* Future routes drop in perfectly here: */}
           {/* <Route path="appointments" element={<PatientAppointments />} /> */}

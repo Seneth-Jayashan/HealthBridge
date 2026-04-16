@@ -32,7 +32,7 @@ router.get('/my-payments', requireAuth, requireRole('patient'), getPatientPaymen
 // DOCTOR ROUTES (Authenticated users with Doctor role)
 // ------------------------------------------
 // FIX: Changed from getPaymentsByDoctor to getDoctorPayments
-router.get('/doctor/payments', requireAuth, requireRole('doctor'), getDoctorPayments); 
+router.get('/doctor/payments/:doctorId', requireAuth, requireRole('doctor'), getDoctorPayments); 
 
 // ------------------------------------------
 // ADMIN ROUTES (Authenticated users with Admin role)

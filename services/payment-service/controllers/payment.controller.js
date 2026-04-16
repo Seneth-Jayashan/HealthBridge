@@ -216,7 +216,7 @@ export const getPatientPayments = async (req, res) => {
 // Get All Payments for a logged-in Doctor
 export const getDoctorPayments = async (req, res) => {
     try {
-        const doctorId = req.user.id; // Assuming req.user is set by auth middleware
+        const { doctorId } = req.params;
         const payments = await Payment.find({ doctorId }).sort({ createdAt: -1 });
         return res.json(payments);
     } catch (err) {

@@ -82,14 +82,6 @@ export const updateDoctorProfile = async (req, res, next) => {
             consultationFee, 
         } = req.body;
 
-        const existingDoctor = await Doctor.findOne({ userId: req.user.id });
-
-        if (existingDoctor && ['Review', 'Approved'].includes(existingDoctor.verificationStatus)) {
-            if (req.file?.path) {
-                fs.unlinkSync(req.file.path);
-            }
-            throw new ApiError(409, 'Doctor request already submitted. You can resubmit only after rejection.');
-        }
 
         // Upsert logic: Create if it doesn't exist, update if it does.
         const updatedDoctor = await Doctor.findOneAndUpdate(
@@ -209,24 +201,33 @@ export const updateDoctorAvailability = async (req, res, next) => {
             throw new ApiError(404, "Doctor profile not found. Please submit your doctor profile first.");
         }
 
-        // 3. Process each day's schedule
-        const updatedAvailabilities = await Promise.all(
-            availability.map(async (schedule) => {
-                const { dayOfWeek, timeSlots } = schedule;
+        // 3. Clear the old schedule completely
+        // This ensures days removed on the frontend are actually deleted from the database
+        await Availability.deleteMany({ doctorId: doctor._id });
 
-                if (!dayOfWeek || !timeSlots || !Array.isArray(timeSlots)) {
-                    throw new ApiError(400, "Each schedule item must include a valid 'dayOfWeek' and a 'timeSlots' array.");
-                }
+        // 4. Prepare the new schedule data
+        const newScheduleData = availability.map((schedule) => {
+            const { dayOfWeek, timeSlots } = schedule;
 
-                // Upsert: Find the document by doctorId and dayOfWeek. 
-                // Update it with the new time slots, or create it if it doesn't exist.
-                return await Availability.findOneAndUpdate(
-                    { doctorId: doctor._id, dayOfWeek: dayOfWeek },
-                    { $set: { timeSlots: timeSlots } },
-                    { new: true, upsert: true, runValidators: true }
-                );
-            })
-        );
+            if (!dayOfWeek || !timeSlots || !Array.isArray(timeSlots)) {
+                throw new ApiError(400, "Each schedule item must include a valid 'dayOfWeek' and a 'timeSlots' array.");
+            }
+
+            return {
+                doctorId: doctor._id,
+                dayOfWeek,
+                timeSlots
+            };
+        });
+
+        // 5. Insert the exact new schedule
+        const updatedAvailabilities = await Availability.insertMany(newScheduleData);
+
+        // Optional but recommended: Update the doctor's profile to mark that availability is set
+        if (!doctor.isAvailabilitySet) {
+            doctor.isAvailabilitySet = true;
+            await doctor.save();
+        }
 
         res.status(200).json({
             success: true,

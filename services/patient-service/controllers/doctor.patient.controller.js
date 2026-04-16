@@ -1,4 +1,5 @@
 import Patient from '../models/PatientService.js';
+import { ApiError, ApiResponse } from "@healthbridge/shared";
 
 // @desc    Get Patient by ID (For Doctors to view patient details)
 // @route   GET /api/doctors/patients/:patientId

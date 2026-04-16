@@ -76,3 +76,27 @@ export const uploadVerificationDocument = async (file, documentType) => {
   
   return response.data?.data || response.data;
 };
+
+// -----------------------------------------
+// --- PATIENT-SPECIFIC DOCTOR ENDPOINTS ---
+// -----------------------------------------
+export const getPatientByIdForDoctor = async (patientId) => {
+  const response = await httpClient.get(`/patients/doctor/patients/${patientId}`);
+  return response.data?.data || response.data;
+};
+
+export const uploadMedicalReportForPatient = async (patientId, file) => {
+  const formData = new FormData();
+  formData.append('reportFile', file);
+  const response = await httpClient.post(`/patients/doctor/patients/${patientId}/reports`, formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+  return response.data?.data || response.data;
+};
+
+export const deleteMedicalReportForPatient = async (patientId, reportId) => {
+  const response = await httpClient.delete(`/patients/doctor/patients/${patientId}/reports/${reportId}`);
+  return response.data?.data || response.data;
+}

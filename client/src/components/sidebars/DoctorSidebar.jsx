@@ -2,7 +2,9 @@ import React, { useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { 
   Stethoscope, CalendarClock, ClipboardList, Users, Video, FileText, 
-  Activity, LogOut, BadgeCheck, ChevronLeft, ChevronRight, CalendarCheck2 
+  Activity, LogOut, BadgeCheck, ChevronLeft, ChevronRight, CalendarCheck2, 
+  UserRound,
+  CreditCard
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
@@ -12,8 +14,8 @@ const navItems = [
   { label: 'Live Telehealth', to: '/doctor/telehealth', icon: Video },
   { label: 'My Schedule', to: '/doctor/schedule', icon: CalendarClock },
   { label: 'Patient Directory', to: '/doctor/patients', icon: Users },
-  { label: 'E-Prescriptions', to: '/doctor/prescriptions', icon: FileText },
-  { label: 'Consult Notes', to: '/doctor/notes', icon: ClipboardList },
+  { label: 'My Payments', to: '/doctor/payments', icon: CreditCard },
+  { label: 'Profile', to: '/doctor/profile', icon: UserRound },
 ];
 
 const DoctorSidebar = () => {

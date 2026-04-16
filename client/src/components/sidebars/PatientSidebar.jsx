@@ -3,7 +3,7 @@ import { Link, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { 
   Activity, Calendar, MessageCircle, UserRound, LogOut, 
   HeartPulse, FileText, ChevronLeft, ChevronRight, Menu, X,
-  CalendarPlus, CalendarCheck, ChevronDown, Video
+  CalendarPlus, CalendarCheck, ChevronDown, Video, CreditCard
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext'; 
 
@@ -13,7 +13,7 @@ const navItems = [
   { label: 'Medical Reports', to: '/patient/reports', icon: HeartPulse },
   { label: 'Telehealth', to: '/patient/telehealth', icon: Video },
   { label: 'Prescriptions', to: '/patient/prescriptions', icon: FileText },
-  { label: 'Messages', to: '/patient/messages', icon: MessageCircle },
+  { label: 'Payments', to: '/patient/payments', icon: CreditCard },
   { label: 'Profile Settings', to: '/patient/profile', icon: UserRound },
 ];
 

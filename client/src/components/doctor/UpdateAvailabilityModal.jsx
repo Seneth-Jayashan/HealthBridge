@@ -24,10 +24,9 @@ const UpdateAvailabilityModal = ({ isOpen, onClose, onSuccess, initialAvailabili
     setSchedule([...schedule, { dayOfWeek: availableDay, timeSlots: [{ startTime: '09:00', endTime: '17:00' }] }]);
   };
 
-  const handleRemoveDay = (dayIndex) => {
-    const newSchedule = [...schedule];
-    newSchedule.splice(dayIndex, 1);
-    setSchedule(newSchedule);
+  const handleRemoveDay = (dayOfWeekToRemove) => {
+    // This safely filters out the exact day, ignoring index numbers completely
+    setSchedule(prevSchedule => prevSchedule.filter(day => day.dayOfWeek !== dayOfWeekToRemove));
   };
 
   const handleDayChange = (dayIndex, newDay) => {
@@ -114,7 +113,8 @@ const UpdateAvailabilityModal = ({ isOpen, onClose, onSuccess, initialAvailabili
 
           <div className="space-y-6">
             {schedule.map((daySchedule, dayIndex) => (
-              <div key={dayIndex} className="p-5 rounded-2xl border border-slate-200 bg-slate-50">
+              // CRITICAL FIX: Changed key={dayIndex} to key={daySchedule.dayOfWeek}
+              <div key={daySchedule.dayOfWeek} className="p-5 rounded-2xl border border-slate-200 bg-slate-50">
                 
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
                   <select
@@ -129,7 +129,7 @@ const UpdateAvailabilityModal = ({ isOpen, onClose, onSuccess, initialAvailabili
                   
                   <button
                     type="button"
-                    onClick={() => handleRemoveDay(dayIndex)}
+                    onClick={() => handleRemoveDay(daySchedule.dayOfWeek)}
                     className="text-red-600 hover:text-red-700 text-sm font-semibold flex items-center gap-1.5"
                   >
                     <Trash2 size={16} /> Remove Day
@@ -138,6 +138,7 @@ const UpdateAvailabilityModal = ({ isOpen, onClose, onSuccess, initialAvailabili
 
                 <div className="space-y-3 pl-2 sm:pl-4 border-l-2 border-slate-200">
                   {daySchedule.timeSlots.map((slot, slotIndex) => (
+                    // Optional fix: assigning a more stable key if you eventually add IDs to timeslots. slotIndex is okay here as long as we don't do complex animations.
                     <div key={slotIndex} className="flex flex-wrap items-center gap-3">
                       <Clock size={16} className="text-slate-400 hidden sm:block" />
                       

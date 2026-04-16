@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import User from '../models/User.js';
 
 
@@ -58,21 +59,22 @@ export const changePassword = async (req, res) => {
 // Patient Only - Get Doctor by ID (For booking appointments)
 export const getDoctorById = async (req, res) => {
     try {
-        const doctor = await User.findOne({ _id: req.params.id, role: 'doctor' }).select('-password');
+        const doctor = await User.findOne({ _id: req.params.doctorId, role: 'Doctor' }).select('-password');
+
         if (!doctor) {
             return res.status(404).json({ message: 'Doctor not found' });
         }
         res.json({ data: doctor });
     } catch (error) {
         console.error('Error fetching doctor profile:', error);
-        res.status(500).json({ message: 'Server error' });
+        res.status(500).json({ message: 'Server error'});
     }
 };
 
 // Doctor Only - Get Patient by ID (For viewing patient details when booking appointments)
 export const getPatientById = async (req, res) => {
     try {
-        const patient = await User.findOne({ _id: req.params.id, role: 'patient' }).select('-password');
+        const patient = await User.findOne({ _id: req.params.patientId, role: 'Patient' }).select('-password');
         if (!patient) {
             return res.status(404).json({ message: 'Patient not found' });
         }
