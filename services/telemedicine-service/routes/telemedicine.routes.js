@@ -10,10 +10,14 @@ import {
     getOnlineAppointmentsWithSessions,
     getPatientOnlineAppointments,
     getDoctorOnlineAppointments,
-    updateSessionStatus
+    updateSessionStatus,
+    handlePaymentSuccess
 } from '../controllers/telemedicine.controller.js';
 
 const router = express.Router();
+
+// ─── [INTERNAL API] Route (no auth required - called by appointment service) ──
+router.get('/internal/success/:appointmentId', handlePaymentSuccess);
 
 router.use(requireAuth);
 
