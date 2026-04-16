@@ -1,22 +1,19 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ListChecks, LoaderCircle, RefreshCw, Video } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import {
-  endTelemedicineSession,
   getMyTelemedicineSessions,
   getTelemedicineJoinToken,
   startTelemedicineSession,
+  endTelemedicineSession,
   getDoctorOnlineAppointments,
 } from '../../services/telemedicine.service';
 import VideoConsultRoom from '../../components/telemedicine/VideoConsultRoom';
-import DoctorAppointmentList from '../../components/telemedicine/DoctorAppointmentList';
 
 const DoctorTelehealth = () => {
   const { user } = useAuth();
-  const navigate = useNavigate();
   const location = useLocation();
-  const [activeTab, setActiveTab] = useState('appointments'); // 'appointments' or 'sessions'
   const [sessions, setSessions] = useState([]);
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -40,17 +37,6 @@ const DoctorTelehealth = () => {
       return acc;
     }, {});
   }, [appointments]);
-
-  const handleStartSessionFromAppointment = async (sessionId) => {
-    // Load sessions to ensure we have the latest data
-    await loadSessions();
-    
-    // Set the selected session
-    setSelectedSessionId(sessionId);
-    
-    // Switch to sessions tab
-    setActiveTab('sessions');
-  };
 
   const loadSessions = async () => {
     setLoading(true);
@@ -83,10 +69,6 @@ const DoctorTelehealth = () => {
     // Auto-select session if redirected from DoctorAppointmentList
     if (location.state?.sessionId) {
       setSelectedSessionId(location.state.sessionId);
-      // Auto-join if coming from Start Call button
-      if (location.state.autoJoin) {
-        setActiveTab('sessions');
-      }
     }
   }, []);
 
@@ -129,40 +111,6 @@ const DoctorTelehealth = () => {
 
     try {
       await startTelemedicineSession(selectedSession._id);
-      setMessage('Session is now marked as active.');
-      await loadSessions();
-    } catch (requestError) {
-      setError(requestError?.response?.data?.message || 'Unable to start this session.');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleEndSession = async () => {
-    if (!selectedSession) return;
-
-    setSubmitting(true);
-    setError('');
-
-    try {
-      await endTelemedicineSession(selectedSession._id);
-      setJoinPayload(null);
-      setMessage('Session ended successfully.');
-      await loadSessions();
-    } catch (requestError) {
-      setError(requestError?.response?.data?.message || 'Unable to end this session.');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleJoinSession = async () => {
-    if (!selectedSession) return;
-
-    setSubmitting(true);
-    setError('');
-
-    try {
       const tokenData = await getTelemedicineJoinToken(selectedSession._id);
 
       // Find the associated appointment
@@ -183,11 +131,29 @@ const DoctorTelehealth = () => {
       });
       
       setCurrentAppointment(appointment);
-      setMessage('Joining consultation room...');
+      setMessage('Session started. Joining consultation room...');
     } catch (requestError) {
-      setError(requestError?.response?.data?.message || 'Unable to join this session.');
+      setError(requestError?.response?.data?.message || 'Unable to start and join this session.');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleLeaveRoom = async () => {
+    const activeSessionId = joinPayload?.sessionId;
+
+    if (!activeSessionId) return;
+
+    try {
+      await endTelemedicineSession(activeSessionId);
+      setMessage('Session ended after leaving the call.');
+    } catch (requestError) {
+      setError(requestError?.response?.data?.message || 'You left the call, but ending session failed.');
+    } finally {
+      // Always close the room after user leaves call UI.
+      setJoinPayload(null);
+      setCurrentAppointment(null);
+      await loadSessions();
     }
   };
 
@@ -202,36 +168,7 @@ const DoctorTelehealth = () => {
       {error && <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">❌ {error}</div>}
       {message && <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">✅ {message}</div>}
 
-      {/* Tab Navigation */}
-      <div className="flex gap-2 border-b border-slate-200">
-        <button
-          onClick={() => setActiveTab('appointments')}
-          className={`px-4 py-3 font-bold text-sm transition-colors ${
-            activeTab === 'appointments'
-              ? 'border-b-2 border-teal-600 text-teal-600'
-              : 'text-slate-600 hover:text-slate-900'
-          }`}
-        >
-          📅 Online Appointments
-        </button>
-        <button
-          onClick={() => setActiveTab('sessions')}
-          className={`px-4 py-3 font-bold text-sm transition-colors ${
-            activeTab === 'sessions'
-              ? 'border-b-2 border-teal-600 text-teal-600'
-              : 'text-slate-600 hover:text-slate-900'
-          }`}
-        >
-          🎥 Video Sessions
-        </button>
-      </div>
-
-      {/* Appointments Tab */}
-      {activeTab === 'appointments' && <DoctorAppointmentList onStartSession={handleStartSessionFromAppointment} />}
-
-      {/* Sessions Tab */}
-      {activeTab === 'sessions' && (
-        <div className="grid gap-5 xl:grid-cols-5">
+      <div className="grid gap-5 xl:grid-cols-5">
           <div className="space-y-5 xl:col-span-2">
             <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/8 to-white/3 p-5 hover:border-white/20 transition-all duration-200">
               <div className="flex items-center justify-between gap-3">
@@ -259,7 +196,6 @@ const DoctorTelehealth = () => {
                     (() => {
                       const appointment = appointmentsById[session.appointmentId];
                       const sessionTopic = appointment?.reason || session?.metadata?.reason || 'General consultation';
-                      const patientName = appointment?.patientName || String(session.patientId).slice(0, 8);
 
                       return (
                     <button
@@ -274,8 +210,10 @@ const DoctorTelehealth = () => {
                     >
                       <p className="text-sm font-bold text-slate-900">{session.channelName}</p>
                       <p className="mt-1 text-xs font-medium text-slate-600">🔄 Status: {session.status}</p>
-                      <p className="mt-1 text-xs font-medium text-slate-600">🩺 Session Topic: {sessionTopic}</p>
-                      <p className="mt-1 text-xs font-medium text-slate-500">👤 Patient: {patientName}</p>
+                      <div className="mt-2 rounded-md border border-teal-200 bg-teal-50 px-2.5 py-2">
+                        <p className="text-[10px] font-black uppercase tracking-wider text-teal-700">Session Topic</p>
+                        <p className="mt-0.5 text-sm font-extrabold leading-snug text-teal-900">{sessionTopic}</p>
+                      </div>
                     </button>
                       );
                     })()
@@ -309,41 +247,21 @@ const DoctorTelehealth = () => {
                   className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-emerald-600 to-emerald-700 px-4 py-2 text-sm font-bold text-white hover:shadow-lg hover:shadow-emerald-500/30 disabled:opacity-50 transition-all"
                 >
                   {submitting ? <LoaderCircle size={16} className="animate-spin" /> : '▶️'}
-                  Start Session
-                </button>
-                <button
-                  type="button"
-                  onClick={handleJoinSession}
-                  disabled={!selectedSession || submitting}
-                  className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-teal-600 to-teal-700 px-4 py-2 text-sm font-bold text-white hover:shadow-lg hover:shadow-teal-500/30 disabled:opacity-50 transition-all"
-                >
-                  {submitting ? <LoaderCircle size={16} className="animate-spin" /> : '📹'}
-                  Join Video Call
-                </button>
-                <button
-                  type="button"
-                  onClick={handleEndSession}
-                  disabled={!selectedSession || submitting}
-                  className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-red-600 to-red-700 px-4 py-2 text-sm font-bold text-white hover:shadow-lg hover:shadow-red-500/30 disabled:opacity-50 transition-all"
-                >
-                  {submitting ? <LoaderCircle size={16} className="animate-spin" /> : '⏹️'}
-                  End Session
+                  Start Call
                 </button>
               </div>
             </div>
 
-            <VideoConsultRoom
-              joinPayload={joinPayload}
-              displayName={user?.name || 'Doctor'}
-              appointmentDetails={currentAppointment}
-              onLeave={() => {
-                setJoinPayload(null);
-                setCurrentAppointment(null);
-              }}
-            />
+            {joinPayload && (
+              <VideoConsultRoom
+                joinPayload={joinPayload}
+                displayName={user?.name || 'Doctor'}
+                appointmentDetails={currentAppointment}
+                onLeave={handleLeaveRoom}
+              />
+            )}
           </div>
         </div>
-      )}
     </section>
   );
 };
