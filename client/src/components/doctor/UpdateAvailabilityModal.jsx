@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+ import React, { useEffect, useState } from 'react';
 import { X, Plus, Trash2, Clock, Loader2, AlertCircle } from 'lucide-react';
 import { updateAvailability } from '../../services/doctor.service'; // Adjust path if needed
 
