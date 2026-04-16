@@ -58,6 +58,15 @@ export const cancelAppointmentRequest = async (id) => {
   return unwrapPayload(response);
 };
 
+// Patient: Edit own pending appointment (reason/notes/phone)
+export const updateAppointmentRequest = async (id, payload) => {
+  const response = await requestWithPathFallback(
+    () => httpClient.patch(`/appointments/appointments/${id}`, payload),
+    () => httpClient.patch(`/appointments/${id}`, payload)
+  );
+  return unwrapPayload(response);
+};
+
 // Doctor: Get appointments for doctorId
 export const getDoctorAppointmentsRequest = async (doctorId) => {
   const response = await requestWithPathFallback(
