@@ -28,6 +28,15 @@ const PatientTelehealth = () => {
     [sessions, selectedSessionId],
   );
 
+  const appointmentsById = useMemo(() => {
+    return appointments.reduce((acc, appointment) => {
+      if (appointment?._id) {
+        acc[appointment._id] = appointment;
+      }
+      return acc;
+    }, {});
+  }, [appointments]);
+
   const loadSessions = async () => {
     setLoading(true);
     setError('');
@@ -163,6 +172,12 @@ const PatientTelehealth = () => {
                   <div className="rounded-lg border border-dashed border-slate-300 p-4 text-sm font-medium text-slate-500">No consultations assigned yet.</div>
                 ) : (
                   sessions.map((session) => (
+                    (() => {
+                      const appointment = appointmentsById[session.appointmentId];
+                      const sessionTopic = appointment?.reason || session?.metadata?.reason || 'General consultation';
+                      const participantName = appointment?.patientName || 'Patient';
+
+                      return (
                     <button
                       key={session._id}
                       type="button"
@@ -175,10 +190,10 @@ const PatientTelehealth = () => {
                     >
                       <p className="text-sm font-bold text-slate-900">{session.channelName}</p>
                       <p className="mt-1 text-xs font-medium text-slate-600">Status: {session.status}</p>
-                      <p className="mt-1 text-xs font-medium text-slate-500">
-                        {session.scheduledAt ? new Date(session.scheduledAt).toLocaleString() : 'No scheduled time'}
-                      </p>
+                      <h3 className="mt-2 text-lg font-extrabold leading-tight text-slate-900">{sessionTopic}</h3>
                     </button>
+                      );
+                    })()
                   ))
                 )}
               </div>

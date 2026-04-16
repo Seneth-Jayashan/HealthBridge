@@ -7,6 +7,7 @@ import {
     updateDoctorAvailability,
     getDoctorAvailability,
     checkConsultationFee,
+    getDoctorByUserIdInternal,
     getDoctorAvailabilityInternal,
     reserveDoctorSlotInternal,
     releaseDoctorSlotInternal,
@@ -30,6 +31,7 @@ const uploadVerification = createUploadMiddleware(
 // INTERNAL / SERVICE-TO-SERVICE ROUTES
 // ==========================================
 router.get('/internal/payment/checkFee', checkConsultationFee);
+router.get('/internal/get-doctor/:userId', getDoctorByUserIdInternal);
 router.post('/internal/confirm/add-to-patient-list', addToPatientList);
 
 

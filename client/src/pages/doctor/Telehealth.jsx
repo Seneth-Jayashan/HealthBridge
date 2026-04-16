@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { CalendarClock, ListChecks, LoaderCircle, RefreshCw, Video } from 'lucide-react';
+import { ListChecks, LoaderCircle, RefreshCw, Video } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
@@ -31,6 +31,15 @@ const DoctorTelehealth = () => {
     () => sessions.find((session) => session._id === selectedSessionId) || null,
     [sessions, selectedSessionId],
   );
+
+  const appointmentsById = useMemo(() => {
+    return appointments.reduce((acc, appointment) => {
+      if (appointment?._id) {
+        acc[appointment._id] = appointment;
+      }
+      return acc;
+    }, {});
+  }, [appointments]);
 
   const handleStartSessionFromAppointment = async (sessionId) => {
     // Load sessions to ensure we have the latest data
@@ -182,10 +191,6 @@ const DoctorTelehealth = () => {
     }
   };
 
-  const selectedSessionTime = selectedSession?.scheduledAt
-    ? new Date(selectedSession.scheduledAt).toLocaleString()
-    : 'Not scheduled';
-
   return (
     <section className="space-y-6">
       <div className="rounded-2xl border border-teal-200 bg-gradient-to-r from-teal-50 to-cyan-50 p-6 shadow-sm">
@@ -251,6 +256,12 @@ const DoctorTelehealth = () => {
                   <div className="rounded-lg border border-dashed border-slate-300 p-4 text-sm font-medium text-slate-500">No active sessions yet.</div>
                 ) : (
                   sessions.map((session) => (
+                    (() => {
+                      const appointment = appointmentsById[session.appointmentId];
+                      const sessionTopic = appointment?.reason || session?.metadata?.reason || 'General consultation';
+                      const patientName = appointment?.patientName || String(session.patientId).slice(0, 8);
+
+                      return (
                     <button
                       key={session._id}
                       type="button"
@@ -263,8 +274,11 @@ const DoctorTelehealth = () => {
                     >
                       <p className="text-sm font-bold text-slate-900">{session.channelName}</p>
                       <p className="mt-1 text-xs font-medium text-slate-600">🔄 Status: {session.status}</p>
-                      <p className="mt-1 text-xs font-medium text-slate-500">👤 Patient: {String(session.patientId).slice(0, 8)}...</p>
+                      <p className="mt-1 text-xs font-medium text-slate-600">🩺 Session Topic: {sessionTopic}</p>
+                      <p className="mt-1 text-xs font-medium text-slate-500">👤 Patient: {patientName}</p>
                     </button>
+                      );
+                    })()
                   ))
                 )}
               </div>
@@ -280,10 +294,6 @@ const DoctorTelehealth = () => {
                     <span>Session Details</span>
                   </div>
                   <h3 className="mt-2 text-lg font-black text-slate-900">{selectedSession?.channelName || '📞 Select a session'}</h3>
-                  <p className="mt-1 inline-flex items-center gap-1 text-sm font-medium text-slate-600">
-                    <CalendarClock size={14} />
-                    <span>{selectedSessionTime}</span>
-                  </p>
                 </div>
 
                 <div className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 font-bold text-xs text-slate-700 border border-slate-200">

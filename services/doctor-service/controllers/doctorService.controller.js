@@ -13,6 +13,30 @@ const assertInternalAccess = (req) => {
     }
 };
 
+// @desc    Get doctor profile by auth user id (internal)
+// @route   GET /internal/get-doctor/:userId
+// @access  Internal
+export const getDoctorByUserIdInternal = async (req, res, next) => {
+    try {
+        assertInternalAccess(req);
+
+        const { userId } = req.params;
+        if (!userId || !mongoose.isValidObjectId(userId)) {
+            throw new ApiError(400, 'Valid userId is required');
+        }
+
+        const doctor = await Doctor.findOne({ userId }).lean();
+
+        if (!doctor) {
+            throw new ApiError(404, 'Doctor not found');
+        }
+
+        res.status(200).json(new ApiResponse(200, doctor, 'Doctor retrieved successfully'));
+    } catch (error) {
+        next(error);
+    }
+};
+
 // @desc    Get all doctors (with optional filtering for verification status)
 // @route   GET /api/doctors
 // @access  Public (Users only)

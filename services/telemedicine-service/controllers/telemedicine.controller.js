@@ -19,6 +19,10 @@ const getPatientServiceUrl = () => {
     return process.env.PATIENT_SERVICE_URL || 'http://localhost:3002';
 };
 
+const getDoctorServiceUrl = () => {
+    return process.env.DOCTOR_SERVICE_URL || 'http://localhost:3003';
+};
+
 const getInternalServiceKey = () => {
     return process.env.INTERNAL_SERVICE_SECRET || 'internal-service-key';
 };
@@ -130,18 +134,38 @@ const isParticipant = (session, userId) => {
     return String(session.doctorId) === normalizedUserId || String(session.patientId) === normalizedUserId;
 };
 
-const ensureCanViewSession = (session, user) => {
+const resolveParticipantIdFromUser = async (user) => {
+    if (user.role === 'Doctor') {
+        return resolveDoctorProfileIdFromUser(user);
+    }
+
+    if (user.role === 'Patient') {
+        const patient = await getPatientByIdInternal(user.id);
+        if (!patient?._id) {
+            throw new ApiError(404, 'Patient profile not found.');
+        }
+        return String(patient._id);
+    }
+
+    return String(user.id);
+};
+
+const ensureCanViewSession = async (session, user) => {
     if (user.role === 'Admin') {
         return;
     }
 
-    if (!isParticipant(session, user.id)) {
+    const participantId = await resolveParticipantIdFromUser(user);
+
+    if (!isParticipant(session, participantId)) {
         throw new ApiError(403, 'Forbidden: You are not a participant in this session.');
     }
 };
 
-const ensureDoctorOwnsSession = (session, user) => {
-    if (user.role !== 'Doctor' || String(session.doctorId) !== String(user.id)) {
+const ensureDoctorOwnsSession = async (session, user) => {
+    const resolvedDoctorId = await resolveDoctorProfileIdFromUser(user);
+
+    if (user.role !== 'Doctor' || String(session.doctorId) !== String(resolvedDoctorId)) {
         throw new ApiError(403, 'Forbidden: Only the assigned doctor can perform this action.');
     }
 };
@@ -171,7 +195,7 @@ export const createVideoSession = async (req, res, next) => {
         let resolvedDoctorId = doctorId;
 
         if (req.user.role === 'Doctor') {
-            resolvedDoctorId = req.user.id;
+            resolvedDoctorId = await resolveDoctorProfileIdFromUser(req.user);
         }
 
         if (!resolvedDoctorId) {
@@ -240,7 +264,7 @@ export const listMyVideoSessions = async (req, res, next) => {
         }
 
         if (req.user.role === 'Doctor') {
-            query.doctorId = req.user.id;
+            query.doctorId = await resolveDoctorProfileIdFromUser(req.user);
         }
 
         if (req.user.role === 'Patient') {
@@ -266,28 +290,6 @@ export const listMyVideoSessions = async (req, res, next) => {
     }
 };
 
-export const getVideoSessionById = async (req, res, next) => {
-    try {
-        const { sessionId } = req.params;
-
-        if (!mongoose.Types.ObjectId.isValid(sessionId)) {
-            throw new ApiError(400, 'Invalid sessionId.');
-        }
-
-        const session = await VideoSession.findById(sessionId);
-
-        if (!session) {
-            throw new ApiError(404, 'Video session not found.');
-        }
-
-        ensureCanViewSession(session, req.user);
-
-        res.status(200).json(new ApiResponse(200, session, 'Video session retrieved successfully.'));
-    } catch (error) {
-        next(error);
-    }
-};
-
 export const issueVideoSessionToken = async (req, res, next) => {
     try {
         const { sessionId } = req.params;
@@ -302,7 +304,7 @@ export const issueVideoSessionToken = async (req, res, next) => {
             throw new ApiError(404, 'Video session not found.');
         }
 
-        ensureCanViewSession(session, req.user);
+        await ensureCanViewSession(session, req.user);
 
         if (session.status === 'completed' || session.status === 'cancelled') {
             throw new ApiError(409, `Cannot join a ${session.status} session.`);
@@ -355,7 +357,7 @@ export const startVideoSession = async (req, res, next) => {
             throw new ApiError(404, 'Video session not found.');
         }
 
-        ensureDoctorOwnsSession(session, req.user);
+        await ensureDoctorOwnsSession(session, req.user);
 
         if (session.status === 'completed' || session.status === 'cancelled') {
             throw new ApiError(409, `Cannot start a ${session.status} session.`);
@@ -396,15 +398,16 @@ export const endVideoSession = async (req, res, next) => {
             throw new ApiError(404, 'Video session not found.');
         }
 
-        ensureDoctorOwnsSession(session, req.user);
+        await ensureDoctorOwnsSession(session, req.user);
 
         if (session.status === 'cancelled') {
             throw new ApiError(409, 'Cannot end a cancelled session.');
         }
 
-        session.status = 'completed';
-        session.endedAt = new Date();
+        // Delete the session from database
+        await VideoSession.findByIdAndDelete(sessionId);
 
+        res.status(200).json(new ApiResponse(200, { sessionId }, 'Video session ended and deleted.'));
         if (!session.startedAt) {
             session.startedAt = session.endedAt;
         }
@@ -482,53 +485,6 @@ export const getDoctorOnlineAppointments = async (req, res, next) => {
 
         res.status(200).json(
             new ApiResponse(200, appointments, 'Doctor online appointments retrieved successfully.')
-        );
-    } catch (error) {
-        next(error);
-    }
-};
-
-// ─── Update video session status linked to appointment ──
-export const updateSessionStatus = async (req, res, next) => {
-    try {
-        const { sessionId } = req.params;
-        const { status } = req.body;
-
-        if (!mongoose.Types.ObjectId.isValid(sessionId)) {
-            throw new ApiError(400, 'Invalid sessionId.');
-        }
-
-        const validStatuses = ['scheduled', 'active', 'completed', 'cancelled'];
-        if (!validStatuses.includes(status)) {
-            throw new ApiError(400, 'Invalid status');
-        }
-
-        const session = await VideoSession.findById(sessionId);
-
-        if (!session) {
-            throw new ApiError(404, 'Video session not found.');
-        }
-
-        ensureDoctorOwnsSession(session, req.user);
-
-        session.status = status;
-
-        if (status === 'active' && !session.startedAt) {
-            session.startedAt = new Date();
-        }
-
-        if (status === 'completed' && !session.endedAt) {
-            session.endedAt = new Date();
-        }
-
-        if (status === 'cancelled' && !session.endedAt) {
-            session.endedAt = new Date();
-        }
-
-        await session.save();
-
-        res.status(200).json(
-            new ApiResponse(200, session, `Video session status updated to ${status}.`)
         );
     } catch (error) {
         next(error);
@@ -645,4 +601,36 @@ export const handlePaymentSuccess = async (req, res, next) => {
         console.error('[Telemedicine] Error in handlePaymentSuccess:', error);
         next(error);
     }
+};
+
+const getDoctorByUserIdInternal = async (userId) => {
+    try {
+        const doctorBaseUrl = getDoctorServiceUrl();
+        const endpoint = `${doctorBaseUrl}/internal/get-doctor/${userId}`;
+
+        const response = await axios.get(endpoint, {
+            headers: {
+                'x-internal-service-key': getInternalServiceKey(),
+            },
+            timeout: 8000,
+        });
+
+        return response.data?.data || response.data;
+    } catch (error) {
+        console.error('[Telemedicine] Failed to fetch doctor:', error.message);
+        throw new ApiError(404, 'Doctor not found or doctor service is unavailable');
+    }
+};
+
+const resolveDoctorProfileIdFromUser = async (user) => {
+    if (user.role !== 'Doctor') {
+        return user.id;
+    }
+
+    const doctor = await getDoctorByUserIdInternal(user.id);
+    if (!doctor?._id) {
+        throw new ApiError(404, 'Doctor profile not found. Please complete doctor profile setup.');
+    }
+
+    return String(doctor._id);
 };
