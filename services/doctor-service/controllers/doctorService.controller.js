@@ -1,7 +1,7 @@
 import Doctor from '../models/DoctorService.js'; // Adjust path if your filename differs
 import Availability from '../models/Availability.js';
 import { ApiError, ApiResponse, cloudinaryService } from '@healthbridge/shared';
-import { notifyAdminsDoctorVerificationRequested } from '../services/adminNotification.service.js';
+import { notifyAdminsDoctorVerificationRequested } from '../services/verification/adminNotification.service.js';
 import fs from 'fs';
 import mongoose from 'mongoose';
 import Patients from '../models/Patients.js';
@@ -469,6 +469,26 @@ export const removePatientFromDoctorList = async (req, res, next) => {
 
         res.status(200).json(new ApiResponse(200, updatedPatients.patients, "Patient removed from doctor's list successfully"));
     } catch (error) {
+        next(error);
+    }
+};
+
+
+export const getDoctorDetailsInternal = async (req, res, next) => {
+    try {
+        assertInternalAccess(req);
+        const { doctorId } = req.params;
+        if (!doctorId || !mongoose.isValidObjectId(doctorId)) {
+            throw new ApiError(400, 'Valid doctorId is required');
+        }
+        const doctor = await Doctor.findById(doctorId).select('userId specialization consultationFee');
+        if (!doctor) {
+            throw new ApiError(404, 'Doctor not found');
+        }
+        console.log(`Doctor details for doctorId ${doctorId}:`, doctor);
+        res.status(200).json(new ApiResponse(200, doctor, 'Doctor details retrieved successfully'));
+    } catch (error) {
+        console.log(`Error retrieving doctor details for doctorId ${req.params.doctorId}:`, error);
         next(error);
     }
 };

@@ -3,11 +3,12 @@ import {
     addOrUpdateDoctorReview, 
     deleteDoctorReview,
     getDoctorByIdForPatient,
-    addToPatientList
 } from '../controllers/patient.doctor.controller.js';
 import { requireAuth, requireRole } from '@healthbridge/shared';
 
 const router = express.Router({ mergeParams: true });
+
+
 
 // ==========================================
 // GLOBAL ROUTE PROTECTION
@@ -27,7 +28,6 @@ router.route('/:doctorId')
     .get(getDoctorByIdForPatient);
 
 // --- Add Patient to Doctor's List ---
-router.route('/internal/add-to-patient-list')
-    .post(addToPatientList);
+
 
 export default router;

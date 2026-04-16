@@ -1,6 +1,8 @@
 import Appointment from '../models/Appointment.js';
 import { ApiError, ApiResponse } from '@healthbridge/shared';
 import axios from 'axios';
+import { notifyDoctorNewAppointment, notifyDoctorPaymentStatusUpdate } from '../services/appointment/notifyDoctor.service.js';
+import { notifyPatientDoctorDecision } from '../services/appointment/notifyPatient.service.js';
 
 const normalizeBaseUrl = (url) => String(url || '').replace(/\/$/, '');
 const doctorBaseUrl = () => normalizeBaseUrl(process.env.DOCTOR_SERVICE_URL || 'http://localhost:3003');
@@ -86,6 +88,27 @@ export const getDoctorAvailabilityForBooking = async (req, res, next) => {
   }
 };
 
+// Get Doctor details for appointment service internal use (e.g. telemedicine session linking)
+const getDoctorDetailsInternal = async (doctorId) => {
+  return requestDoctorService(`/internal/doctor/${doctorId}`, { method: 'GET' });
+};
+
+const getPatientDetailsInternal = async (patientId) => {
+
+  const authBaseUrl = process.env.PATIENT_SERVICE_URL || 'http://localhost:3002';
+  const endpoint = `${authBaseUrl.replace(/\/$/, '')}/internal/get-patient-by-id/${patientId}`;
+  const response = await axios.get(endpoint, {
+    headers: {
+      'x-internal-service-key': process.env.INTERNAL_SERVICE_SECRET,
+    },
+    timeout: 8000,
+  });
+
+  console.log(`Retrieved patient details for patientId ${patientId} from patient service. Response:`, response.data);
+  return response.data;
+};
+
+
 // POST /appointments (Patient)
 export const createAppointment = async (req, res, next) => {
   try {
@@ -132,11 +155,29 @@ export const createAppointment = async (req, res, next) => {
       throw dbErr;
     }
 
+    const doctorDetails = await getDoctorDetailsInternal(doctorId).catch(() => null);
+    if (!doctorDetails) {
+      console.warn(`[Appointment Service] Warning: Could not retrieve details for doctor ${doctorId}. Doctor notifications will be skipped.`);
+      return res.status(201).json(new ApiResponse(201, appt, 'Appointment created (Pending)'));
+    }
+
+    // Notify the doctor about the new appointment
+    await notifyDoctorNewAppointment({
+      patientUserId: req.user.id,
+      doctorUserId: doctorDetails.data.userId,
+      appointmentId: appt._id,
+      appointmentDate: appt.startTime,
+      appointmentTime: appt.endTime,
+    });
+
+
     res.status(201).json(new ApiResponse(201, appt, 'Appointment created (Pending)'));
   } catch (err) {
     next(err);
   }
 };
+
+
 
 // GET /appointments/mine (Patient)
 export const getMyAppointments = async (req, res, next) => {
@@ -329,6 +370,17 @@ export const doctorDecision = async (req, res, next) => {
       }).catch(() => {});
     }
 
+    // Notify the patient about the doctor's decision
+    await notifyPatientDoctorDecision({
+      doctorUserId: doctorId,
+      patientUserId: appt.patientId,
+      appointmentId: appt._id,
+      appointmentDate: appt.startTime,
+      appointmentTime: appt.endTime,
+      decision: appt.status,
+      note: appt.doctorDecisionNote
+    });
+
     res.status(200).json(new ApiResponse(200, appt, `Appointment ${appt.status.toLowerCase()}`));
   } catch (err) {
     next(err);
@@ -493,6 +545,22 @@ export const getAllOnlineAppointmentsInternal = async (req, res) => {
 
             console.log(`Notified telemedicine service about payment completion for appointment ${appointmentId}. Response:`, response.data);
         }
+
+        const doctorDetails = await getDoctorDetailsInternal(appointment.doctorId).catch(() => null);
+        if (!doctorDetails) {
+          console.warn(`[Appointment Service] Warning: Could not retrieve details for doctor ${appointment.doctorId}. Doctor notifications will be skipped.`);
+          res.status(404).json({ message: 'Doctor details not found, payment status updated but doctor notification skipped' });
+          return;
+        }
+
+        await notifyDoctorPaymentStatusUpdate({
+          patientUserId: appointment.patientId,
+          doctorUserId: doctorDetails.data.userId,
+          appointmentId: appointment._id,
+          appointmentDate: appointment.startTime,
+          appointmentTime: appointment.endTime,
+          paymentStatus,
+        });
         res.status(200).json({ 
             data: appointment,
             message: 'Appointment status updated'

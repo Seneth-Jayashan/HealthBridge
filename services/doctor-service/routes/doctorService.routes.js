@@ -11,8 +11,11 @@ import {
     reserveDoctorSlotInternal,
     releaseDoctorSlotInternal,
     getDoctorPatients,
-    removePatientFromDoctorList
+    removePatientFromDoctorList,
+    getDoctorDetailsInternal
+
 } from '../controllers/doctorService.controller.js'; 
+import { addToPatientList } from '../controllers/patient.doctor.controller.js';
 import { requireAuth, requireRole, createUploadMiddleware } from '@healthbridge/shared';
 
 const router = express.Router();
@@ -27,6 +30,7 @@ const uploadVerification = createUploadMiddleware(
 // INTERNAL / SERVICE-TO-SERVICE ROUTES
 // ==========================================
 router.get('/internal/payment/checkFee', checkConsultationFee);
+router.post('/internal/confirm/add-to-patient-list', addToPatientList);
 
 
 // ==========================================
@@ -41,7 +45,7 @@ router.route('/')
 router.get('/internal/availability/:doctorId', getDoctorAvailabilityInternal);
 router.post('/internal/availability/:doctorId/reserve', reserveDoctorSlotInternal);
 router.post('/internal/availability/:doctorId/release', releaseDoctorSlotInternal);
-
+router.get('/internal/doctor/:doctorId', getDoctorDetailsInternal);
 
 // ==========================================
 // PRIVATE ROUTES (Accessible ONLY by Doctors)

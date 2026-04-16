@@ -4,6 +4,7 @@ import axios from 'axios';
 import { ApiError, ApiResponse } from '@healthbridge/shared';
 import VideoSession from '../models/VideoSession.js';
 import { buildAgoraRtcToken } from '../utils/agoraToken.js';
+import { notifyPatientSessionStarted } from '../services/notifyPatientSession.service.js';
 
 const DEFAULT_TTL_SECONDS = Number(process.env.AGORA_TOKEN_TTL_SECONDS || 3600);
 const MIN_TTL_SECONDS = 300;
@@ -22,10 +23,10 @@ const getInternalServiceKey = () => {
     return process.env.INTERNAL_SERVICE_SECRET || 'internal-service-key';
 };
 
-const getPatientByIdInternal = async (patientId) => {
+const getPatientByUserIdInternal = async (userId) => {
     try {
         const patientBaseUrl = getPatientServiceUrl();
-        const endpoint = `${patientBaseUrl}/internal/get-patient/${patientId}`;
+        const endpoint = `${patientBaseUrl}/internal/get-patient-by-userId/${userId}`;
 
         const response = await axios.get(endpoint, {
             headers: {
@@ -40,6 +41,27 @@ const getPatientByIdInternal = async (patientId) => {
         throw new ApiError(404, 'Patient not found or appointment service is unavailable');
     }
 };
+
+
+const getPatientByIdInternal = async (patientId) => {
+    try {
+        const patientBaseUrl = getPatientServiceUrl();
+        const endpoint = `${patientBaseUrl}/internal/get-patient-by-id/${patientId}`;
+
+        const response = await axios.get(endpoint, {
+            headers: {
+                'x-internal-service-key': getInternalServiceKey(),
+            },
+            timeout: 8000,
+        });
+
+        return response.data?.data || response.data;
+    } catch (error) {
+        console.error('[Telemedicine] Failed to fetch patient by id:', error.message);
+        throw new ApiError(404, 'Patient not found or appointment service is unavailable');
+    }
+};
+
 
 /**
  * Fetch user's online appointments from appointment service (internal API)
@@ -222,7 +244,7 @@ export const listMyVideoSessions = async (req, res, next) => {
         }
 
         if (req.user.role === 'Patient') {
-            const patient = await getPatientByIdInternal(req.user.id);
+            const patient = await getPatientByUserIdInternal(req.user.id);
             query.patientId = patient._id;
         }
 
@@ -345,6 +367,15 @@ export const startVideoSession = async (req, res, next) => {
             await session.save();
         }
 
+        const patientUserId = await getPatientByIdInternal(session.patientId);
+        await notifyPatientSessionStarted({
+            doctorUserId: req.user.id,
+            patientUserId: patientUserId.userId,
+            sessionId: session._id,
+            appointmentId: session.appointmentId,
+            scheduledAt: session.scheduledAt
+        });
+
         res.status(200).json(new ApiResponse(200, session, 'Video session started.'));
     } catch (error) {
         next(error);
@@ -395,7 +426,7 @@ export const getOnlineAppointmentsWithSessions = async (req, res, next) => {
         if (req.user.role === 'Doctor') {
             query.doctorId = req.user.id;
         } else if (req.user.role === 'Patient') {
-            const patient = await getPatientByIdInternal(req.user.id);
+            const patient = await getPatientByUserIdInternal(req.user.id);
             query.patientId = patient._id;
         } else if (req.user.role !== 'Admin') {
             throw new ApiError(403, 'Unauthorized');
@@ -533,7 +564,7 @@ export const handlePaymentSuccess = async (req, res, next) => {
             throw new ApiError(400, 'Appointment must have both doctorId and patientId');
         }
 
-        const patient = await getPatientByIdInternal(patientId);
+        const patient = await getPatientByUserIdInternal(patientId);
 
         if (!patient) {
             throw new ApiError(404, 'Patient not found');

@@ -101,6 +101,114 @@ export const getNotificationTemplate = (templateName, title, message) => {
                 </div>
             `;
             break;
+
+        case 'NEW_APPOINTMENT_SCHEDULED':
+            smsContent = `HealthBridge: You have a new appointment. ${message}`;
+            htmlContent = `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;">
+                    <div style="background-color: #8E44AD; padding: 20px; color: white; text-align: center;">
+                        <h2 style="margin: 0;">New Appointment Scheduled 📅</h2>
+                    </div>
+                    <div style="padding: 20px; color: #333; line-height: 1.6;">
+                        <p>Hello Doctor,</p>
+                        <p>${message}</p>
+                        <p>Please log in to your dashboard to view the patient's details and prepare for the consultation.</p>
+                        <br/>
+                        <p>Best regards,<br/><strong>The HealthBridge Team</strong></p>
+                    </div>
+                </div>
+            `;
+            break;
+
+        case 'APPOINTMENT_ACCEPTED':
+            smsContent = `HealthBridge: Your appointment is accepted! ${message}`;
+            htmlContent = `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;">
+                    <div style="background-color: #27AE60; padding: 20px; color: white; text-align: center;">
+                        <h2 style="margin: 0;">Appointment Accepted! ✅</h2>
+                    </div>
+                    <div style="padding: 20px; color: #333; line-height: 1.6;">
+                        <p>Hello,</p>
+                        <p>${message}</p>
+                        <p>Please log in to your dashboard 10 minutes before the scheduled time to access your video consultation link.</p>
+                        <br/>
+                        <p>Stay healthy,<br/><strong>The HealthBridge Team</strong></p>
+                    </div>
+                </div>
+            `;
+            break;
+
+        case 'APPOINTMENT_REJECTED':
+            smsContent = `HealthBridge: Appointment update. ${message}`;
+            htmlContent = `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;">
+                    <div style="background-color: #E74C3C; padding: 20px; color: white; text-align: center;">
+                        <h2 style="margin: 0;">Appointment Update</h2>
+                    </div>
+                    <div style="padding: 20px; color: #333; line-height: 1.6;">
+                        <p>Hello,</p>
+                        <p>${message}</p>
+                        <p>We apologize for the inconvenience. The slot has been released, and any payments will be refunded according to our policy. Please log in to your dashboard to schedule a new appointment.</p>
+                        <br/>
+                        <p>Best regards,<br/><strong>The HealthBridge Team</strong></p>
+                    </div>
+                </div>
+            `;
+            break;
+
+        case 'APPOINTMENT_PAYMENT_STATUS_UPDATED':
+            smsContent = `HealthBridge: Payment update. ${message}`;
+            htmlContent = `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;">
+                    <div style="background-color: #1F618D; padding: 20px; color: white; text-align: center;">
+                        <h2 style="margin: 0;">Payment Status Updated</h2>
+                    </div>
+                    <div style="padding: 20px; color: #333; line-height: 1.6;">
+                        <p>Hello Doctor,</p>
+                        <p>${message}</p>
+                        <p>Please log in to your dashboard to review the appointment details.</p>
+                        <br/>
+                        <p>Best regards,<br/><strong>The HealthBridge Team</strong></p>
+                    </div>
+                </div>
+            `;
+            break;
+
+        case 'PRESCRIPTION_CREATED':
+            smsContent = `HealthBridge: New prescription. ${message}`;
+            htmlContent = `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;">
+                    <div style="background-color: #117A65; padding: 20px; color: white; text-align: center;">
+                        <h2 style="margin: 0;">New Prescription Created</h2>
+                    </div>
+                    <div style="padding: 20px; color: #333; line-height: 1.6;">
+                        <p>Hello,</p>
+                        <p>${message}</p>
+                        <p>Please log in to your dashboard to review dosage instructions and notes.</p>
+                        <br/>
+                        <p>Stay healthy,<br/><strong>The HealthBridge Team</strong></p>
+                    </div>
+                </div>
+            `;
+            break;
+
+        case 'VIDEO_SESSION_STARTED':
+            smsContent = `HealthBridge: Video session started. ${message}`;
+            htmlContent = `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;">
+                    <div style="background-color: #2E86C1; padding: 20px; color: white; text-align: center;">
+                        <h2 style="margin: 0;">Your Session Is Live</h2>
+                    </div>
+                    <div style="padding: 20px; color: #333; line-height: 1.6;">
+                        <p>Hello,</p>
+                        <p>${message}</p>
+                        <p>Please log in to join the video session.</p>
+                        <br/>
+                        <p>Stay healthy,<br/><strong>The HealthBridge Team</strong></p>
+                    </div>
+                </div>
+            `;
+            break;
     }
 
     return { smsContent, htmlContent };

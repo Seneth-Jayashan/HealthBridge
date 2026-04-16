@@ -51,5 +51,3 @@ spec:
           value: "LKR"
         - name: PAYHERE_API_ENDPOINT
           value: "https://sandbox.payhere.lk/pay/checkout"
-
-

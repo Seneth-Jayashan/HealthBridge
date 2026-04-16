@@ -24,8 +24,8 @@ app.get('/health', (req, res) => {
 });
 
 // Mount the routes
-app.use('/admin', adminDoctorRoutes);
 app.use('/patients', patientDoctorRoutes);
+app.use('/admin', adminDoctorRoutes);
 app.use('/', doctorRoutes);
 
 
