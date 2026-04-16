@@ -1,20 +1,72 @@
-import React, { useState } from 'react';
+ import React, { useEffect, useState } from 'react';
 import { X, Plus, Trash2, Clock, Loader2, AlertCircle } from 'lucide-react';
 import { updateAvailability } from '../../services/doctor.service'; // Adjust path if needed
 
 const DAYS_OF_WEEK = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
+const DEFAULT_DAY = { dayOfWeek: 'Monday', timeSlots: [{ startTime: '09:00', endTime: '17:00' }] };
+
+const defaultBuilder = () => ({ startTime: '09:00', endTime: '17:00', interval: 30 });
+
+const timeToMinutes = (timeValue) => {
+  const [h, m] = String(timeValue || '').split(':').map(Number);
+  return h * 60 + m;
+};
+
+const minutesToTime = (minutesValue) => {
+  const h = Math.floor(minutesValue / 60);
+  const m = minutesValue % 60;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+};
+
+const buildSlotsInRange = (startTime, endTime, interval) => {
+  const start = timeToMinutes(startTime);
+  const end = timeToMinutes(endTime);
+  const step = Number(interval);
+
+  if (!startTime || !endTime || Number.isNaN(start) || Number.isNaN(end) || Number.isNaN(step)) {
+    return [];
+  }
+  if (end <= start || step <= 0) return [];
+
+  const slots = [];
+  for (let cursor = start; cursor + step <= end; cursor += step) {
+    slots.push({
+      startTime: minutesToTime(cursor),
+      endTime: minutesToTime(cursor + step),
+    });
+  }
+
+  return slots;
+};
+
 const UpdateAvailabilityModal = ({ isOpen, onClose, onSuccess, initialAvailability = [] }) => {
-  const [schedule, setSchedule] = useState(
-    initialAvailability.length > 0 
-      ? initialAvailability 
-      : [{ dayOfWeek: 'Monday', timeSlots: [{ startTime: '09:00', endTime: '17:00' }] }]
-  );
+  const [schedule, setSchedule] = useState(initialAvailability.length > 0 ? initialAvailability : [DEFAULT_DAY]);
+  const [slotBuilderByDay, setSlotBuilderByDay] = useState({});
   
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
+  useEffect(() => {
+    if (!isOpen) return;
+    setSchedule(initialAvailability.length > 0 ? initialAvailability : [DEFAULT_DAY]);
+    setSlotBuilderByDay({});
+    setError('');
+  }, [isOpen, initialAvailability]);
+
   if (!isOpen) return null;
+
+  const getBuilder = (dayOfWeek) => slotBuilderByDay[dayOfWeek] || defaultBuilder();
+
+  const updateBuilder = (dayOfWeek, partial) => {
+    setSlotBuilderByDay((prev) => ({
+      ...prev,
+      [dayOfWeek]: {
+        ...getBuilder(dayOfWeek),
+        ...partial,
+      },
+    }));
+  };
 
   const handleAddDay = () => {
     const availableDay = DAYS_OF_WEEK.find(
@@ -31,8 +83,17 @@ const UpdateAvailabilityModal = ({ isOpen, onClose, onSuccess, initialAvailabili
 
   const handleDayChange = (dayIndex, newDay) => {
     const newSchedule = [...schedule];
+    const previousDay = newSchedule[dayIndex].dayOfWeek;
     newSchedule[dayIndex].dayOfWeek = newDay;
     setSchedule(newSchedule);
+
+    if (slotBuilderByDay[previousDay]) {
+      setSlotBuilderByDay((prev) => {
+        const next = { ...prev, [newDay]: prev[previousDay] };
+        delete next[previousDay];
+        return next;
+      });
+    }
   };
 
   const handleAddTimeSlot = (dayIndex) => {
@@ -51,6 +112,27 @@ const UpdateAvailabilityModal = ({ isOpen, onClose, onSuccess, initialAvailabili
     const newSchedule = [...schedule];
     newSchedule[dayIndex].timeSlots[slotIndex][field] = value;
     setSchedule(newSchedule);
+  };
+
+  const handleGenerateSlots = (dayIndex) => {
+    const targetDay = schedule[dayIndex].dayOfWeek;
+    const builder = getBuilder(targetDay);
+    const generated = buildSlotsInRange(builder.startTime, builder.endTime, builder.interval);
+
+    if (!generated.length) {
+      setError(`Invalid range for ${targetDay}. Make sure end time is after start time.`);
+      return;
+    }
+
+    setError('');
+    setSchedule((prev) => {
+      const next = [...prev];
+      next[dayIndex] = {
+        ...next[dayIndex],
+        timeSlots: generated,
+      };
+      return next;
+    });
   };
 
   const handleSubmit = async (e) => {
@@ -134,6 +216,41 @@ const UpdateAvailabilityModal = ({ isOpen, onClose, onSuccess, initialAvailabili
                   >
                     <Trash2 size={16} /> Remove Day
                   </button>
+                </div>
+
+                <div className="mb-4 p-3 rounded-xl bg-white border border-slate-200">
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Quick Generate Slots</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
+                    <input
+                      type="time"
+                      value={getBuilder(daySchedule.dayOfWeek).startTime}
+                      onChange={(e) => updateBuilder(daySchedule.dayOfWeek, { startTime: e.target.value })}
+                      className="border border-slate-300 rounded-lg px-2.5 py-2 text-sm"
+                    />
+                    <input
+                      type="time"
+                      value={getBuilder(daySchedule.dayOfWeek).endTime}
+                      onChange={(e) => updateBuilder(daySchedule.dayOfWeek, { endTime: e.target.value })}
+                      className="border border-slate-300 rounded-lg px-2.5 py-2 text-sm"
+                    />
+                    <select
+                      value={getBuilder(daySchedule.dayOfWeek).interval}
+                      onChange={(e) => updateBuilder(daySchedule.dayOfWeek, { interval: Number(e.target.value) })}
+                      className="border border-slate-300 rounded-lg px-2.5 py-2 text-sm"
+                    >
+                      <option value={15}>Every 15 min</option>
+                      <option value={30}>Every 30 min</option>
+                      <option value={45}>Every 45 min</option>
+                      <option value={60}>Every 60 min</option>
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => handleGenerateSlots(dayIndex)}
+                      className="rounded-lg bg-blue-700 text-white text-sm font-semibold hover:bg-blue-800 px-3 py-2"
+                    >
+                      Generate
+                    </button>
+                  </div>
                 </div>
 
                 <div className="space-y-3 pl-2 sm:pl-4 border-l-2 border-slate-200">

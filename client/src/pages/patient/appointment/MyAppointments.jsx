@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getMyAppointmentsRequest, cancelAppointmentRequest, getAllDoctorsRequest } from '../../../services/appointment.service';
+import { getMyAppointmentsRequest, cancelAppointmentRequest, getAllDoctorsRequest, updateAppointmentRequest, getDoctorAvailabilityRequest } from '../../../services/appointment.service';
 import { getDoctorByIdForPatient } from '../../../services/patient.service';
 import { getDoctorById } from '../../../services/user.service';
 import { createPayment } from '../../../services/payment.service'; 
 import { useAuth } from '../../../context/AuthContext'; // To get the logged-in patient's ID
 import { 
-  Calendar, Clock, Stethoscope, Plus, Video, 
-  MapPin, User, ChevronRight, XCircle, CreditCard, Loader2 
+  Calendar, Clock, Plus, Video,
+  MapPin, ChevronRight, XCircle, CreditCard, Loader2, FilePenLine, Save
 } from 'lucide-react';
 
 const statusStyles = {
@@ -19,6 +19,26 @@ const statusStyles = {
 };
 
 const normalizeStatus = (s) => String(s || '').trim().toLowerCase();
+const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+const formatForUiSlot = (startTime, endTime) => {
+  const to12 = (t) => {
+    let [h, m] = String(t || '').split(':').map(Number);
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    h = h % 12 || 12;
+    return `${String(h).padStart(2, '0')}:${String(m || 0).padStart(2, '0')} ${ampm}`;
+  };
+
+  if (!startTime || !endTime) return 'Select a slot';
+  return `${to12(startTime)} - ${to12(endTime)}`;
+};
+
+const normalizeAvailability = (value) => {
+  if (Array.isArray(value)) return value;
+  if (Array.isArray(value?.availability)) return value.availability;
+  if (Array.isArray(value?.data?.availability)) return value.data.availability;
+  return [];
+};
 
 const extractDoctorId = (appt) => {
   if (appt?.doctor?._id) return String(appt.doctor._id);
@@ -64,6 +84,16 @@ const MyAppointments = () => {
   // Action States
   const [cancellingId, setCancellingId] = useState(null);
   const [payingId, setPayingId] = useState(null);
+  const [editingId, setEditingId] = useState(null);
+  const [savingId, setSavingId] = useState(null);
+  const [loadingAvailabilityId, setLoadingAvailabilityId] = useState(null);
+  const [availabilityByAppointmentId, setAvailabilityByAppointmentId] = useState({});
+  const [editReason, setEditReason] = useState('');
+  const [editNotes, setEditNotes] = useState('');
+  const [editDayOfWeek, setEditDayOfWeek] = useState('');
+  const [editTimeSlotId, setEditTimeSlotId] = useState('');
+  const [editStartTime, setEditStartTime] = useState('');
+  const [editEndTime, setEditEndTime] = useState('');
   
   // Tab State
   const [activeTab, setActiveTab] = useState('upcoming'); // 'upcoming' or 'completed'
@@ -265,6 +295,72 @@ const MyAppointments = () => {
     }
   };
 
+  const startEditing = async (appt) => {
+    setEditingId(appt._id);
+    setEditReason(appt?.reason || '');
+    setEditNotes(appt?.notes || '');
+    setEditDayOfWeek(appt?.dayOfWeek || '');
+    setEditTimeSlotId(appt?.timeSlotId ? String(appt.timeSlotId) : '');
+    setEditStartTime(appt?.startTime || '');
+    setEditEndTime(appt?.endTime || '');
+
+    const doctorId = extractDoctorId(appt);
+    if (!doctorId) {
+      setAvailabilityByAppointmentId((prev) => ({ ...prev, [appt._id]: [] }));
+      return;
+    }
+
+    setLoadingAvailabilityId(appt._id);
+    try {
+      const availability = await getDoctorAvailabilityRequest(doctorId);
+      setAvailabilityByAppointmentId((prev) => ({
+        ...prev,
+        [appt._id]: normalizeAvailability(availability),
+      }));
+    } catch (err) {
+      setAvailabilityByAppointmentId((prev) => ({ ...prev, [appt._id]: [] }));
+      alert(err?.response?.data?.message || 'Failed to load available time slots.');
+    } finally {
+      setLoadingAvailabilityId(null);
+    }
+  };
+
+  const stopEditing = () => {
+    setEditingId(null);
+    setSavingId(null);
+    setEditReason('');
+    setEditNotes('');
+    setEditDayOfWeek('');
+    setEditTimeSlotId('');
+    setEditStartTime('');
+    setEditEndTime('');
+  };
+
+  const handleSaveEdit = async (apptId) => {
+    if (!String(editReason || '').trim()) {
+      alert('Reason is required.');
+      return;
+    }
+
+    setSavingId(apptId);
+    try {
+      await updateAppointmentRequest(apptId, {
+        reason: String(editReason || '').trim(),
+        notes: String(editNotes || '').trim(),
+        dayOfWeek: editDayOfWeek,
+        timeSlotId: editTimeSlotId,
+        startTime: editStartTime,
+        endTime: editEndTime,
+      });
+
+      await loadAppointments();
+      stopEditing();
+    } catch (err) {
+      alert(err?.response?.data?.message || 'Failed to update appointment.');
+      setSavingId(null);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh]">
@@ -371,6 +467,37 @@ const MyAppointments = () => {
           {displayedAppointments.map((appt) => {
             const status = normalizeStatus(appt.status);
             const paymentStatus = normalizeStatus(appt.paymentStatus);
+            const isEditing = editingId === appt._id;
+            const doctorAvailability = availabilityByAppointmentId[appt._id] || [];
+            const availableDaysSet = new Set(doctorAvailability.map((d) => d.dayOfWeek));
+            if (appt?.dayOfWeek) availableDaysSet.add(appt.dayOfWeek);
+            const availableDays = dayNames.filter((d) => availableDaysSet.has(d));
+
+            const selectedDaySchedule = doctorAvailability.find((d) => d.dayOfWeek === editDayOfWeek);
+            const slotOptions = [
+              ...((selectedDaySchedule?.timeSlots || [])
+                .filter((slot) => !slot.isBooked || String(slot._id) === String(appt?.timeSlotId))
+                .map((slot) => ({
+                  _id: String(slot._id),
+                  startTime: slot.startTime,
+                  endTime: slot.endTime,
+                  label: formatForUiSlot(slot.startTime, slot.endTime),
+                }))),
+            ];
+
+            if (
+              editDayOfWeek === appt?.dayOfWeek &&
+              appt?.timeSlotId &&
+              !slotOptions.some((slot) => slot._id === String(appt.timeSlotId))
+            ) {
+              slotOptions.push({
+                _id: String(appt.timeSlotId),
+                startTime: appt.startTime,
+                endTime: appt.endTime,
+                label: formatForUiSlot(appt.startTime, appt.endTime),
+              });
+            }
+
             const doctor = appt.doctor || appt.doctorId || {};
             const doctorName = getDoctorDisplayName(doctor) || 'Doctor';
             const specialization = doctor?.specialization || 'General Medicine';
@@ -430,7 +557,25 @@ const MyAppointments = () => {
                             </div>
                             <div>
                               <p className="text-xs text-slate-400">Day</p>
-                              <p className="font-medium text-slate-700">{appt.dayOfWeek || '—'}</p>
+                              {isEditing ? (
+                                <select
+                                  value={editDayOfWeek}
+                                  onChange={(e) => {
+                                    setEditDayOfWeek(e.target.value);
+                                    setEditTimeSlotId('');
+                                    setEditStartTime('');
+                                    setEditEndTime('');
+                                  }}
+                                  className="font-medium text-slate-700 bg-white border border-slate-300 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                >
+                                  <option value="" disabled>Select day</option>
+                                  {availableDays.map((day) => (
+                                    <option key={day} value={day}>{day}</option>
+                                  ))}
+                                </select>
+                              ) : (
+                                <p className="font-medium text-slate-700">{appt.dayOfWeek || '—'}</p>
+                              )}
                             </div>
                           </div>
                           <div className="flex items-center gap-3 text-sm">
@@ -439,11 +584,33 @@ const MyAppointments = () => {
                             </div>
                             <div>
                               <p className="text-xs text-slate-400">Time</p>
-                              <p className="font-medium text-slate-700">
-                                {appt.startTime && appt.endTime
-                                  ? `${appt.startTime} - ${appt.endTime}`
-                                  : '—'}
-                              </p>
+                              {isEditing ? (
+                                <select
+                                  value={editTimeSlotId}
+                                  onChange={(e) => {
+                                    const slotId = e.target.value;
+                                    setEditTimeSlotId(slotId);
+                                    const slot = slotOptions.find((option) => option._id === slotId);
+                                    setEditStartTime(slot?.startTime || '');
+                                    setEditEndTime(slot?.endTime || '');
+                                  }}
+                                  disabled={!editDayOfWeek || loadingAvailabilityId === appt._id}
+                                  className="font-medium text-slate-700 bg-white border border-slate-300 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                                >
+                                  <option value="" disabled>
+                                    {loadingAvailabilityId === appt._id ? 'Loading slots...' : 'Select time'}
+                                  </option>
+                                  {slotOptions.map((slot) => (
+                                    <option key={slot._id} value={slot._id}>{slot.label}</option>
+                                  ))}
+                                </select>
+                              ) : (
+                                <p className="font-medium text-slate-700">
+                                  {appt.startTime && appt.endTime
+                                    ? `${appt.startTime} - ${appt.endTime}`
+                                    : '—'}
+                                </p>
+                              )}
                             </div>
                           </div>
                           <div className="flex items-center gap-3 text-sm">
@@ -467,19 +634,64 @@ const MyAppointments = () => {
                         </div>
 
                         {/* Reason */}
-                        {appt.reason && (
-                          <div className="mt-4 p-3 bg-slate-50/80 rounded-xl border border-slate-100">
-                            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">
+                        {isEditing ? (
+                          <div className="mt-4 p-3 bg-slate-50/80 rounded-xl border border-slate-200">
+                            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">
                               Reason for visit
                             </p>
-                            <p className="text-sm text-slate-700">{appt.reason}</p>
+                            <textarea
+                              value={editReason}
+                              onChange={(e) => setEditReason(e.target.value)}
+                              rows={3}
+                              className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              placeholder="Enter reason for visit"
+                            />
                           </div>
+                        ) : (
+                          appt.reason && (
+                            <div className="mt-4 p-3 bg-slate-50/80 rounded-xl border border-slate-100">
+                              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">
+                                Reason for visit
+                              </p>
+                              <p className="text-sm text-slate-700">{appt.reason}</p>
+                            </div>
+                          )
                         )}
                       </div>
                     </div>
 
                     {/* Action buttons */}
                     <div className="flex sm:flex-col items-stretch gap-2 sm:border-l sm:border-slate-200 sm:pl-4">
+
+                      {status === 'pending' && !isEditing && (
+                        <button
+                          onClick={() => startEditing(appt)}
+                          className="inline-flex justify-center items-center gap-1.5 px-4 py-2 rounded-xl border border-blue-200 bg-white text-blue-700 hover:bg-blue-50 text-sm font-bold transition-colors"
+                        >
+                          <FilePenLine size={16} />
+                          Edit
+                        </button>
+                      )}
+
+                      {isEditing && (
+                        <>
+                          <button
+                            onClick={() => handleSaveEdit(appt._id)}
+                            disabled={savingId === appt._id || loadingAvailabilityId === appt._id || !editDayOfWeek || !editTimeSlotId}
+                            className="inline-flex justify-center items-center gap-1.5 px-4 py-2 rounded-xl border border-transparent bg-blue-600 text-white hover:bg-blue-700 text-sm font-bold transition-colors disabled:opacity-50"
+                          >
+                            {savingId === appt._id ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                            {savingId === appt._id ? 'Saving...' : 'Save'}
+                          </button>
+                          <button
+                            onClick={stopEditing}
+                            disabled={savingId === appt._id}
+                            className="inline-flex justify-center items-center gap-1.5 px-4 py-2 rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 text-sm font-bold transition-colors disabled:opacity-50"
+                          >
+                            Cancel
+                          </button>
+                        </>
+                      )}
                       
                       {/* Show Payment Button if Status is Accepted */}
                       {status === 'accepted' && (
@@ -497,7 +709,7 @@ const MyAppointments = () => {
                         </button>
                       )}
 
-                      {status === 'pending' && (
+                      {status === 'pending' && !isEditing && (
                         <button
                           onClick={() => handleCancel(appt._id)}
                           disabled={cancellingId === appt._id}
@@ -508,24 +720,41 @@ const MyAppointments = () => {
                         </button>
                       )}
                       
-                      <button
-                        onClick={() => navigate(`/patient/appointment/${appt._id}`)}
-                        className="inline-flex justify-center items-center gap-1.5 px-4 py-2 rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 text-sm font-bold transition-colors"
-                      >
-                        Details
-                        <ChevronRight size={16} />
-                      </button>
+                      {!isEditing && (
+                        <button
+                          onClick={() => navigate(`/patient/appointment/${appt._id}`)}
+                          className="inline-flex justify-center items-center gap-1.5 px-4 py-2 rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 text-sm font-bold transition-colors"
+                        >
+                          Details
+                          <ChevronRight size={16} />
+                        </button>
+                      )}
                     </div>
                   </div>
 
                   {/* Notes */}
-                  {appt.notes && (
+                  {isEditing ? (
                     <div className="mt-4 pt-4 border-t border-slate-200/80">
-                      <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">
                         Additional Notes
                       </p>
-                      <p className="text-sm text-slate-600">{appt.notes}</p>
+                      <textarea
+                        value={editNotes}
+                        onChange={(e) => setEditNotes(e.target.value)}
+                        rows={3}
+                        className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Add extra notes (optional)"
+                      />
                     </div>
+                  ) : (
+                    appt.notes && (
+                      <div className="mt-4 pt-4 border-t border-slate-200/80">
+                        <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">
+                          Additional Notes
+                        </p>
+                        <p className="text-sm text-slate-600">{appt.notes}</p>
+                      </div>
+                    )
                   )}
                 </div>
               </article>

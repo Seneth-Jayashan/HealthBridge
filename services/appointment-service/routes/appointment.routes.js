@@ -5,6 +5,7 @@ import {
   createAppointment,
   getMyAppointments,
   cancelAppointmentByPatient,
+  updateAppointmentByPatient,
   getDoctorAppointments,
   doctorDecision,
   getPatientOnlineAppointmentsInternal,
@@ -27,6 +28,7 @@ router.get('/doctors/:doctorId/availability', requireAuth, getDoctorAvailability
 router.post('/appointments', requireAuth, requireRole('Patient'), createAppointment);
 router.get('/appointments/mine', requireAuth, requireRole('Patient'), getMyAppointments);
 router.post('/appointments/:id/cancel', requireAuth, requireRole('Patient'), cancelAppointmentByPatient);
+router.patch('/appointments/:id', requireAuth, requireRole('Patient'), updateAppointmentByPatient);
 
 // Doctor appointment actions
 router.get('/appointments/doctor', requireAuth, requireRole('Doctor'), getDoctorAppointments);

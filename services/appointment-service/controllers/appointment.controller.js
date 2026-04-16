@@ -198,6 +198,102 @@ export const cancelAppointmentByPatient = async (req, res, next) => {
   }
 };
 
+// PATCH /appointments/:id (Patient) - edit pending appointment details only
+export const updateAppointmentByPatient = async (req, res, next) => {
+  try {
+    if (!assertRole(req, 'Patient')) throw new ApiError(403, 'Only Patients can edit appointments');
+
+    const { id } = req.params;
+    const appt = await Appointment.findById(id);
+    if (!appt) throw new ApiError(404, 'Appointment not found');
+    if (String(appt.patientId) !== String(req.user.id)) throw new ApiError(403, 'Not allowed');
+
+    if (appt.status !== 'Pending') {
+      throw new ApiError(409, `Cannot edit appointment in status: ${appt.status}`);
+    }
+
+    const {
+      reason,
+      notes,
+      patientPhone,
+      dayOfWeek,
+      timeSlotId,
+      startTime,
+      endTime,
+    } = req.body || {};
+
+    const requestedDayOfWeek = typeof dayOfWeek !== 'undefined' ? String(dayOfWeek).trim() : appt.dayOfWeek;
+    const requestedTimeSlotId = typeof timeSlotId !== 'undefined' ? String(timeSlotId).trim() : String(appt.timeSlotId);
+    const requestedStartTime = typeof startTime !== 'undefined' ? String(startTime).trim() : appt.startTime;
+    const requestedEndTime = typeof endTime !== 'undefined' ? String(endTime).trim() : appt.endTime;
+
+    const scheduleChanged =
+      requestedDayOfWeek !== appt.dayOfWeek ||
+      requestedTimeSlotId !== String(appt.timeSlotId) ||
+      requestedStartTime !== appt.startTime ||
+      requestedEndTime !== appt.endTime;
+
+    if (scheduleChanged) {
+      if (!requestedDayOfWeek || !requestedTimeSlotId || !requestedStartTime || !requestedEndTime) {
+        throw new ApiError(400, 'dayOfWeek, timeSlotId, startTime, endTime are required for rescheduling');
+      }
+
+      // Reserve target slot first to prevent losing the current booking on conflicts.
+      await reserveSlotInternal({
+        doctorId: appt.doctorId,
+        dayOfWeek: requestedDayOfWeek,
+        timeSlotId: requestedTimeSlotId,
+        patientId: appt.patientId,
+        patientName: req.user?.name || appt.patientName,
+        appointmentId: appt._id,
+      });
+    }
+
+    // Only allow patient-editable, non-scheduling fields.
+    if (typeof reason !== 'undefined') appt.reason = String(reason || '').trim();
+    if (typeof notes !== 'undefined') appt.notes = String(notes || '').trim();
+    if (typeof patientPhone !== 'undefined') appt.patientPhone = String(patientPhone || '').trim();
+
+    if (scheduleChanged) {
+      const previousDayOfWeek = appt.dayOfWeek;
+      const previousTimeSlotId = appt.timeSlotId;
+
+      appt.dayOfWeek = requestedDayOfWeek;
+      appt.timeSlotId = requestedTimeSlotId;
+      appt.startTime = requestedStartTime;
+      appt.endTime = requestedEndTime;
+
+      try {
+        await appt.save();
+      } catch (dbErr) {
+        // Roll back newly reserved slot if save fails.
+        await releaseSlotInternal({
+          doctorId: appt.doctorId,
+          dayOfWeek: requestedDayOfWeek,
+          timeSlotId: requestedTimeSlotId,
+          appointmentId: appt._id,
+        }).catch(() => {});
+        throw dbErr;
+      }
+
+      // Release old slot after successful save.
+      await releaseSlotInternal({
+        doctorId: appt.doctorId,
+        dayOfWeek: previousDayOfWeek,
+        timeSlotId: previousTimeSlotId,
+        appointmentId: appt._id,
+      }).catch(() => {});
+
+      return res.status(200).json(new ApiResponse(200, appt, 'Appointment updated'));
+    }
+
+    await appt.save();
+    res.status(200).json(new ApiResponse(200, appt, 'Appointment updated'));
+  } catch (err) {
+    next(err);
+  }
+};
+
 // POST /appointments/:id/decision (Doctor) body: { decision: 'accept'|'reject', note? }
 export const doctorDecision = async (req, res, next) => {
   try {
