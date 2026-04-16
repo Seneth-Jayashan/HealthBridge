@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getMyAppointmentsRequest, cancelAppointmentRequest, getAllDoctorsRequest } from '../../../services/appointment.service';
 import { getDoctorByIdForPatient } from '../../../services/patient.service';
+import { getDoctorById } from '../../../services/user.service';
 import { createPayment } from '../../../services/payment.service'; 
 import { useAuth } from '../../../context/AuthContext'; // To get the logged-in patient's ID
 import { 
@@ -27,15 +28,29 @@ const extractDoctorId = (appt) => {
 };
 
 const getDoctorDisplayName = (doctor) => {
-  if (!doctor) return 'Unknown';
-  return (
+  if (!doctor) return '';
+
+  const directName =
     doctor?.userId?.name ||
     doctor?.user?.name ||
     doctor?.name ||
-    doctor?.fullName ||
-    doctor?.doctorID ||
-    'Unknown'
-  );
+    doctor?.fullName;
+
+  if (directName) return String(directName).trim();
+
+  const firstName = doctor?.firstName ? String(doctor.firstName).trim() : '';
+  const lastName = doctor?.lastName ? String(doctor.lastName).trim() : '';
+  const combined = `${firstName} ${lastName}`.trim();
+
+  return combined;
+};
+
+const extractDoctorUserId = (doctor) => {
+  if (doctor?.userId?._id) return String(doctor.userId._id);
+  if (doctor?.userId) return String(doctor.userId);
+  if (doctor?.user?._id) return String(doctor.user._id);
+  if (doctor?.user) return String(doctor.user);
+  return '';
 };
 
 const MyAppointments = () => {
@@ -101,7 +116,50 @@ const MyAppointments = () => {
         };
       });
 
-      setAppointments(enriched);
+      const doctorUserIds = [
+        ...new Set(
+          enriched
+            .map((appt) => extractDoctorUserId(appt?.doctor || appt?.doctorId || {}))
+            .filter(Boolean)
+        ),
+      ];
+
+      let doctorUserById = {};
+      if (doctorUserIds.length > 0) {
+        const doctorUserEntries = await Promise.all(
+          doctorUserIds.map(async (userId) => {
+            try {
+              const doctorUser = await getDoctorById(userId);
+              return [userId, doctorUser];
+            } catch {
+              return [userId, null];
+            }
+          })
+        );
+
+        doctorUserById = Object.fromEntries(doctorUserEntries.filter(([, value]) => value));
+      }
+
+      const enrichedWithNames = enriched.map((appt) => {
+        const currentDoctor = appt?.doctor || {};
+        const doctorUserId = extractDoctorUserId(currentDoctor);
+        const doctorUser = doctorUserById[doctorUserId];
+
+        if (!doctorUser?.name) return appt;
+
+        return {
+          ...appt,
+          doctor: {
+            ...currentDoctor,
+            user: {
+              ...(currentDoctor?.user || {}),
+              name: doctorUser.name,
+            },
+          },
+        };
+      });
+
+      setAppointments(enrichedWithNames);
     } catch (err) {
       setError('Failed to load appointments. Please try again.');
     } finally {
@@ -135,7 +193,7 @@ const MyAppointments = () => {
 
       const doctorId = extractDoctorId(appt);
       const patientId = appt.patient?._id || appt.patientId || appt.patient || user?._id || user?.id;
-      const doctorName = getDoctorDisplayName(appt.doctor || appt.doctorId);
+      const doctorName = getDoctorDisplayName(appt.doctor || appt.doctorId) || 'Doctor';
 
       const paymentData = {
         patientId: String(patientId),
@@ -314,7 +372,7 @@ const MyAppointments = () => {
             const status = normalizeStatus(appt.status);
             const paymentStatus = normalizeStatus(appt.paymentStatus);
             const doctor = appt.doctor || appt.doctorId || {};
-            const doctorName = getDoctorDisplayName(doctor);
+            const doctorName = getDoctorDisplayName(doctor) || 'Doctor';
             const specialization = doctor?.specialization || 'General Medicine';
             const fee = doctor?.consultationFee ?? 0;
 
