@@ -51,6 +51,28 @@ const fetchUserOnlineAppointments = async (userId, userRole) => {
     }
 };
 
+/**
+ * Fetch a single appointment by ID from appointment service (internal API)
+ */
+const fetchAppointmentById = async (appointmentId) => {
+    try {
+        const appointmentBaseUrl = getAppointmentServiceUrl();
+        const endpoint = `${appointmentBaseUrl}/internal/appointment/${appointmentId}`;
+
+        const response = await axios.get(endpoint, {
+            headers: {
+                'x-internal-service-key': getInternalServiceKey(),
+            },
+            timeout: 8000,
+        });
+
+        return response.data?.data || response.data;
+    } catch (error) {
+        console.error('[Telemedicine] Failed to fetch appointment:', error.message);
+        throw new ApiError(404, 'Appointment not found or appointment service is unavailable');
+    }
+};
+
 const toObjectId = (value, fieldName) => {
     if (!value || !mongoose.Types.ObjectId.isValid(value)) {
         throw new ApiError(400, `Invalid ${fieldName}`);
@@ -109,6 +131,33 @@ export const createVideoSession = async (req, res, next) => {
 
         if (!resolvedDoctorId) {
             throw new ApiError(400, 'doctorId is required.');
+        }
+
+        // ─── Validate Payment Status if appointmentId is provided ──
+        if (appointmentId) {
+            try {
+                const appointment = await fetchAppointmentById(appointmentId);
+                
+                if (!appointment) {
+                    throw new ApiError(404, 'Appointment not found');
+                }
+
+                // Check if payment is completed
+                if (appointment.paymentStatus !== 'Completed') {
+                    throw new ApiError(402, `Session can only be created after payment is completed. Current payment status: ${appointment.paymentStatus}`);
+                }
+
+                // Check if appointment is accepted
+                if (appointment.status !== 'Accepted') {
+                    throw new ApiError(409, `Appointment must be accepted by doctor first. Current status: ${appointment.status}`);
+                }
+            } catch (error) {
+                if (error instanceof ApiError) {
+                    throw error;
+                }
+                // If appointment service is down, still allow creation (fallback)
+                console.warn('[Telemedicine] Warning: Could not verify appointment payment status');
+            }
         }
 
         const session = await VideoSession.create({
@@ -425,6 +474,112 @@ export const updateSessionStatus = async (req, res, next) => {
             new ApiResponse(200, session, `Video session status updated to ${status}.`)
         );
     } catch (error) {
+        next(error);
+    }
+};
+
+// ─── [INTERNAL API] Handle Payment Success - Auto-create telehealth session ──
+/**
+ * Triggered by appointment service after payment is completed
+ * POST /internal/success/:appointmentId
+ * - Fetches appointment details
+ * - Creates VideoSession automatically
+ * - Returns session with Agora token credentials
+ */
+export const handlePaymentSuccess = async (req, res, next) => {
+    try {
+        const { appointmentId } = req.params;
+
+        if (!appointmentId) {
+            throw new ApiError(400, 'appointmentId is required');
+        }
+
+        // Fetch appointment details from appointment service
+        const appointment = await fetchAppointmentById(appointmentId);
+
+        if (!appointment) {
+            throw new ApiError(404, 'Appointment not found');
+        }
+
+        const { doctorId, patientId, startTime, endTime, reason, notes } = appointment;
+
+        if (!doctorId || !patientId) {
+            throw new ApiError(400, 'Appointment must have both doctorId and patientId');
+        }
+
+        // Check if session already exists for this appointment
+        let session = await VideoSession.findOne({ appointmentId });
+
+        if (session) {
+            console.log(`[Telemedicine] Video session already exists for appointment ${appointmentId}`);
+            // Return existing session with new token
+            const ttlSeconds = DEFAULT_TTL_SECONDS;
+            const tokenPayload = buildAgoraRtcToken({
+                channelName: session.channelName,
+                userAccount: doctorId,
+                role: 'publisher',
+                ttlSeconds
+            });
+
+            session.agora = {
+                ...session.agora,
+                tokenTTLSeconds: ttlSeconds,
+                lastIssuedAt: new Date()
+            };
+
+            await session.save();
+
+            return res.status(200).json(
+                new ApiResponse(200, {
+                    session,
+                    token: tokenPayload
+                }, 'Video session already exists. New token issued.')
+            );
+        }
+
+        // Create new video session
+        session = await VideoSession.create({
+            appointmentId,
+            channelName: `hb-${crypto.randomBytes(8).toString('hex')}`,
+            doctorId: toObjectId(doctorId, 'doctorId'),
+            patientId: toObjectId(patientId, 'patientId'),
+            createdBy: toObjectId(doctorId, 'createdBy'),
+            scheduledAt: new Date(startTime || new Date()),
+            status: 'scheduled',
+            metadata: {
+                reason: reason || 'Telehealth consultation',
+                notes: notes
+            },
+            agora: {
+                tokenTTLSeconds: DEFAULT_TTL_SECONDS
+            }
+        });
+
+        // Generate Agora token for doctor
+        const tokenPayload = buildAgoraRtcToken({
+            channelName: session.channelName,
+            userAccount: String(doctorId),
+            role: 'publisher',
+            ttlSeconds: DEFAULT_TTL_SECONDS
+        });
+
+        session.agora = {
+            ...session.agora,
+            lastIssuedAt: new Date()
+        };
+
+        await session.save();
+
+        console.log(`[Telemedicine] Auto-created video session for appointment ${appointmentId}`);
+
+        res.status(201).json(
+            new ApiResponse(201, {
+                session,
+                token: tokenPayload
+            }, 'Video session created successfully after payment completion.')
+        );
+    } catch (error) {
+        console.error('[Telemedicine] Error in handlePaymentSuccess:', error);
         next(error);
     }
 };

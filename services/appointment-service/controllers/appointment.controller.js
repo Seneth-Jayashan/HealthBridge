@@ -239,7 +239,31 @@ export const doctorDecision = async (req, res, next) => {
   }
 };
 
-// ─── Get online appointments for patient (Telemedicine) ──
+// ─── [INTERNAL API] Get appointment by ID (for telemedicine service) ──
+export const getAppointmentByIdInternal = async (req, res) => {
+    try {
+        const { appointmentId } = req.params;
+
+        if (!appointmentId) {
+            return res.status(400).json({ message: 'appointmentId is required' });
+        }
+
+        const appointment = await Appointment.findById(appointmentId);
+
+        if (!appointment) {
+            return res.status(404).json({ message: 'Appointment not found' });
+        }
+
+        res.status(200).json({ 
+            data: appointment
+        });
+
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// ─── [INTERNAL API] Get patient online appointments by userId ──
 export const getPatientOnlineAppointments = async (req, res) => {
     try {
         const patientId = req.user.id;
