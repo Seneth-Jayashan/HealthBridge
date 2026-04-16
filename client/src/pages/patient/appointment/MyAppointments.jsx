@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getMyAppointmentsRequest, cancelAppointmentRequest } from '../../../services/appointment.service';
-import { Calendar, Clock, Stethoscope, Plus, Video, MapPin, User, ChevronRight, XCircle } from 'lucide-react';
+import { getMyAppointmentsRequest, cancelAppointmentRequest, getAllDoctorsRequest } from '../../../services/appointment.service';
+import { getDoctorByIdForPatient } from '../../../services/patient.service';
+import { Calendar, Clock, Stethoscope, Plus, Video, MapPin, User, ChevronRight, XCircle, X } from 'lucide-react';
+import httpClient from '../../../api/Axios';
 
 const statusStyles = {
   pending: 'bg-amber-50 text-amber-700 border-amber-200',
@@ -11,6 +13,13 @@ const statusStyles = {
 };
 
 const normalizeStatus = (s) => String(s || '').trim().toLowerCase();
+
+const extractDoctorId = (appt) => {
+  if (appt?.doctor?._id) return String(appt.doctor._id);
+  if (appt?.doctorId?._id) return String(appt.doctorId._id);
+  if (appt?.doctorId) return String(appt.doctorId);
+  return '';
+};
 
 const getDoctorDisplayName = (doctor) => {
   if (!doctor) return 'Unknown';
@@ -35,8 +44,52 @@ const MyAppointments = () => {
     setLoading(true);
     setError('');
     try {
-      const list = await getMyAppointmentsRequest();
-      setAppointments(list);
+      const [list, doctors] = await Promise.all([
+        getMyAppointmentsRequest(),
+        getAllDoctorsRequest(''),
+      ]);
+
+      const doctorById = Object.fromEntries(
+        (doctors || []).map((doctor) => [String(doctor?._id), doctor])
+      );
+
+      const doctorIdsInAppointments = [...new Set((list || []).map(extractDoctorId).filter(Boolean))];
+      const missingDoctorIds = doctorIdsInAppointments.filter((id) => !doctorById[id]);
+
+      if (missingDoctorIds.length > 0) {
+        const fallbackProfiles = await Promise.all(
+          missingDoctorIds.map(async (doctorId) => {
+            try {
+              const profile = await getDoctorByIdForPatient(doctorId);
+              return [doctorId, profile];
+            } catch {
+              return [doctorId, null];
+            }
+          })
+        );
+
+        fallbackProfiles.forEach(([doctorId, profile]) => {
+          if (profile) doctorById[doctorId] = profile;
+        });
+      }
+
+      const enriched = (list || []).map((appt) => {
+        const doctorId = extractDoctorId(appt);
+        const matchedDoctor = doctorById[doctorId];
+
+        // Keep existing appointment doctor data, then overlay doctor list fields used by booking page.
+        const doctor = {
+          ...(appt?.doctor || {}),
+          ...(matchedDoctor || {}),
+        };
+
+        return {
+          ...appt,
+          doctor,
+        };
+      });
+
+      setAppointments(enriched);
     } catch (err) {
       setError('Failed to load appointments. Please try again.');
     } finally {
@@ -61,6 +114,8 @@ const MyAppointments = () => {
     }
   };
 
+
+
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh]">
@@ -78,6 +133,8 @@ const MyAppointments = () => {
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-6 md:py-10">
+
+
       {/* Header */}
       <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -125,10 +182,10 @@ const MyAppointments = () => {
         <div className="grid grid-cols-1 gap-5">
           {appointments.map((appt) => {
             const status = normalizeStatus(appt.status);
-            const doctor = appt.doctorId || appt.doctor || {};
+            const doctor = appt.doctor || appt.doctorId || {};
             const doctorName = getDoctorDisplayName(doctor);
             const specialization = doctor?.specialization || 'General Medicine';
-            const fee = doctor?.consultationFee ?? appt.consultationFee ?? 0;
+            const fee = doctor?.consultationFee ?? 0;
 
             return (
               <article
@@ -170,7 +227,7 @@ const MyAppointments = () => {
                           </div>
                           <div className="text-right">
                             <span className="text-lg font-bold text-blue-700">LKR {fee}</span>
-                            <p className="text-xs text-slate-400">consultation</p>
+                            <p className="text-xs text-slate-400 mt-0.5">per visit</p>
                           </div>
                         </div>
 
