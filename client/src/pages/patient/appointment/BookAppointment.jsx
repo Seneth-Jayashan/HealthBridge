@@ -7,6 +7,7 @@ import {
   getDoctorAvailabilityRequest,
 } from '../../../services/appointment.service';
 import { getDoctorByIdForPatient } from '../../../services/patient.service';
+import { getDoctorById } from '../../../services/user.service';
 
 const specialties = [
   'Cardiology',
@@ -35,14 +36,27 @@ const formatForUiSlot = (startTime, endTime) => {
 };
 
 const getDoctorDisplayName = (doctor) => {
-  return (
+  if (!doctor) return '';
+
+  const directName =
     doctor?.userId?.name ||
     doctor?.user?.name ||
     doctor?.name ||
-    doctor?.fullName ||
-    doctor?.doctorID ||
-    'Unknown'
-  );
+    doctor?.fullName;
+
+  if (directName) return String(directName).trim();
+
+  const firstName = doctor?.firstName ? String(doctor.firstName).trim() : '';
+  const lastName = doctor?.lastName ? String(doctor.lastName).trim() : '';
+  return `${firstName} ${lastName}`.trim();
+};
+
+const extractDoctorUserId = (doctor) => {
+  if (doctor?.userId?._id) return String(doctor.userId._id);
+  if (doctor?.userId) return String(doctor.userId);
+  if (doctor?.user?._id) return String(doctor.user._id);
+  if (doctor?.user) return String(doctor.user);
+  return '';
 };
 
 const normalizeAvailability = (value) => {
@@ -102,8 +116,42 @@ const BookAppointment = () => {
     setIsModalOpen(false);
     try {
       const list = await getAllDoctorsRequest(specialization);
+
       if (list.length > 0) {
-        setDoctors(list);
+        const doctorUserIds = [...new Set(list.map(extractDoctorUserId).filter(Boolean))];
+
+        let doctorUserById = {};
+        if (doctorUserIds.length > 0) {
+          const doctorUserEntries = await Promise.all(
+            doctorUserIds.map(async (userId) => {
+              try {
+                const doctorUser = await getDoctorById(userId);
+                return [userId, doctorUser];
+              } catch {
+                return [userId, null];
+              }
+            })
+          );
+
+          doctorUserById = Object.fromEntries(doctorUserEntries.filter(([, value]) => value));
+        }
+
+        const enrichedDoctors = list.map((doctor) => {
+          const doctorUserId = extractDoctorUserId(doctor);
+          const doctorUser = doctorUserById[doctorUserId];
+
+          if (!doctorUser?.name) return doctor;
+
+          return {
+            ...doctor,
+            user: {
+              ...(doctor?.user || {}),
+              name: doctorUser.name,
+            },
+          };
+        });
+
+        setDoctors(enrichedDoctors);
       } else {
         setSearchError('No verified doctors found for this specialty.');
       }
@@ -153,15 +201,13 @@ const BookAppointment = () => {
 
   const getWeekDaysWithDates = () => {
     const today = new Date();
-    const currentDay = today.getDay();
-    const monday = new Date(today);
-    const diff = today.getDate() - currentDay + (currentDay === 0 ? -6 : 1);
-    monday.setDate(diff);
+    const startDate = new Date(today);
+    startDate.setDate(today.getDate() + 1);
 
     const week = [];
     for (let i = 0; i < 7; i++) {
-      const date = new Date(monday);
-      date.setDate(monday.getDate() + i);
+      const date = new Date(startDate);
+      date.setDate(startDate.getDate() + i);
       const yyyy = date.getFullYear();
       const mm = String(date.getMonth() + 1).padStart(2, '0');
       const dd = String(date.getDate()).padStart(2, '0');
@@ -316,6 +362,7 @@ const BookAppointment = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {doctors.map((doc) => {
                 const isSelected = selectedDoctor?._id === doc._id;
+                const doctorName = getDoctorDisplayName(doc) || 'Doctor';
                 return (
                   <div
                     key={doc._id}
@@ -328,13 +375,13 @@ const BookAppointment = () => {
                   >
                     <div className="flex items-start gap-4">
                       <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-bold text-lg shadow-sm">
-                        {getDoctorDisplayName(doc).charAt(0).toUpperCase()}
+                        {doctorName.charAt(0).toUpperCase()}
                       </div>
                       <div className="flex-1">
                         <div className="flex items-start justify-between">
                           <div>
                             <h3 className="font-bold text-slate-800 text-lg">
-                              Dr. {getDoctorDisplayName(doc)}
+                              Dr. {doctorName}
                             </h3>
                             <p className="text-blue-600 font-medium text-sm mt-0.5">
                               {doc.specialization || 'General Medicine'}
@@ -381,11 +428,11 @@ const BookAppointment = () => {
             <div className="flex items-center justify-between px-5 pt-5 pb-2">
               <div className="flex items-center gap-3">
                 <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-bold text-lg shadow-md shadow-blue-200">
-                  {getDoctorDisplayName(selectedDoctor).charAt(0).toUpperCase()}
+                  {(getDoctorDisplayName(selectedDoctor) || 'Doctor').charAt(0).toUpperCase()}
                 </div>
                 <div>
                   <h3 className="font-bold text-slate-800 text-lg leading-tight">
-                    Dr. {getDoctorDisplayName(selectedDoctor)}
+                    Dr. {getDoctorDisplayName(selectedDoctor) || 'Doctor'}
                   </h3>
                   <p className="text-xs text-blue-600 font-medium">{selectedDoctor.specialization}</p>
                 </div>
