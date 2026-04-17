@@ -1,7 +1,6 @@
 import express from 'express';
 import { requireAuth, requireRole } from '@healthbridge/shared';
 import {
-    createVideoSession,
     listMyVideoSessions,
     issueVideoSessionToken,
     startVideoSession,
@@ -18,7 +17,6 @@ router.get('/internal/success/:appointmentId', handlePaymentSuccess);
 
 router.use(requireAuth);
 
-router.post('/sessions', requireRole('Doctor', 'Admin'), createVideoSession);
 router.get('/sessions/my', requireRole('Doctor', 'Patient', 'Admin'), listMyVideoSessions);
 router.get('/appointments/patient/:userId?', requireRole('Patient'), getPatientOnlineAppointments);
 router.get('/appointments/doctor/:userId?', requireRole('Doctor'), getDoctorOnlineAppointments);

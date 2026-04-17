@@ -228,6 +228,7 @@ const DoctorTelehealth = () => {
                 sessions.map((session) => {
                   const appointment = appointmentsById[session.appointmentId];
                   const sessionTopic = appointment?.reason || session?.metadata?.reason || 'General Consultation';
+                  const patientName = session?.patientName || 'Patient';
                   const isSelected = selectedSessionId === session._id;
                   const status = getStatusDisplay(session.status);
 
@@ -251,7 +252,7 @@ const DoctorTelehealth = () => {
                           </span>
                         </div>
                         
-                        <h3 className="text-xl font-bold text-slate-900 mb-1">{session.channelName}</h3>
+                        <h3 className="text-xl font-bold text-slate-900 mb-1">{patientName}</h3>
                         <div className="flex items-center gap-2 text-sm font-medium text-slate-500">
                           <Stethoscope size={16} />
                           <span className="line-clamp-1">{sessionTopic}</span>
@@ -293,7 +294,7 @@ const DoctorTelehealth = () => {
                     Session Ready
                   </span>
                   <h2 className="text-3xl font-extrabold tracking-tight">
-                    {selectedSession.channelName}
+                    {selectedSession.patientName || 'Patient Consultation'}
                   </h2>
                 </div>
 

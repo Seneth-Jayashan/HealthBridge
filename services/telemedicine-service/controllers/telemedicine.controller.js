@@ -9,37 +9,155 @@ import { notifyPatientSessionStarted } from '../services/notifyPatientSession.se
 const DEFAULT_TTL_SECONDS = Number(process.env.AGORA_TOKEN_TTL_SECONDS || 3600);
 const MIN_TTL_SECONDS = 300;
 const MAX_TTL_SECONDS = 7200;
+const INTERNAL_TIMEOUT_MS = 8000;
 
-// ─── Internal Service Communication ──
-const getAppointmentServiceUrl = () => {
-    return process.env.APPOINTMENT_SERVICE_URL || 'http://localhost:3004';
+const getAppointmentServiceUrl = () => process.env.APPOINTMENT_SERVICE_URL || 'http://localhost:3004';
+const getPatientServiceUrl = () => process.env.PATIENT_SERVICE_URL || 'http://localhost:3002';
+const getDoctorServiceUrl = () => process.env.DOCTOR_SERVICE_URL || 'http://localhost:3003';
+const getAuthServiceUrl = () => process.env.AUTH_SERVICE_URL || 'http://localhost:3001';
+const getInternalServiceKey = () => process.env.INTERNAL_SERVICE_SECRET || 'internal-service-key';
+
+const buildInternalHeaders = () => ({
+    'x-internal-service-key': getInternalServiceKey(),
+});
+
+const normalizeBaseUrl = (url) => String(url || '').replace(/\/$/, '');
+
+const getCandidateBaseUrls = (configuredUrl, serviceName, port) => {
+    const candidates = [
+        configuredUrl,
+        `http://${serviceName}:${port}`,
+        `http://localhost:${port}`,
+    ].filter(Boolean);
+
+    return [...new Set(candidates.map(normalizeBaseUrl))];
 };
 
-const getPatientServiceUrl = () => {
-    return process.env.PATIENT_SERVICE_URL || 'http://localhost:3002';
+const requestInternalGet = async (candidateBaseUrls, path) => {
+    let lastError = null;
+
+    for (const baseUrl of candidateBaseUrls) {
+        try {
+            const response = await axios.get(`${baseUrl}${path}`, {
+                headers: buildInternalHeaders(),
+                timeout: INTERNAL_TIMEOUT_MS,
+            });
+
+            return response.data?.data || response.data;
+        } catch (error) {
+            lastError = error;
+        }
+    }
+
+    throw lastError;
 };
 
-const getDoctorServiceUrl = () => {
-    return process.env.DOCTOR_SERVICE_URL || 'http://localhost:3003';
+const createChannelName = () => `hb-${crypto.randomBytes(8).toString('hex')}`;
+
+const assertValidObjectId = (value, fieldName) => {
+    if (!value || !mongoose.Types.ObjectId.isValid(value)) {
+        throw new ApiError(400, `Invalid ${fieldName}`);
+    }
 };
 
-const getInternalServiceKey = () => {
-    return process.env.INTERNAL_SERVICE_SECRET || 'internal-service-key';
+const getSessionByIdOrThrow = async (sessionId) => {
+    assertValidObjectId(sessionId, 'sessionId');
+
+    const session = await VideoSession.findById(sessionId);
+    if (!session) {
+        throw new ApiError(404, 'Video session not found.');
+    }
+
+    return session;
+};
+
+const getRoleScopedSessionQuery = async (user, queryParams = {}) => {
+    const query = {};
+
+    if (queryParams.status) {
+        query.status = queryParams.status;
+    }
+
+    if (user.role === 'Doctor') {
+        query.doctorId = await resolveDoctorProfileIdFromUser(user);
+        return query;
+    }
+
+    if (user.role === 'Patient') {
+        const patient = await getPatientByUserIdInternal(user.id);
+        if (!patient?._id) {
+            throw new ApiError(404, 'Patient profile not found.');
+        }
+        query.patientId = patient._id;
+        return query;
+    }
+
+    if (user.role === 'Admin') {
+        if (queryParams.doctorId) {
+            query.doctorId = queryParams.doctorId;
+        }
+        if (queryParams.patientId) {
+            query.patientId = queryParams.patientId;
+        }
+        return query;
+    }
+
+    throw new ApiError(403, 'Unauthorized');
+};
+
+const validateAppointmentForSessionCreation = async (appointmentId) => {
+    if (!appointmentId) {
+        return;
+    }
+
+    try {
+        const appointment = await fetchAppointmentById(appointmentId);
+
+        if (!appointment) {
+            throw new ApiError(404, 'Appointment not found');
+        }
+
+        if (appointment.paymentStatus !== 'Completed') {
+            throw new ApiError(
+                402,
+                `Session can only be created after payment is completed. Current payment status: ${appointment.paymentStatus}`
+            );
+        }
+
+        if (appointment.status !== 'Accepted') {
+            throw new ApiError(
+                409,
+                `Appointment must be accepted by doctor first. Current status: ${appointment.status}`
+            );
+        }
+    } catch (error) {
+        if (error instanceof ApiError) {
+            throw error;
+        }
+        console.warn('[Telemedicine] Warning: Could not verify appointment payment status');
+    }
+};
+
+const issueSessionToken = ({ channelName, userAccount, ttlSeconds = DEFAULT_TTL_SECONDS }) =>
+    buildAgoraRtcToken({
+        channelName,
+        userAccount,
+        role: 'publisher',
+        ttlSeconds,
+    });
+
+const markSessionTokenIssued = (session, ttlSeconds) => {
+    session.agora = {
+        ...session.agora,
+        tokenTTLSeconds: ttlSeconds,
+        lastIssuedAt: new Date(),
+    };
 };
 
 const getPatientByUserIdInternal = async (userId) => {
     try {
-        const patientBaseUrl = getPatientServiceUrl();
-        const endpoint = `${patientBaseUrl}/internal/get-patient-by-userId/${userId}`;
-
-        const response = await axios.get(endpoint, {
-            headers: {
-                'x-internal-service-key': getInternalServiceKey(),
-            },
-            timeout: 8000,
-        });
-
-        return response.data?.data || response.data;
+        const candidateBaseUrls = getCandidateBaseUrls(getPatientServiceUrl(), 'patient-service', 3002);
+        return await requestInternalGet(candidateBaseUrls, `/internal/get-patient-by-userId/${userId}`);
     } catch (error) {
         console.error('[Telemedicine] Failed to fetch patient:', error.message);
         throw new ApiError(404, 'Patient not found or appointment service is unavailable');
@@ -49,17 +167,8 @@ const getPatientByUserIdInternal = async (userId) => {
 
 const getPatientByIdInternal = async (patientId) => {
     try {
-        const patientBaseUrl = getPatientServiceUrl();
-        const endpoint = `${patientBaseUrl}/internal/get-patient-by-id/${patientId}`;
-
-        const response = await axios.get(endpoint, {
-            headers: {
-                'x-internal-service-key': getInternalServiceKey(),
-            },
-            timeout: 8000,
-        });
-
-        return response.data?.data || response.data;
+        const candidateBaseUrls = getCandidateBaseUrls(getPatientServiceUrl(), 'patient-service', 3002);
+        return await requestInternalGet(candidateBaseUrls, `/internal/get-patient-by-id/${patientId}`);
     } catch (error) {
         console.error('[Telemedicine] Failed to fetch patient by id:', error.message);
         throw new ApiError(404, 'Patient not found or appointment service is unavailable');
@@ -86,10 +195,8 @@ const fetchUserOnlineAppointments = async (userId, userRole) => {
         }
 
         const response = await axios.get(endpoint, {
-            headers: {
-                'x-internal-service-key': getInternalServiceKey(),
-            },
-            timeout: 8000,
+            headers: buildInternalHeaders(),
+            timeout: INTERNAL_TIMEOUT_MS,
         });
 
         return Array.isArray(response.data?.data) ? response.data.data : (response.data?.appointments || []);
@@ -109,10 +216,8 @@ const fetchAppointmentById = async (appointmentId) => {
         const endpoint = `${appointmentBaseUrl}/internal/appointments/${appointmentId}`;
 
         const response = await axios.get(endpoint, {
-            headers: {
-                'x-internal-service-key': getInternalServiceKey(),
-            },
-            timeout: 8000,
+            headers: buildInternalHeaders(),
+            timeout: INTERNAL_TIMEOUT_MS,
         });
 
         return response.data?.data || response.data;
@@ -123,9 +228,7 @@ const fetchAppointmentById = async (appointmentId) => {
 };
 
 const toObjectId = (value, fieldName) => {
-    if (!value || !mongoose.Types.ObjectId.isValid(value)) {
-        throw new ApiError(400, `Invalid ${fieldName}`);
-    }
+    assertValidObjectId(value, fieldName);
     return new mongoose.Types.ObjectId(value);
 };
 
@@ -184,104 +287,12 @@ const clampTtl = (value) => {
     return Math.max(MIN_TTL_SECONDS, Math.min(MAX_TTL_SECONDS, parsed));
 };
 
-export const createVideoSession = async (req, res, next) => {
-    try {
-        const { appointmentId, patientId, doctorId, scheduledAt, metadata } = req.body;
-
-        if (!patientId) {
-            throw new ApiError(400, 'patientId is required.');
-        }
-
-        let resolvedDoctorId = doctorId;
-
-        if (req.user.role === 'Doctor') {
-            resolvedDoctorId = await resolveDoctorProfileIdFromUser(req.user);
-        }
-
-        if (!resolvedDoctorId) {
-            throw new ApiError(400, 'doctorId is required.');
-        }
-
-        // ─── Validate Payment Status if appointmentId is provided ──
-        if (appointmentId) {
-            try {
-                const appointment = await fetchAppointmentById(appointmentId);
-                
-                if (!appointment) {
-                    throw new ApiError(404, 'Appointment not found');
-                }
-
-                // Check if payment is completed
-                if (appointment.paymentStatus !== 'Completed') {
-                    throw new ApiError(402, `Session can only be created after payment is completed. Current payment status: ${appointment.paymentStatus}`);
-                }
-
-                // Check if appointment is accepted
-                if (appointment.status !== 'Accepted') {
-                    throw new ApiError(409, `Appointment must be accepted by doctor first. Current status: ${appointment.status}`);
-                }
-            } catch (error) {
-                if (error instanceof ApiError) {
-                    throw error;
-                }
-                // If appointment service is down, still allow creation (fallback)
-                console.warn('[Telemedicine] Warning: Could not verify appointment payment status');
-            }
-        }
-
-        const session = await VideoSession.create({
-            appointmentId,
-            channelName: `hb-${crypto.randomBytes(8).toString('hex')}`,
-            doctorId: toObjectId(resolvedDoctorId, 'doctorId'),
-            patientId: toObjectId(patientId, 'patientId'),
-            createdBy: toObjectId(req.user.id, 'createdBy'),
-            scheduledAt,
-            metadata,
-            agora: {
-                tokenTTLSeconds: DEFAULT_TTL_SECONDS
-            }
-        });
-
-        res.status(201).json(
-            new ApiResponse(
-                201,
-                session,
-                'Video consultation session created successfully.'
-            )
-        );
-    } catch (error) {
-        next(error);
-    }
-};
-
 export const listMyVideoSessions = async (req, res, next) => {
     try {
-        const { status } = req.query;
-        const query = {};
+        const query = await getRoleScopedSessionQuery(req.user, req.query);
 
-        if (status) {
-            query.status = status;
-        }
-
-        if (req.user.role === 'Doctor') {
-            query.doctorId = await resolveDoctorProfileIdFromUser(req.user);
-        }
-
-        if (req.user.role === 'Patient') {
-            const patient = await getPatientByUserIdInternal(req.user.id);
-            query.patientId = patient._id;
-        }
-
-        if (req.user.role === 'Admin') {
-            if (req.query.doctorId) {
-                query.doctorId = req.query.doctorId;
-            }
-            if (req.query.patientId) {
-                query.patientId = req.query.patientId;
-            }
-        }
-
-        const sessions = await VideoSession.find(query).sort({ createdAt: -1 }).limit(100);
+        const rawSessions = await VideoSession.find(query).sort({ createdAt: -1 }).limit(100).lean();
+        const sessions = await enrichSessionsWithPatientNames(rawSessions);
         console.log(`[Telemedicine] Retrieved ${sessions.length} sessions for user ${req.user.id} with role ${req.user.role}`);
 
         res.status(200).json(new ApiResponse(200, sessions, 'Video sessions retrieved successfully.'));
@@ -293,16 +304,7 @@ export const listMyVideoSessions = async (req, res, next) => {
 export const issueVideoSessionToken = async (req, res, next) => {
     try {
         const { sessionId } = req.params;
-
-        if (!mongoose.Types.ObjectId.isValid(sessionId)) {
-            throw new ApiError(400, 'Invalid sessionId.');
-        }
-
-        const session = await VideoSession.findById(sessionId);
-
-        if (!session) {
-            throw new ApiError(404, 'Video session not found.');
-        }
+        const session = await getSessionByIdOrThrow(sessionId);
 
         await ensureCanViewSession(session, req.user);
 
@@ -312,18 +314,13 @@ export const issueVideoSessionToken = async (req, res, next) => {
 
         const ttlSeconds = clampTtl(req.query.ttl);
 
-        const tokenPayload = buildAgoraRtcToken({
+        const tokenPayload = issueSessionToken({
             channelName: session.channelName,
             userAccount: req.user.id,
-            role: 'publisher',
-            ttlSeconds
+            ttlSeconds,
         });
 
-        session.agora = {
-            ...session.agora,
-            tokenTTLSeconds: ttlSeconds,
-            lastIssuedAt: new Date()
-        };
+        markSessionTokenIssued(session, ttlSeconds);
 
         await session.save();
 
@@ -346,16 +343,7 @@ export const issueVideoSessionToken = async (req, res, next) => {
 export const startVideoSession = async (req, res, next) => {
     try {
         const { sessionId } = req.params;
-
-        if (!mongoose.Types.ObjectId.isValid(sessionId)) {
-            throw new ApiError(400, 'Invalid sessionId.');
-        }
-
-        const session = await VideoSession.findById(sessionId);
-
-        if (!session) {
-            throw new ApiError(404, 'Video session not found.');
-        }
+        const session = await getSessionByIdOrThrow(sessionId);
 
         await ensureDoctorOwnsSession(session, req.user);
 
@@ -387,16 +375,7 @@ export const startVideoSession = async (req, res, next) => {
 export const endVideoSession = async (req, res, next) => {
     try {
         const { sessionId } = req.params;
-
-        if (!mongoose.Types.ObjectId.isValid(sessionId)) {
-            throw new ApiError(400, 'Invalid sessionId.');
-        }
-
-        const session = await VideoSession.findById(sessionId);
-
-        if (!session) {
-            throw new ApiError(404, 'Video session not found.');
-        }
+        const session = await getSessionByIdOrThrow(sessionId);
 
         await ensureDoctorOwnsSession(session, req.user);
 
@@ -404,17 +383,23 @@ export const endVideoSession = async (req, res, next) => {
             throw new ApiError(409, 'Cannot end a cancelled session.');
         }
 
-        // Delete the session from database
-        await VideoSession.findByIdAndDelete(sessionId);
+        const endedAt = new Date();
+        const startedAt = session.startedAt || endedAt;
 
-        res.status(200).json(new ApiResponse(200, { sessionId }, 'Video session ended and deleted.'));
-        if (!session.startedAt) {
-            session.startedAt = session.endedAt;
-        }
+        await session.deleteOne();
 
-        await session.save();
-
-        res.status(200).json(new ApiResponse(200, session, 'Video session ended.'));
+        res.status(200).json(
+            new ApiResponse(
+                200,
+                {
+                    ...session.toObject(),
+                    status: 'completed',
+                    startedAt,
+                    endedAt,
+                },
+                'Video session ended and removed.'
+            )
+        );
     } catch (error) {
         next(error);
     }
@@ -423,17 +408,7 @@ export const endVideoSession = async (req, res, next) => {
 // ─── Get online appointments with video sessions (for telehealth) ──
 export const getOnlineAppointmentsWithSessions = async (req, res, next) => {
     try {
-        let query = {};
-
-        // Filter by role
-        if (req.user.role === 'Doctor') {
-            query.doctorId = req.user.id;
-        } else if (req.user.role === 'Patient') {
-            const patient = await getPatientByUserIdInternal(req.user.id);
-            query.patientId = patient._id;
-        } else if (req.user.role !== 'Admin') {
-            throw new ApiError(403, 'Unauthorized');
-        }
+        const query = await getRoleScopedSessionQuery(req.user);
 
         // Get video sessions from telemedicine service
         const sessions = await VideoSession.find(query)
@@ -514,7 +489,7 @@ export const handlePaymentSuccess = async (req, res, next) => {
             throw new ApiError(404, 'Appointment not found');
         }
 
-        const { doctorId, patientId, startTime, endTime, reason, notes } = appointment;
+        const { doctorId, patientId, reason, notes } = appointment;
 
         if (!doctorId || !patientId) {
             throw new ApiError(400, 'Appointment must have both doctorId and patientId');
@@ -559,7 +534,7 @@ export const handlePaymentSuccess = async (req, res, next) => {
         // Create new video session
         session = await VideoSession.create({
             appointmentId,
-            channelName: `hb-${crypto.randomBytes(8).toString('hex')}`,
+            channelName: createChannelName(),
             doctorId: toObjectId(doctorId, 'doctorId'),
             patientId: toObjectId(patient._id, 'patientId'),
             createdBy: toObjectId(doctorId, 'createdBy'),
@@ -575,17 +550,12 @@ export const handlePaymentSuccess = async (req, res, next) => {
         });
 
         // Generate Agora token for doctor
-        const tokenPayload = buildAgoraRtcToken({
+        const tokenPayload = issueSessionToken({
             channelName: session.channelName,
             userAccount: String(doctorId),
-            role: 'publisher',
-            ttlSeconds: DEFAULT_TTL_SECONDS
         });
 
-        session.agora = {
-            ...session.agora,
-            lastIssuedAt: new Date()
-        };
+        markSessionTokenIssued(session, DEFAULT_TTL_SECONDS);
 
         await session.save();
 
@@ -605,17 +575,8 @@ export const handlePaymentSuccess = async (req, res, next) => {
 
 const getDoctorByUserIdInternal = async (userId) => {
     try {
-        const doctorBaseUrl = getDoctorServiceUrl();
-        const endpoint = `${doctorBaseUrl}/internal/get-doctor/${userId}`;
-
-        const response = await axios.get(endpoint, {
-            headers: {
-                'x-internal-service-key': getInternalServiceKey(),
-            },
-            timeout: 8000,
-        });
-
-        return response.data?.data || response.data;
+        const candidateBaseUrls = getCandidateBaseUrls(getDoctorServiceUrl(), 'doctor-service', 3003);
+        return await requestInternalGet(candidateBaseUrls, `/internal/get-doctor/${userId}`);
     } catch (error) {
         console.error('[Telemedicine] Failed to fetch doctor:', error.message);
         throw new ApiError(404, 'Doctor not found or doctor service is unavailable');
@@ -633,4 +594,46 @@ const resolveDoctorProfileIdFromUser = async (user) => {
     }
 
     return String(doctor._id);
+};
+
+const getUserByIdInternal = async (userId) => {
+    try {
+        const candidateBaseUrls = getCandidateBaseUrls(getAuthServiceUrl(), 'auth-service', 3001);
+        return await requestInternalGet(candidateBaseUrls, `/internal/users/${userId}`);
+    } catch (error) {
+        console.error('[Telemedicine] Failed to fetch auth user by id:', error.message);
+        return null;
+    }
+};
+
+const enrichSessionsWithPatientNames = async (sessions) => {
+    if (!Array.isArray(sessions) || sessions.length === 0) {
+        return [];
+    }
+
+    const uniquePatientIds = [...new Set(sessions.map((session) => String(session.patientId)).filter(Boolean))];
+    const patientNameById = {};
+
+    await Promise.all(uniquePatientIds.map(async (patientId) => {
+        try {
+            const patientProfile = await getPatientByIdInternal(patientId);
+            const patientUserId = patientProfile?.userId;
+
+            if (!patientUserId) {
+                return;
+            }
+
+            const authUser = await getUserByIdInternal(patientUserId);
+            if (authUser?.name) {
+                patientNameById[patientId] = authUser.name;
+            }
+        } catch (error) {
+            console.warn(`[Telemedicine] Could not enrich patient name for patientId=${patientId}`);
+        }
+    }));
+
+    return sessions.map((session) => ({
+        ...session,
+        patientName: patientNameById[String(session.patientId)] || null,
+    }));
 };
