@@ -269,51 +269,6 @@ const clampTtl = (value) => {
     return Math.max(MIN_TTL_SECONDS, Math.min(MAX_TTL_SECONDS, parsed));
 };
 
-export const createVideoSession = async (req, res, next) => {
-    try {
-        const { appointmentId, patientId, doctorId, scheduledAt, metadata } = req.body;
-
-        if (!patientId) {
-            throw new ApiError(400, 'patientId is required.');
-        }
-
-        let resolvedDoctorId = doctorId;
-
-        if (req.user.role === 'Doctor') {
-            resolvedDoctorId = await resolveDoctorProfileIdFromUser(req.user);
-        }
-
-        if (!resolvedDoctorId) {
-            throw new ApiError(400, 'doctorId is required.');
-        }
-
-        await validateAppointmentForSessionCreation(appointmentId);
-
-        const session = await VideoSession.create({
-            appointmentId,
-            channelName: createChannelName(),
-            doctorId: toObjectId(resolvedDoctorId, 'doctorId'),
-            patientId: toObjectId(patientId, 'patientId'),
-            createdBy: toObjectId(req.user.id, 'createdBy'),
-            scheduledAt,
-            metadata,
-            agora: {
-                tokenTTLSeconds: DEFAULT_TTL_SECONDS
-            }
-        });
-
-        res.status(201).json(
-            new ApiResponse(
-                201,
-                session,
-                'Video consultation session created successfully.'
-            )
-        );
-    } catch (error) {
-        next(error);
-    }
-};
-
 export const listMyVideoSessions = async (req, res, next) => {
     try {
         const query = await getRoleScopedSessionQuery(req.user, req.query);
@@ -409,16 +364,23 @@ export const endVideoSession = async (req, res, next) => {
             throw new ApiError(409, 'Cannot end a cancelled session.');
         }
 
-        if (!session.startedAt) {
-            session.startedAt = new Date();
-        }
+        const endedAt = new Date();
+        const startedAt = session.startedAt || endedAt;
 
-        session.status = 'completed';
-        session.endedAt = new Date();
+        await session.deleteOne();
 
-        await session.save();
-
-        res.status(200).json(new ApiResponse(200, session, 'Video session ended.'));
+        res.status(200).json(
+            new ApiResponse(
+                200,
+                {
+                    ...session.toObject(),
+                    status: 'completed',
+                    startedAt,
+                    endedAt,
+                },
+                'Video session ended and removed.'
+            )
+        );
     } catch (error) {
         next(error);
     }
