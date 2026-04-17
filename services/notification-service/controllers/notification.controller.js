@@ -92,11 +92,12 @@ export const markAsRead = async (req, res, next) => {
 export const deleteNotification = async (req, res, next) => {
     try {
         const { id } = req.params;
-        const notification = await Notification.findById(id);
+        const userId = req.user.id;
+        const notification = await Notification.findOne({ _id: id, userId });
         if (!notification) {
             throw new ApiError(404, "Notification not found");
         }
-        await notification.remove();
+        await Notification.deleteOne({ _id: id, userId });
         res.status(200).json(new ApiResponse(200, null, "Notification deleted successfully"));
     } catch (error) {
         next(error);

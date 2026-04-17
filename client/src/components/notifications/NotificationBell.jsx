@@ -1,6 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Bell, CheckCheck, Loader2 } from 'lucide-react';
-import { getNotifications, markNotificationAsRead } from '../../services/notification.service';
+import {
+  deleteNotification,
+  getNotifications,
+  markNotificationAsRead,
+} from '../../services/notification.service';
 
 const formatDateTime = (value) => {
   if (!value) return '';
@@ -12,6 +16,7 @@ const formatDateTime = (value) => {
 const NotificationBell = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [clearing, setClearing] = useState(false);
   const [error, setError] = useState('');
   const [notifications, setNotifications] = useState([]);
   const containerRef = useRef(null);
@@ -51,6 +56,42 @@ const NotificationBell = () => {
 
     await Promise.allSettled(unreadItems.map((item) => markNotificationAsRead(item._id)));
     setNotifications((prev) => prev.map((item) => ({ ...item, isRead: true })));
+  };
+
+  const clearAllNotifications = async () => {
+    const removableItems = notifications.filter((item) => item?._id);
+    if (!removableItems.length || clearing) return;
+
+    setClearing(true);
+    setError('');
+
+    try {
+      const results = await Promise.all(
+        removableItems.map(async (item) => {
+          try {
+            await deleteNotification(item._id);
+            return { id: item._id, ok: true };
+          } catch {
+            return { id: item._id, ok: false };
+          }
+        })
+      );
+
+      const successIds = new Set(results.filter((result) => result.ok).map((result) => result.id));
+      const failedCount = results.filter((result) => !result.ok).length;
+
+      if (successIds.size > 0) {
+        setNotifications((prev) => prev.filter((item) => !successIds.has(item?._id)));
+      }
+
+      if (failedCount > 0) {
+        setError('Some notifications could not be deleted. Please try again.');
+      }
+    } catch {
+      setError('Failed to clear notifications. Please try again.');
+    } finally {
+      setClearing(false);
+    }
   };
 
   useEffect(() => {
@@ -101,16 +142,28 @@ const NotificationBell = () => {
         <div className="absolute right-0 z-50 mt-2 w-[min(92vw,23rem)] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
           <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
             <h3 className="text-sm font-bold text-slate-800">Notifications</h3>
-            {unreadCount > 0 && (
-              <button
-                type="button"
-                onClick={markAllAsRead}
-                className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50"
-              >
-                <CheckCheck size={14} />
-                Mark all
-              </button>
-            )}
+            <div className="flex items-center gap-2">
+              {unreadCount > 0 && (
+                <button
+                  type="button"
+                  onClick={markAllAsRead}
+                  className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                >
+                  <CheckCheck size={14} />
+                  Mark all
+                </button>
+              )}
+              {notifications.length > 0 && (
+                <button
+                  type="button"
+                  onClick={clearAllNotifications}
+                  disabled={clearing}
+                  className="inline-flex items-center gap-1 rounded-lg border border-rose-200 px-2 py-1 text-xs font-semibold text-rose-600 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {clearing ? 'Clearing...' : 'Clear'}
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="max-h-[24rem] overflow-y-auto">
