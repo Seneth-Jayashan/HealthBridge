@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useSymptomChecker } from '../../hooks/useSymptomChecker';
 
 // ─── Config ───────────────────────────────────────────────────
@@ -70,7 +71,11 @@ const SpecialtyCard = ({ specialty }) => (
 const ResultView = ({ result, onReset }) => {
   const { result: res, symptoms } = result;
   const urgency = URGENCY_CONFIG[res.urgencyLevel] || URGENCY_CONFIG.moderate;
+  const navigate = useNavigate();
 
+  const handleBooking = () => {
+    navigate('/patient/appointment/book');
+  };
   return (
     <div className="max-w-2xl mx-auto px-4 py-6 space-y-5">
 
@@ -187,7 +192,9 @@ const ResultView = ({ result, onReset }) => {
             </div>
           ))}
         </div>
-        <button className="mt-3 w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors text-sm">
+        <button 
+          onClick={handleBooking}
+          className="mt-3 w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors text-sm">
           Book Appointment with Specialist →
         </button>
       </div>

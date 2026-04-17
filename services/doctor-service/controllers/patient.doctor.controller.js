@@ -74,7 +74,7 @@ export const addOrUpdateDoctorReview = async (req, res, next) => {
     try {
         const { doctorId } = req.params;
         const { rating, comment } = req.body;
-        const patientUserId = req.user.id; // Assumes your auth middleware sets req.user.id
+        const patientUserId = req.user.id; 
 
         // 1. Validate the input
         if (!rating || rating < 1 || rating > 5) {
@@ -87,23 +87,12 @@ export const addOrUpdateDoctorReview = async (req, res, next) => {
             throw new ApiError(404, "Doctor not found");
         }
 
-        // 3. Check if this specific patient has already reviewed this doctor
-        const existingReviewIndex = doctor.rating.findIndex(
-            (r) => r.patientId.toString() === patientUserId.toString()
-        );
-
-        if (existingReviewIndex !== -1) {
-            // Patient already reviewed: Update their existing entry
-            doctor.rating[existingReviewIndex].rating = rating;
-            doctor.rating[existingReviewIndex].comment = comment || doctor.rating[existingReviewIndex].comment;
-        } else {
-            // New review: Push to the embedded array
-            doctor.rating.push({
-                patientId: patientUserId,
-                rating,
-                comment
-            });
-        }
+        // 3. ALWAYS push as a new review (Removed the overwrite logic)
+        doctor.rating.push({
+            patientId: patientUserId,
+            rating,
+            comment
+        });
 
         // 4. Recalculate averageRating and totalReviews
         doctor.totalReviews = doctor.rating.length;
@@ -120,7 +109,7 @@ export const addOrUpdateDoctorReview = async (req, res, next) => {
         res.status(200).json(new ApiResponse(200, {
             averageRating: doctor.averageRating,
             totalReviews: doctor.totalReviews,
-            reviews: doctor.rating // Returns the updated array
+            reviews: doctor.rating 
         }, "Review submitted successfully"));
 
     } catch (error) {

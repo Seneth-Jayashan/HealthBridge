@@ -10,8 +10,9 @@ import {
   getTelemedicineJoinToken,
   getPatientOnlineAppointments,
 } from '../../services/telemedicine.service';
+import { getDoctorById} from '../../services/user.service';
+import { getDoctorByIdForPatient } from'../../services/patient.service';
 import VideoConsultRoom from '../../components/telemedicine/VideoConsultRoom';
-// IMPORT THE FEEDBACK COMPONENT
 import Feedback from '../../components/doctor/Feedback'; 
 
 const PatientTelehealth = () => {
@@ -131,12 +132,50 @@ const PatientTelehealth = () => {
     }
   };
 
+  // --- check selectedSession id from sessions to get All details of the session
+  const getSessionDetails = (selectedSessionId) => {
+    const session = sessions.find(s => s._id === selectedSessionId);
+    if (!session) return null;
+    const appointment = appointments.find(a => a._id === session.appointmentId);
+    return {
+      ...session,
+      appointmentDetails: appointment || {},
+    };
+  };
+
+  const fetchCompleteDoctorDetails = async (selectedSessionId) => {
+      try {
+          const docId = getSessionDetails(selectedSessionId)?.doctorId || null;
+          
+          if (!docId) {
+              return { docId: null, doctorData: null, docName: 'Your Doctor' };
+          }
+
+          const doctor = await getDoctorByIdForPatient(docId);
+          const actualDoctorData = doctor?.data || doctor;
+
+          let docName = 'Your Doctor';
+          if (actualDoctorData?.userId) {
+              const nameResponse = await getDoctorById(actualDoctorData.userId);
+              docName = nameResponse?.name || nameResponse?.data?.name || 'Your Doctor';
+          }
+
+          return {
+              docId,
+              doctorData: actualDoctorData,
+              docName
+          };
+
+      } catch (error) {
+          console.error("Error fetching complete doctor details:", error);
+          return { docId: null, doctorData: null, docName: 'Your Doctor' };
+      }
+  };
+
   // --- NEW HANDLER FOR ENDING THE CALL ---
   // --- CORRECTED HANDLER FOR ENDING THE CALL ---
   const triggerCallEnd = async () => {
-    // 1. Capture the doctor's info safely into local variables first
-    const docId = currentAppointment?.doctorId || currentAppointment?.doctor?._id;
-    const docName = currentAppointment?.doctorName || currentAppointment?.doctor?.name || 'your doctor';
+    const { docId, docName } = await fetchCompleteDoctorDetails(selectedSessionId);
 
     if (docId) {
       setFeedbackDoctorId(docId);
