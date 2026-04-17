@@ -21,6 +21,11 @@ export const getAllUsers = async () => {
   return response.data?.data || response.data;
 };
 
+export const getUserById = async (userId) => {
+  const response = await httpClient.get(`/auth/users/${userId}`);
+  return response.data?.data || response.data;
+}
+
 // For Patients: Get Doctor Profile by ID
 export const getDoctorById = async (doctorId) => {
   const response = await httpClient.get(`/auth/users/doctors/${doctorId}`);

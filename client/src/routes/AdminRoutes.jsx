@@ -7,9 +7,7 @@ import AdminDashboard from '../pages/admin/Dashboard';
 import ProviderNetwork from '../pages/admin/Providers';
 import PatientDirectory from '../pages/admin/Patients';
 import BillingDashboard from '../pages/admin/Billing';
-import PlatformAnalytics from '../pages/admin/Analytics';
 import SecurityAudits from '../pages/admin/Security';
-import GlobalSettings from '../pages/admin/Settings';
 
 export default function AdminRoutes() {
   return (
@@ -20,9 +18,7 @@ export default function AdminRoutes() {
         <Route path="providers" element={<ProviderNetwork />} />
         <Route path="patients" element={<PatientDirectory />} />
         <Route path="billing" element={<BillingDashboard />} />
-        <Route path="analytics" element={<PlatformAnalytics />} />
         <Route path="security" element={<SecurityAudits />} />
-        <Route path="settings" element={<GlobalSettings />} />
       </Route>
     </Routes>
   );

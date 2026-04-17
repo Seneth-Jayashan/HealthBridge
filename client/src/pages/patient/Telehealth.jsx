@@ -11,6 +11,8 @@ import {
   getPatientOnlineAppointments,
 } from '../../services/telemedicine.service';
 import VideoConsultRoom from '../../components/telemedicine/VideoConsultRoom';
+// IMPORT THE FEEDBACK COMPONENT
+import Feedback from '../../components/doctor/Feedback'; 
 
 const PatientTelehealth = () => {
   const { user } = useAuth();
@@ -23,6 +25,11 @@ const PatientTelehealth = () => {
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [currentAppointment, setCurrentAppointment] = useState(null);
+
+  // --- NEW FEEDBACK MODAL STATE ---
+  const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
+  const [feedbackDoctorId, setFeedbackDoctorId] = useState('');
+  const [feedbackDoctorName, setFeedbackDoctorName] = useState('');
 
   const selectedSession = useMemo(
     () => sessions.find((session) => session._id === selectedSessionId) || null,
@@ -64,6 +71,7 @@ const PatientTelehealth = () => {
 
   useEffect(() => {
     loadSessions();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -77,12 +85,9 @@ const PatientTelehealth = () => {
         const liveSession = safeList.find((session) => session._id === joinPayload.sessionId);
         const status = String(liveSession?.status || '').toLowerCase();
 
+        // If the backend marks the session as ended while we are in it
         if (!liveSession || terminalStatuses.has(status)) {
-          setJoinPayload(null);
-          setCurrentAppointment(null);
-          setSelectedSessionId('');
-          setMessage('The consultation has ended.');
-          await loadSessions();
+          triggerCallEnd();
         }
       } catch {
         // Silent catch for transient polling failures
@@ -91,6 +96,7 @@ const PatientTelehealth = () => {
 
     const intervalId = window.setInterval(syncSessionState, 5000);
     return () => window.clearInterval(intervalId);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [joinPayload?.sessionId]);
 
   const joinSelectedSession = async () => {
@@ -120,6 +126,29 @@ const PatientTelehealth = () => {
       setError(requestError?.response?.data?.message || 'Unable to join the room right now.');
     } finally {
       setJoining(false);
+    }
+  };
+
+  // --- NEW HANDLER FOR ENDING THE CALL ---
+  const triggerCallEnd = async () => {
+    // 1. Capture the doctor's info before clearing the state
+    if (currentAppointment?.doctorId) {
+      setFeedbackDoctorId(currentAppointment.doctorId);
+      setFeedbackDoctorName(currentAppointment.doctorName || 'your doctor'); // Assuming you have doctorName in appointment
+    }
+
+    // 2. Clear the video room state
+    setJoinPayload(null);
+    setCurrentAppointment(null);
+    setSelectedSessionId('');
+    setMessage('The consultation has ended.');
+    
+    // 3. Refresh the session list
+    await loadSessions();
+
+    // 4. Open the Feedback Modal
+    if (currentAppointment?.doctorId) {
+      setIsFeedbackOpen(true);
     }
   };
 
@@ -251,10 +280,8 @@ const PatientTelehealth = () => {
                   joinPayload={joinPayload}
                   displayName={user?.name || 'Patient'}
                   appointmentDetails={currentAppointment}
-                  onLeave={() => {
-                    setJoinPayload(null);
-                    setCurrentAppointment(null);
-                  }}
+                  // --- TRIGGER END LOGIC WHEN COMPONENT LEAVES ---
+                  onLeave={triggerCallEnd}
                 />
               </div>
             ) : (
@@ -335,6 +362,15 @@ const PatientTelehealth = () => {
 
         </div>
       </div>
+
+      {/* --- RENDER FEEDBACK MODAL --- */}
+      <Feedback 
+        isOpen={isFeedbackOpen}
+        onClose={() => setIsFeedbackOpen(false)}
+        doctorId={feedbackDoctorId}
+        doctorName={feedbackDoctorName}
+        // onSuccess={loadSessions} // Optional: if you want to refresh anything specific after a review
+      />
     </div>
   );
 };

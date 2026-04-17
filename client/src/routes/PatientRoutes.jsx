@@ -15,6 +15,7 @@ import BookAppointment from '../pages/patient/appointment/BookAppointment';
 import MyAppointments from '../pages/patient/appointment/MyAppointments';
 import AppointmentDetails from '../pages/patient/appointment/AppointmentDetails';
 import MyPrescriptions from '../pages/patient/Prescriptions'; // Import the MyPrescriptions page
+import Feedback from '../components/doctor/Feedback';
 
 export default function PatientRoutes() {
   return (
@@ -37,6 +38,7 @@ export default function PatientRoutes() {
           {/* <Route path="appointments" element={<PatientAppointments />} /> */}
           {/* <Route path="records" element={<PatientRecords />} /> */}
           <Route path="profile" element={<PatientProfile />} />
+          <Route path="feedback" element={<Feedback />} />
         </Route>
       </Route>
     </Routes>

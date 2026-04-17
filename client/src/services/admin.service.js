@@ -1,7 +1,23 @@
 import httpClient from '../api/Axios';
 
+// -----------------------------------------
+// --------  USER & AUTH RELATED ACTIONS ---
+// -----------------------------------------
+
 export const getPlatformUsers = async () => {
-  const response = await httpClient.get('/auth/users/admin/all');
+  const response = await httpClient.get('/auth/users/all');
+  return response.data?.data || response.data;
+};
+
+// NEW: Update a user's details (Name, Phone, etc.)
+export const updatePlatformUser = async (userId, data) => {
+  const response = await httpClient.put(`/auth/users/${userId}`, data);
+  return response.data?.data || response.data;
+};
+
+// NEW: Delete a user entirely from the platform
+export const deletePlatformUser = async (userId) => {
+  const response = await httpClient.delete(`/auth/users/${userId}`);
   return response.data?.data || response.data;
 };
 
@@ -19,7 +35,6 @@ export const getAdminDashboardMetrics = async () => {
     totalAdmins,
   };
 };
-
 
 // -----------------------------------------
 // --------  DOCTOR RELATED ACTIONS --------

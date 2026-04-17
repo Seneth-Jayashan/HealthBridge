@@ -96,3 +96,61 @@ export const getAllUsers = async (req, res, next) => {
         next(error);
     }
 };
+
+export const getUserById = async (req, res, next) => {
+    try {
+        const userId = req.params.userId;
+        if (!mongoose.Types.ObjectId.isValid(userId)) {
+            return res.status(400).json(new ApiError(400, "Invalid user ID format"));
+        }
+        const user = await User.findById(userId).select('-password');
+        if (!user) {
+            return res.status(404).json(new ApiError(404, "User not found"));
+        }
+        res.status(200).json(new ApiResponse(200, user, "User details retrieved successfully"));
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const updateUserById = async (req, res, next) => {
+    try {
+        const userId = req.params.userId;
+        const { name, email, phoneNumber } = req.body;
+
+        if (!mongoose.Types.ObjectId.isValid(userId)) {
+            return res.status(400).json(new ApiError(400, "Invalid user ID format"));
+        }
+
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json(new ApiError(404, "User not found"));
+        }
+
+        user.name = name || user.name;
+        user.email = email || user.email;
+        user.phoneNumber = phoneNumber || user.phoneNumber;
+
+        await user.save();
+        res.status(200).json(new ApiResponse(200, user, "User details updated successfully"));
+    } catch (error) {
+        next(error);
+    }
+};
+
+
+export const deleteUserById = async (req, res, next) => {
+    try {
+        const userId = req.params.userId;
+        if (!mongoose.Types.ObjectId.isValid(userId)) {
+            return res.status(400).json(new ApiError(400, "Invalid user ID format"));
+        }
+        const user = await User.findByIdAndDelete(userId);
+        if (!user) {
+            return res.status(404).json(new ApiError(404, "User not found"));
+        }
+        res.status(200).json(new ApiResponse(200, null, "User deleted successfully"));
+    } catch (error) {
+        next(error);
+    }
+};

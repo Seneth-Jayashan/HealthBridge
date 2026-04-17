@@ -470,13 +470,19 @@ export const releaseDoctorSlotInternal = async (req, res, next) => {
 // @desc    remove Patient from Doctor's Patient List (called when appointment is cancelled or rejected)
 export const removePatientFromDoctorList = async (req, res, next) => {
     try {
-        const { doctorId, patientId } = req.params;
+        const patientId = req.body?.patientId || req.params?.patientId;
+        const doctorUserId = req.user?.id || req.params?.doctorId;
 
-        if (!doctorId || !patientId) {
+        if (!doctorUserId || !patientId) {
             throw new ApiError(400, "Doctor ID and Patient ID are required");
         }
 
-        const doctor = await Doctor.findById(doctorId);
+        let doctor = await Doctor.findOne({ userId: doctorUserId });
+
+        if (!doctor && mongoose.isValidObjectId(doctorUserId)) {
+            doctor = await Doctor.findById(doctorUserId);
+        }
+
         if (!doctor) {
             throw new ApiError(404, "Doctor not found");
         }

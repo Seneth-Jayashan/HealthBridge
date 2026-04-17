@@ -22,6 +22,10 @@ const onProxyError = (err, req, res) => {
     });
 };
 
+router.use('/api/health', (req, res) => {
+    res.status(200).json({ status: 'API Gateway is healthy' });
+});
+
 router.use('/api/auth', createProxyMiddleware({ target: services.auth, changeOrigin: true, onError: onProxyError }));
 router.use('/api/patients', createProxyMiddleware({ target: services.patient, changeOrigin: true, onError: onProxyError }));
 router.use('/api/doctors', createProxyMiddleware({ target: services.doctor, changeOrigin: true, onError: onProxyError }));

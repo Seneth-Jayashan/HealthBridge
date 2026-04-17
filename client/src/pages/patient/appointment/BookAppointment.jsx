@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Calendar, Clock, Stethoscope, User, Video, X, ChevronRight, MapPin, Phone } from 'lucide-react';
+import { Search, Calendar, Clock, Stethoscope, User, Video, X, ChevronRight, MapPin, Phone, Star } from 'lucide-react';
 import {
   getAllDoctorsRequest,
   bookAppointmentRequest,
@@ -65,6 +65,29 @@ const normalizeAvailability = (value) => {
   if (Array.isArray(value?.availability)) return value.availability;
   if (Array.isArray(value?.data?.availability)) return value.data.availability;
   return [];
+};
+
+// --- NEW HELPER COMPONENT FOR STARS ---
+const RatingStars = ({ rating }) => {
+  const roundedRating = Math.round(rating || 0);
+  return (
+    <div className="flex items-center gap-0.5 mt-1">
+      {[1, 2, 3, 4, 5].map((star) => (
+        <Star
+          key={star}
+          size={14}
+          className={`${
+            star <= roundedRating
+              ? 'fill-amber-400 text-amber-400'
+              : 'fill-slate-100 text-slate-200'
+          }`}
+        />
+      ))}
+      <span className="text-xs font-bold text-slate-500 ml-1">
+        {rating ? Number(rating).toFixed(1) : 'New'}
+      </span>
+    </div>
+  );
 };
 
 const BookAppointment = () => {
@@ -389,6 +412,8 @@ const BookAppointment = () => {
                             <p className="text-blue-600 font-medium text-sm mt-0.5">
                               {doc.specialization || 'General Medicine'}
                             </p>
+                            {/* --- RATING STARS --- */}
+                            <RatingStars rating={doc.averageRating} />
                           </div>
                           <div className="text-right">
                             <span className="text-lg font-bold text-blue-700">LKR {doc.consultationFee ?? 0}</span>
@@ -437,7 +462,14 @@ const BookAppointment = () => {
                   <h3 className="font-bold text-slate-800 text-lg leading-tight">
                     Dr. {getDoctorDisplayName(selectedDoctor) || 'Doctor'}
                   </h3>
-                  <p className="text-xs text-blue-600 font-medium">{selectedDoctor.specialization}</p>
+                  <p className="text-xs text-blue-600 font-medium flex items-center gap-2">
+                    {selectedDoctor.specialization} 
+                    <span className="text-slate-300">•</span>
+                    {/* Add stars to Modal Header too */}
+                    <span className="flex items-center gap-0.5 text-amber-500">
+                      <Star size={12} className="fill-amber-400" /> {selectedDoctor.averageRating ? Number(selectedDoctor.averageRating).toFixed(1) : 'New'}
+                    </span>
+                  </p>
                 </div>
               </div>
               <button

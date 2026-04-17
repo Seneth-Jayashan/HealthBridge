@@ -15,6 +15,10 @@ const PORT = process.env.PORT || 3002;
 // Middleware to parse JSON payloads
 app.use(express.json());
 
+app.get('/health', (req, res) => {
+    res.status(200).json({ status: 'Patient Service is healthy' });
+});
+
 // Mount the routes
 app.use('/prescriptions', prescriptionRoutes);
 app.use('/doctor', doctorPatientRoutes);

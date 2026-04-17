@@ -3,8 +3,9 @@ import { useOutletContext } from 'react-router-dom';
 import { animate, stagger } from 'animejs';
 import { useAuth } from '../../context/AuthContext';
 import { getDoctorProfile, updateDoctorProfile } from '../../services/doctor.service';
+import { getUserProfile, updateUserProfile, changeUserPassword } from '../../services/user.service'; // Added Auth Services
 import { SPECIALIZATION } from '@healthbridge/shared/src/constants/specialization.js';
-import UpdateAvailabilityModal from '../../components/doctor/UpdateAvailabilityModal'; // Added Modal Import
+import UpdateAvailabilityModal from '../../components/doctor/UpdateAvailabilityModal'; 
 import { 
   Stethoscope, 
   Award, 
@@ -18,22 +19,46 @@ import {
   Clock,
   FileBadge,
   ChevronDown,
-  Calendar // Added Calendar Icon Import
+  Calendar,
+  User,       // Added missing Lucide Icons
+  Mail,
+  Phone,
+  Settings,
+  Lock,
+  Key
 } from 'lucide-react';
 
 const DoctorProfile = () => {
   const { isDark = false } = useOutletContext() || {};
-  const { user } = useAuth(); // Contains base user details (name, email)
+  const { user, setUser } = useAuth();
 
   const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
-  const [saveMessage, setSaveMessage] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
+  // --- 1. Account State (Auth) ---
+  const [isSavingAccount, setIsSavingAccount] = useState(false);
+  const [accountData, setAccountData] = useState({
+    name: user?.name || '',
+    phoneNumber: user?.phoneNumber || '',
+    email: user?.email || '' 
+  });
+
+  // --- 2. Password State ---
+  const [isSavingPassword, setIsSavingPassword] = useState(false);
+  const [passwordError, setPasswordError] = useState('');
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+
+  // --- 3. Doctor Professional State ---
+  const [isSavingDoctor, setIsSavingDoctor] = useState(false);
+  const [doctorSaveMessage, setDoctorSaveMessage] = useState(null);
   const [doctorData, setDoctorData] = useState({
     specialization: '',
     registrationNumber: '',
-    qualifications: '', // Will be handled as a comma-separated string in the UI
+    qualifications: '', 
     experienceYears: 0,
     bio: '',
     consultationFee: 0,
@@ -41,22 +66,33 @@ const DoctorProfile = () => {
     averageRating: 0,
     totalReviews: 0,
     doctorID: '',
-    availability: [] // Added to safely pass to the modal
+    availability: [] 
   });
 
-  // Extracted fetchProfile so it can be called by useEffect AND the Modal's onSuccess
+  // Fetch all profile data (Auth + Doctor)
   const fetchProfile = async () => {
     try {
-      const res = await getDoctorProfile();
-      if (res) {
+      const [authRes, docRes] = await Promise.all([
+        getUserProfile().catch(() => null),
+        getDoctorProfile().catch(() => null)
+      ]);
+
+      // Populate Auth Details
+      setAccountData({
+        name: authRes?.name || user?.name || '',
+        phoneNumber: authRes?.phoneNumber || user?.phoneNumber || '',
+        email: authRes?.email || user?.email || ''
+      });
+
+      // Populate Doctor Details
+      if (docRes) {
         setDoctorData({
-          ...res,
-          // Safely convert the qualifications array to a comma-separated string for editing
-          qualifications: Array.isArray(res.qualifications) ? res.qualifications.join(', ') : '',
+          ...docRes,
+          qualifications: Array.isArray(docRes.qualifications) ? docRes.qualifications.join(', ') : '',
         });
       }
     } catch (error) {
-      console.error("Failed to fetch doctor profile:", error);
+      console.error("Failed to fetch profiles:", error);
     } finally {
       setIsLoading(false);
     }
@@ -64,7 +100,8 @@ const DoctorProfile = () => {
 
   useEffect(() => {
     fetchProfile();
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); 
 
   // Run initial animations
   useEffect(() => {
@@ -79,41 +116,90 @@ const DoctorProfile = () => {
     }
   }, [isLoading]);
 
-  const handleChange = (e) => {
+  // --- Handlers ---
+  const handleAccountChange = (e) => {
+    setAccountData({ ...accountData, [e.target.name]: e.target.value });
+  };
+
+  const handlePasswordChange = (e) => {
+    setPasswordData({ ...passwordData, [e.target.name]: e.target.value });
+    setPasswordError('');
+  };
+
+  const handleDoctorChange = (e) => {
     const { name, value } = e.target;
     setDoctorData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSave = async (e) => {
+  // --- Save Actions ---
+  const handleSaveAccount = async (e) => {
     e.preventDefault();
-    setIsSaving(true);
-    setSaveMessage(null);
+    setIsSavingAccount(true);
+    try {
+      const updatedUser = await updateUserProfile({
+        name: accountData.name,
+        phoneNumber: accountData.phoneNumber
+      });
+      if (setUser) setUser(updatedUser); 
+    } catch (error) {
+      console.error("Failed to update account:", error);
+    } finally {
+      setIsSavingAccount(false);
+    }
+  };
+
+  const handleSavePassword = async (e) => {
+    e.preventDefault();
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      setPasswordError("New passwords do not match.");
+      return;
+    }
+    
+    setIsSavingPassword(true);
+    try {
+      await changeUserPassword({
+        currentPassword: passwordData.currentPassword,
+        newPassword: passwordData.newPassword
+      });
+      setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      setPasswordError("Password updated successfully!"); // Optional: show success inline
+      setTimeout(() => setPasswordError(''), 3000);
+    } catch (error) {
+      console.error("Failed to change password:", error);
+      setPasswordError(error.response?.data?.message || "Failed to update password");
+    } finally {
+      setIsSavingPassword(false);
+    }
+  };
+
+  const handleSaveDoctor = async (e) => {
+    e.preventDefault();
+    setIsSavingDoctor(true);
+    setDoctorSaveMessage(null);
 
     try {
       const payload = {
         ...doctorData,
         experienceYears: Number(doctorData.experienceYears),
         consultationFee: Number(doctorData.consultationFee),
-        // Convert the comma-separated string back to a clean array
         qualifications: doctorData.qualifications
           ? doctorData.qualifications.split(',').map(item => item.trim()).filter(Boolean)
           : []
       };
 
       await updateDoctorProfile(payload);
-      setSaveMessage({ type: 'success', text: 'Professional profile updated successfully!' });
+      setDoctorSaveMessage({ type: 'success', text: 'Professional profile updated successfully!' });
       
-      // Clear success message after 3 seconds
-      setTimeout(() => setSaveMessage(null), 3000);
+      setTimeout(() => setDoctorSaveMessage(null), 3000);
     } catch (error) {
-      console.error("Failed to update profile:", error);
-      setSaveMessage({ type: 'error', text: error.response?.data?.message || 'Failed to update profile.' });
+      console.error("Failed to update doctor profile:", error);
+      setDoctorSaveMessage({ type: 'error', text: error.response?.data?.message || 'Failed to update profile.' });
     } finally {
-      setIsSaving(false);
+      setIsSavingDoctor(false);
     }
   };
 
-  // Helper for Status Badge
+  // --- Helpers ---
   const renderVerificationBadge = (status) => {
     switch(status) {
       case 'Approved':
@@ -127,7 +213,7 @@ const DoctorProfile = () => {
     }
   };
 
-  const initials = user?.name ? user.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() : 'DR';
+  const initials = accountData.name ? accountData.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() : 'DR';
 
   if (isLoading) {
     return (
@@ -146,7 +232,7 @@ const DoctorProfile = () => {
           Professional Profile
         </h1>
         <p className={`mt-2 font-medium ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-          Manage your clinical credentials, bio, and consultation settings.
+          Manage your account settings, security, and clinical credentials.
         </p>
       </div>
 
@@ -159,7 +245,7 @@ const DoctorProfile = () => {
               <div className="h-28 w-28 rounded-full bg-blue-600 flex items-center justify-center text-4xl font-black text-white shadow-xl shadow-blue-600/30 border-4 border-white dark:border-slate-800 mb-6">
                 {initials}
               </div>
-              <h2 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>Dr. {user?.name || 'Doctor'}</h2>
+              <h2 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>Dr. {accountData.name || 'Doctor'}</h2>
               <p className={`text-sm font-semibold mt-1 ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>{doctorData.specialization || 'General Practitioner'}</p>
               <p className={`text-xs mt-1 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>ID: {doctorData.doctorID || 'Pending'}</p>
             </div>
@@ -185,7 +271,6 @@ const DoctorProfile = () => {
             </div>
           </div>
 
-          {/* Update Schedule Button */}
           <div className="hb-profile-item opacity-0">
             <button 
               onClick={() => setIsModalOpen(true)}
@@ -197,25 +282,100 @@ const DoctorProfile = () => {
           </div>
         </div>
 
-        {/* --- Right Column: Credentials Form --- */}
+        {/* --- Right Column: Settings & Credentials Forms --- */}
         <div className="xl:col-span-2 space-y-8">
+          
+          {/* SECTION 1: ACCOUNT SETTINGS (Added from User Profile) */}
+          <div className={`hb-profile-item rounded-3xl border opacity-0 shadow-lg overflow-hidden ${isDark ? 'border-slate-800 bg-[#131C31]' : 'border-slate-200 bg-white'}`}>
+            <div className={`px-8 py-6 border-b flex items-center gap-2 ${isDark ? 'border-slate-800 bg-slate-900/50' : 'border-slate-100 bg-slate-50/50'}`}>
+              <Settings className="text-blue-500" size={24} />
+              <h3 className={`text-xl font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>Account Details</h3>
+            </div>
+            <form onSubmit={handleSaveAccount} className="p-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className={`text-sm font-bold ${isDark ? 'text-slate-400' : 'text-slate-700'}`}>Full Name</label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><User size={18} className="text-slate-400" /></div>
+                    <input type="text" name="name" value={accountData.name} onChange={handleAccountChange} className={`w-full pl-11 pr-4 py-3 rounded-xl border text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-colors ${isDark ? 'bg-slate-900/50 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`} required />
+                  </div>
+                </div>
+                <div className="space-y-2 opacity-70">
+                  <label className={`text-sm font-bold ${isDark ? 'text-slate-400' : 'text-slate-700'}`}>Email Address (Read Only)</label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><Mail size={18} className="text-slate-400" /></div>
+                    <input readOnly type="email" value={accountData.email} className={`w-full pl-11 pr-4 py-3 rounded-xl border text-sm font-medium ${isDark ? 'bg-slate-900 border-slate-800 text-slate-400 cursor-not-allowed' : 'bg-slate-100 border-slate-200 text-slate-500 cursor-not-allowed'}`} />
+                  </div>
+                </div>
+                <div className="space-y-2 md:col-span-2">
+                  <label className={`text-sm font-bold ${isDark ? 'text-slate-400' : 'text-slate-700'}`}>Phone Number</label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><Phone size={18} className="text-slate-400" /></div>
+                    <input type="text" name="phoneNumber" value={accountData.phoneNumber} onChange={handleAccountChange} className={`w-full pl-11 pr-4 py-3 rounded-xl border text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-colors ${isDark ? 'bg-slate-900/50 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`} required />
+                  </div>
+                </div>
+              </div>
+              <div className="mt-6 flex justify-end">
+                <button type="submit" disabled={isSavingAccount} className="flex items-center gap-2 bg-slate-800 text-white px-6 py-2.5 rounded-xl font-bold text-sm hover:bg-slate-700 transition-all disabled:opacity-70 dark:bg-slate-700 dark:hover:bg-slate-600">
+                  {isSavingAccount ? 'Saving...' : <><Save size={16} /> Save Account</>}
+                </button>
+              </div>
+            </form>
+          </div>
+
+          {/* SECTION 2: SECURITY (Added from User Profile) */}
+          <div className={`hb-profile-item rounded-3xl border opacity-0 shadow-lg overflow-hidden ${isDark ? 'border-slate-800 bg-[#131C31]' : 'border-slate-200 bg-white'}`}>
+            <div className={`px-8 py-6 border-b flex items-center gap-2 ${isDark ? 'border-slate-800 bg-slate-900/50' : 'border-slate-100 bg-slate-50/50'}`}>
+              <Lock className="text-amber-500" size={24} />
+              <h3 className={`text-xl font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>Security</h3>
+            </div>
+            <form onSubmit={handleSavePassword} className="p-8">
+              {passwordError && (
+                <div className={`mb-4 p-3 border rounded-xl text-sm font-bold ${passwordError.includes('success') ? 'bg-emerald-500/10 border-emerald-500/50 text-emerald-500' : 'bg-red-500/10 border-red-500/50 text-red-500'}`}>
+                  {passwordError}
+                </div>
+              )}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2 md:col-span-2">
+                  <label className={`text-sm font-bold ${isDark ? 'text-slate-400' : 'text-slate-700'}`}>Current Password</label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><Key size={18} className="text-slate-400" /></div>
+                    <input type="password" name="currentPassword" value={passwordData.currentPassword} onChange={handlePasswordChange} className={`w-full pl-11 pr-4 py-3 rounded-xl border text-sm font-medium focus:outline-none focus:ring-2 focus:ring-amber-500/50 transition-colors ${isDark ? 'bg-slate-900/50 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`} required />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label className={`text-sm font-bold ${isDark ? 'text-slate-400' : 'text-slate-700'}`}>New Password</label>
+                  <input type="password" name="newPassword" value={passwordData.newPassword} onChange={handlePasswordChange} className={`w-full px-4 py-3 rounded-xl border text-sm font-medium focus:outline-none focus:ring-2 focus:ring-amber-500/50 transition-colors ${isDark ? 'bg-slate-900/50 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`} required />
+                </div>
+                <div className="space-y-2">
+                  <label className={`text-sm font-bold ${isDark ? 'text-slate-400' : 'text-slate-700'}`}>Confirm New Password</label>
+                  <input type="password" name="confirmPassword" value={passwordData.confirmPassword} onChange={handlePasswordChange} className={`w-full px-4 py-3 rounded-xl border text-sm font-medium focus:outline-none focus:ring-2 focus:ring-amber-500/50 transition-colors ${isDark ? 'bg-slate-900/50 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`} required />
+                </div>
+              </div>
+              <div className="mt-6 flex justify-end">
+                <button type="submit" disabled={isSavingPassword} className="flex items-center gap-2 bg-amber-600 text-white px-6 py-2.5 rounded-xl font-bold text-sm hover:bg-amber-700 transition-all disabled:opacity-70 shadow-lg shadow-amber-600/20">
+                  {isSavingPassword ? 'Updating...' : 'Update Password'}
+                </button>
+              </div>
+            </form>
+          </div>
+
+          {/* SECTION 3: PROFESSIONAL CREDENTIALS */}
           <div className={`hb-profile-item rounded-3xl border opacity-0 shadow-lg overflow-hidden ${isDark ? 'border-slate-800 bg-[#131C31]' : 'border-slate-200 bg-white'}`}>
             <div className={`px-8 py-6 border-b flex items-center gap-2 ${isDark ? 'border-slate-800 bg-slate-900/50' : 'border-slate-100 bg-slate-50/50'}`}>
               <Stethoscope className="text-blue-500" size={24} />
               <h3 className={`text-xl font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>Professional Credentials</h3>
             </div>
             
-            <form onSubmit={handleSave} className="p-8">
-              
-              {saveMessage && (
-                <div className={`mb-6 p-4 rounded-xl border font-bold text-sm flex items-center gap-2 ${saveMessage.type === 'success' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400' : 'bg-red-500/10 border-red-500/30 text-red-600 dark:text-red-400'}`}>
-                  {saveMessage.type === 'success' ? <ShieldCheck size={20} /> : <ShieldAlert size={20} />}
-                  {saveMessage.text}
+            <form onSubmit={handleSaveDoctor} className="p-8">
+              {doctorSaveMessage && (
+                <div className={`mb-6 p-4 rounded-xl border font-bold text-sm flex items-center gap-2 ${doctorSaveMessage.type === 'success' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400' : 'bg-red-500/10 border-red-500/30 text-red-600 dark:text-red-400'}`}>
+                  {doctorSaveMessage.type === 'success' ? <ShieldCheck size={20} /> : <ShieldAlert size={20} />}
+                  {doctorSaveMessage.text}
                 </div>
               )}
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                
                 {/* Specialization */}
                 <div className="space-y-2">
                   <label className={`text-sm font-bold ${isDark ? 'text-slate-400' : 'text-slate-700'}`}>Specialization</label>
@@ -229,7 +389,7 @@ const DoctorProfile = () => {
                     <select 
                       name="specialization" 
                       value={doctorData.specialization} 
-                      onChange={handleChange} 
+                      onChange={handleDoctorChange} 
                       className={`w-full pl-11 pr-10 py-3 rounded-xl border text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-colors appearance-none ${isDark ? 'bg-slate-900/50 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`} 
                       required
                     >
@@ -248,7 +408,7 @@ const DoctorProfile = () => {
                   <label className={`text-sm font-bold ${isDark ? 'text-slate-400' : 'text-slate-700'}`}>Medical Registration Number</label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><FileBadge size={18} className="text-slate-400" /></div>
-                    <input type="text" name="registrationNumber" value={doctorData.registrationNumber} onChange={handleChange} className={`w-full pl-11 pr-4 py-3 rounded-xl border text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-colors ${isDark ? 'bg-slate-900/50 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`} required />
+                    <input type="text" name="registrationNumber" value={doctorData.registrationNumber} onChange={handleDoctorChange} className={`w-full pl-11 pr-4 py-3 rounded-xl border text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-colors ${isDark ? 'bg-slate-900/50 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`} required />
                   </div>
                 </div>
 
@@ -257,7 +417,7 @@ const DoctorProfile = () => {
                   <label className={`text-sm font-bold ${isDark ? 'text-slate-400' : 'text-slate-700'}`}>Years of Experience</label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><Clock size={18} className="text-slate-400" /></div>
-                    <input type="number" min="0" name="experienceYears" value={doctorData.experienceYears} onChange={handleChange} className={`w-full pl-11 pr-4 py-3 rounded-xl border text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-colors ${isDark ? 'bg-slate-900/50 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`} required />
+                    <input type="number" min="0" name="experienceYears" value={doctorData.experienceYears} onChange={handleDoctorChange} className={`w-full pl-11 pr-4 py-3 rounded-xl border text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-colors ${isDark ? 'bg-slate-900/50 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`} required />
                   </div>
                 </div>
 
@@ -266,7 +426,7 @@ const DoctorProfile = () => {
                   <label className={`text-sm font-bold ${isDark ? 'text-slate-400' : 'text-slate-700'}`}>Consultation Fee (LKR)</label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><Banknote size={18} className="text-slate-400" /></div>
-                    <input type="number" min="0" step="100" name="consultationFee" value={doctorData.consultationFee} onChange={handleChange} className={`w-full pl-11 pr-4 py-3 rounded-xl border text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-colors ${isDark ? 'bg-slate-900/50 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`} required />
+                    <input type="number" min="0" step="100" name="consultationFee" value={doctorData.consultationFee} onChange={handleDoctorChange} className={`w-full pl-11 pr-4 py-3 rounded-xl border text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-colors ${isDark ? 'bg-slate-900/50 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`} required />
                   </div>
                 </div>
 
@@ -275,7 +435,7 @@ const DoctorProfile = () => {
                   <label className={`text-sm font-bold ${isDark ? 'text-slate-400' : 'text-slate-700'}`}>Qualifications (Comma Separated)</label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><Award size={18} className="text-slate-400" /></div>
-                    <input type="text" name="qualifications" value={doctorData.qualifications} onChange={handleChange} placeholder="e.g., MBBS, MD, FRCP" className={`w-full pl-11 pr-4 py-3 rounded-xl border text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-colors ${isDark ? 'bg-slate-900/50 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`} />
+                    <input type="text" name="qualifications" value={doctorData.qualifications} onChange={handleDoctorChange} placeholder="e.g., MBBS, MD, FRCP" className={`w-full pl-11 pr-4 py-3 rounded-xl border text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-colors ${isDark ? 'bg-slate-900/50 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`} />
                   </div>
                 </div>
 
@@ -284,7 +444,7 @@ const DoctorProfile = () => {
                   <label className={`text-sm font-bold ${isDark ? 'text-slate-400' : 'text-slate-700'}`}>Professional Bio</label>
                   <div className="relative">
                     <div className="absolute top-3 left-4 pointer-events-none"><FileText size={18} className="text-slate-400" /></div>
-                    <textarea name="bio" value={doctorData.bio} onChange={handleChange} rows={4} placeholder="Briefly describe your expertise and approach to patient care..." className={`w-full pl-11 pr-4 py-3 rounded-xl border text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-colors resize-none ${isDark ? 'bg-slate-900/50 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`} />
+                    <textarea name="bio" value={doctorData.bio} onChange={handleDoctorChange} rows={4} placeholder="Briefly describe your expertise and approach to patient care..." className={`w-full pl-11 pr-4 py-3 rounded-xl border text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-colors resize-none ${isDark ? 'bg-slate-900/50 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`} />
                   </div>
                 </div>
 
@@ -293,10 +453,10 @@ const DoctorProfile = () => {
               <div className={`mt-8 pt-6 border-t flex justify-end gap-4 ${isDark ? 'border-slate-800' : 'border-slate-100'}`}>
                 <button 
                   type="submit" 
-                  disabled={isSaving} 
+                  disabled={isSavingDoctor} 
                   className="flex items-center gap-2 bg-blue-600 text-white px-8 py-3 rounded-xl font-bold text-sm shadow-lg shadow-blue-600/20 hover:bg-blue-700 hover:-translate-y-0.5 active:scale-95 transition-all disabled:opacity-70 disabled:hover:translate-y-0"
                 >
-                  {isSaving ? 'Saving...' : <><Save size={18} /> Save Profile</>}
+                  {isSavingDoctor ? 'Saving...' : <><Save size={18} /> Save Profile</>}
                 </button>
               </div>
             </form>
@@ -305,12 +465,11 @@ const DoctorProfile = () => {
 
       </div>
 
-      {/* FIXED: Modal is now correctly mounted at the bottom of the component */}
       <UpdateAvailabilityModal 
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        onSuccess={fetchProfile} // FIXED: Now points to fetchProfile to reload data automatically
-        initialAvailability={doctorData?.availability || []} // FIXED: Points to doctorData state
+        onSuccess={fetchProfile}
+        initialAvailability={doctorData?.availability || []}
       />
     </div>
   );

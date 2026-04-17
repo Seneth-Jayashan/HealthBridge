@@ -36,7 +36,7 @@ const Patients = () => {
   // State to handle the loading spinner on a specific patient being removed
   const [removingId, setRemovingId] = useState(null);
 
-useEffect(() => {
+  useEffect(() => {
     const fetchPatients = async () => {
       try {
         setIsLoading(true);
@@ -49,14 +49,12 @@ useEffect(() => {
           extractedPatients = data.patients; 
         }
         
-        // --- NEW: Deduplicate patients by patientId ---
-        // This ensures if the backend sends the same patient twice, 
-        // the frontend only renders them once.
+        // --- Deduplicate patients by patientId ---
         const uniquePatients = Array.from(
           new Map(extractedPatients.map(p => [p.patientId, p])).values()
         );
         
-        setPatients(uniquePatients); // Save the unique list
+        setPatients(uniquePatients); 
       } catch (err) {
         console.error("Failed to fetch patients:", err);
         setError("Unable to load your patient list. Please try again later.");
@@ -88,7 +86,6 @@ useEffect(() => {
   };
 
   const handleAddPrescription = (patientId) => {
-    // Adjust this route to point to your prescription creation page or open a modal
     navigate(`/doctor/prescriptions/new?patientId=${patientId}`);
   };
 
@@ -99,7 +96,6 @@ useEffect(() => {
       setRemovingId(patientId);
       await removePatientFromDoctorList(patientId);
       
-      // Dynamically remove the patient from the UI without reloading the page
       setPatients(prevPatients => prevPatients.filter(p => p.patientId !== patientId));
     } catch (err) {
       console.error("Failed to remove patient:", err);
@@ -117,9 +113,29 @@ useEffect(() => {
     patient.phoneNumber?.includes(searchTerm)
   );
 
-  const formatDate = (dateString) => {
-    if (!dateString) return 'No previous appointments';
-    return new Date(dateString).toLocaleDateString('en-US', {
+  console.log('Filtered Patients:', filteredPatients);
+
+  // --- UPDATED: Calculate and format the exact appointment date ---
+  const getDisplayDate = (appointmentData) => {
+    if (!appointmentData || !appointmentData.createdAt || !appointmentData.dayOfWeek) {
+      return 'No previous appointments';
+    }
+
+    const daysOfWeek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    const targetDayIndex = daysOfWeek.indexOf(appointmentData.dayOfWeek);
+    const createdDate = new Date(appointmentData.createdAt);
+    const createdDayIndex = createdDate.getDay();
+
+    let daysToAdd = targetDayIndex - createdDayIndex;
+    if (daysToAdd < 0) {
+      daysToAdd += 7;
+    }
+
+    const appointmentDate = new Date(createdDate);
+    appointmentDate.setDate(createdDate.getDate() + daysToAdd);
+
+    return appointmentDate.toLocaleDateString('en-US', {
+      weekday: 'short',
       year: 'numeric',
       month: 'short',
       day: 'numeric',
@@ -232,9 +248,10 @@ useEffect(() => {
                         </div>
                       </div>
 
+                      {/* UPDATED JSX CALL */}
                       <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border bg-opacity-10 border-opacity-20 bg-blue-500 text-blue-500 border-blue-500">
                         <Calendar size={12} />
-                        Last Visit: {formatDate(patient.lastAppointmentData?.date)}
+                        Last Visit: {getDisplayDate(patient.lastAppointmentData)}
                       </div>
                     </div>
 

@@ -5,7 +5,10 @@ import {
     changePassword,
     getDoctorById,
     getPatientById,
-    getAllUsers
+    getAllUsers,
+    getUserById,
+    updateUserById,
+    deleteUserById
 } from '../controllers/user.controller.js';
 import { requireAuth, requireRole } from '@healthbridge/shared';
 
@@ -23,6 +26,9 @@ router.get('/doctors/:doctorId', requireAuth, requireRole('Patient'), getDoctorB
 router.get('/patients/:patientId', requireAuth, requireRole('Doctor'), getPatientById);
 
 // --- ADMIN ROUTES ---
-router.get('/admin/all', requireAuth, requireRole('Admin'), getAllUsers);
+router.get('/all', requireAuth, requireRole('Admin'), getAllUsers);
+router.get('/:userId', requireAuth, requireRole('Admin'), getUserById);
+router.put('/:userId', requireAuth, requireRole('Admin'), updateUserById);
+router.delete('/:userId', requireAuth, requireRole('Admin'), deleteUserById);
 
 export default router;

@@ -5,7 +5,7 @@ import {
   User, ShieldCheck, Play 
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   getMyTelemedicineSessions,
   getTelemedicineJoinToken,
@@ -14,10 +14,12 @@ import {
   getDoctorOnlineAppointments,
 } from '../../services/telemedicine.service';
 import VideoConsultRoom from '../../components/telemedicine/VideoConsultRoom';
+import { getPatientByIdForDoctor } from '../../services/doctor.service';
 
 const DoctorTelehealth = () => {
   const { user } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const [sessions, setSessions] = useState([]);
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -137,6 +139,10 @@ const DoctorTelehealth = () => {
     const activeSessionId = joinPayload?.sessionId;
     if (!activeSessionId) return;
 
+    const patientId = selectedSession.patientId;
+    const patient = await getPatientByIdForDoctor(patientId);
+    console.log('Patient details for post-session action:', patient);
+
     try {
       await endTelemedicineSession(activeSessionId);
       setMessage('Session ended successfully.');
@@ -145,6 +151,10 @@ const DoctorTelehealth = () => {
     } finally {
       setJoinPayload(null);
       setCurrentAppointment(null);
+      if (patientId) {
+        navigate(`/doctor/prescriptions/new?patientId=${patient._id}`);
+        return;
+      }
       await loadSessions();
     }
   };

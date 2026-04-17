@@ -22,12 +22,9 @@ app.use(cors(corsOptions));
 app.use(helmet()); 
 
 app.use('/public', publicRoutes);
+
 app.use(verifyToken);
 app.use('/', routes);
-
-app.get('/health', (req, res) => {
-    res.status(200).json({ status: 'API Gateway is healthy' });
-});
 
 app.use((req, res, next) => {
     res.status(404).json({ success: false, message: 'API endpoint not found on Gateway' });

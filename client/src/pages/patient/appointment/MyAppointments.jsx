@@ -4,18 +4,21 @@ import { getMyAppointmentsRequest, cancelAppointmentRequest, getAllDoctorsReques
 import { getDoctorByIdForPatient } from '../../../services/patient.service';
 import { getDoctorById } from '../../../services/user.service';
 import { createPayment } from '../../../services/payment.service'; 
-import { useAuth } from '../../../context/AuthContext'; // To get the logged-in patient's ID
+import { useAuth } from '../../../context/AuthContext'; 
 import { 
   Calendar, Clock, Plus, Video,
-  MapPin, ChevronRight, XCircle, CreditCard, Loader2, FilePenLine, Save
+  MapPin, ChevronRight, XCircle, CreditCard, Loader2, FilePenLine, Save, Star
 } from 'lucide-react';
+
+// IMPORT THE FEEDBACK COMPONENT
+import Feedback from '../../../components/doctor/Feedback';
 
 const statusStyles = {
   pending: 'bg-amber-50 text-amber-700 border-amber-200',
   accepted: 'bg-emerald-50 text-emerald-700 border-emerald-200',
   cancelled: 'bg-rose-50 text-rose-700 border-rose-200',
   rejected: 'bg-slate-50 text-slate-600 border-slate-200',
-  completed: 'bg-blue-50 text-blue-700 border-blue-200', // Added completed style
+  completed: 'bg-blue-50 text-blue-700 border-blue-200', 
 };
 
 const normalizeStatus = (s) => String(s || '').trim().toLowerCase();
@@ -75,7 +78,7 @@ const extractDoctorUserId = (doctor) => {
 
 const MyAppointments = () => {
   const navigate = useNavigate();
-  const { user } = useAuth(); // Fallback for patientId if not explicitly in the appt object
+  const { user } = useAuth(); 
   
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -98,7 +101,12 @@ const MyAppointments = () => {
   const [editEndTime, setEditEndTime] = useState('');
   
   // Tab State
-  const [activeTab, setActiveTab] = useState('upcoming'); // 'upcoming' or 'completed'
+  const [activeTab, setActiveTab] = useState('upcoming'); 
+
+  // --- NEW: FEEDBACK MODAL STATE ---
+  const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
+  const [feedbackDoctorId, setFeedbackDoctorId] = useState('');
+  const [feedbackDoctorName, setFeedbackDoctorName] = useState('');
 
   const loadAppointments = async () => {
     setLoading(true);
@@ -201,6 +209,7 @@ const MyAppointments = () => {
 
   useEffect(() => {
     loadAppointments();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleCancelRequest = (appointment) => {
@@ -250,10 +259,8 @@ const MyAppointments = () => {
         currency: 'LKR',
       };
 
-      // Call your backend to create the order and generate the hash
       const response = await createPayment(paymentData);
 
-      // Verify the backend actually returned what we need for Checkout API
       if (!response.hash || !response.order_id || !response.amount || !response.merchant_id) {
         throw new Error("Invalid payment data received from server.");
       }
@@ -268,7 +275,6 @@ const MyAppointments = () => {
         order_id: response.order_id,
         items: response.items || `Consultation Fee - Dr. ${doctorName}`,
 
-        // Use EXACTLY what the backend returns to keep the hash valid.
         amount: response.amount,
         currency: response.currency || 'LKR',
         hash: response.hash,
@@ -284,11 +290,8 @@ const MyAppointments = () => {
         custom_1: response.custom_1 || String(appt._id),
         custom_2: response.custom_2 || String(patientId),
       };
-      console.log("Initiating payment with object:", paymentObject);
-
-      // Define Callbacks
+      
       window.payhere.onCompleted = async function onCompleted(orderId) {
-        console.log("Payment completed. OrderID:" + orderId);
         alert("Payment Successful! Your appointment is confirmed.");
         await loadAppointments(); 
       };
@@ -298,15 +301,12 @@ const MyAppointments = () => {
       };
 
       window.payhere.onError = function onError(error) {
-        console.log("Payment Error:" + error);
         alert("An error occurred during payment: " + error);
       };
 
-      // Trigger the PayHere Popup
       window.payhere.startPayment(paymentObject);
 
     } catch (err) {
-      console.error("Payment Initiation Error:", err);
       alert(err?.response?.data?.message || err.message || 'Failed to initiate payment.');
     } finally {
       setPayingId(null);
@@ -394,7 +394,6 @@ const MyAppointments = () => {
     );
   }
 
-  // Filter appointments based on active tab
   const displayedAppointments = appointments.filter((appt) => {
     const isCompleted = normalizeStatus(appt.status) === 'completed';
     return activeTab === 'completed' ? isCompleted : !isCompleted;
@@ -752,7 +751,6 @@ const MyAppointments = () => {
                         </>
                       )}
                       
-                      {/* Show Payment Button if Status is Accepted */}
                       {status === 'accepted' && (
                         <button
                           onClick={() => handlePayment(appt)}
@@ -776,6 +774,21 @@ const MyAppointments = () => {
                         >
                           <XCircle size={16} />
                           {cancellingId === appt._id ? 'Cancelling…' : 'Cancel'}
+                        </button>
+                      )}
+
+                      {/* NEW: LEAVE FEEDBACK BUTTON */}
+                      {status === 'completed' && !isEditing && (
+                        <button
+                          onClick={() => {
+                            setFeedbackDoctorId(extractDoctorId(appt));
+                            setFeedbackDoctorName(doctorName);
+                            setIsFeedbackOpen(true);
+                          }}
+                          className="inline-flex justify-center items-center gap-1.5 px-4 py-2 rounded-xl border border-amber-200 bg-white text-amber-700 hover:bg-amber-50 text-sm font-bold transition-colors"
+                        >
+                          <Star size={16} />
+                          Leave Feedback
                         </button>
                       )}
                       
@@ -811,6 +824,7 @@ const MyAppointments = () => {
         </div>
       )}
 
+      {/* Cancel Confirmation Modal */}
       {confirmCancelAppointment && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm px-4">
           <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl border border-slate-200">
@@ -843,6 +857,7 @@ const MyAppointments = () => {
         </div>
       )}
 
+      {/* Cancel Feedback Alert */}
       {cancelFeedback.open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm px-4">
           <div className="w-full max-w-sm rounded-2xl bg-white shadow-2xl border border-slate-200 p-6">
@@ -862,6 +877,15 @@ const MyAppointments = () => {
           </div>
         </div>
       )}
+
+      {/* RENDER FEEDBACK MODAL */}
+      <Feedback 
+        isOpen={isFeedbackOpen}
+        onClose={() => setIsFeedbackOpen(false)}
+        doctorId={feedbackDoctorId}
+        doctorName={`Dr. ${feedbackDoctorName}`}
+      />
+
     </div>
   );
 };
