@@ -88,6 +88,8 @@ const MyAppointments = () => {
   const [savingId, setSavingId] = useState(null);
   const [loadingAvailabilityId, setLoadingAvailabilityId] = useState(null);
   const [availabilityByAppointmentId, setAvailabilityByAppointmentId] = useState({});
+  const [confirmCancelAppointment, setConfirmCancelAppointment] = useState(null);
+  const [cancelFeedback, setCancelFeedback] = useState({ open: false, message: '', tone: 'error' });
   const [editReason, setEditReason] = useState('');
   const [editNotes, setEditNotes] = useState('');
   const [editDayOfWeek, setEditDayOfWeek] = useState('');
@@ -201,14 +203,30 @@ const MyAppointments = () => {
     loadAppointments();
   }, []);
 
-  const handleCancel = async (id) => {
-    if (!window.confirm('Cancel this appointment?')) return;
+  const handleCancelRequest = (appointment) => {
+    setConfirmCancelAppointment(appointment);
+  };
+
+  const handleCancelConfirmed = async () => {
+    const id = confirmCancelAppointment?._id;
+    if (!id) return;
+
     setCancellingId(id);
     try {
       await cancelAppointmentRequest(id);
       await loadAppointments();
+      setConfirmCancelAppointment(null);
+      setCancelFeedback({
+        open: true,
+        message: 'Appointment cancelled successfully.',
+        tone: 'success',
+      });
     } catch (err) {
-      alert(err?.response?.data?.message || 'Failed to cancel appointment.');
+      setCancelFeedback({
+        open: true,
+        message: err?.response?.data?.message || 'Failed to cancel appointment.',
+        tone: 'error',
+      });
     } finally {
       setCancellingId(null);
     }
@@ -752,7 +770,7 @@ const MyAppointments = () => {
 
                       {status === 'pending' && !isEditing && (
                         <button
-                          onClick={() => handleCancel(appt._id)}
+                          onClick={() => handleCancelRequest(appt)}
                           disabled={cancellingId === appt._id}
                           className="inline-flex justify-center items-center gap-1.5 px-4 py-2 rounded-xl border border-rose-200 bg-white text-rose-600 hover:bg-rose-50 text-sm font-bold transition-colors disabled:opacity-50"
                         >
@@ -790,6 +808,58 @@ const MyAppointments = () => {
               </article>
             );
           })}
+        </div>
+      )}
+
+      {confirmCancelAppointment && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm px-4">
+          <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl border border-slate-200">
+            <div className="p-6">
+              <h3 className="text-lg font-extrabold text-slate-900">Cancel Appointment</h3>
+              <p className="mt-2 text-sm text-slate-600">
+                Are you sure you want to cancel your appointment with Dr. {getDoctorDisplayName(confirmCancelAppointment?.doctor || confirmCancelAppointment?.doctorId) || 'Doctor'}?
+              </p>
+              <div className="mt-6 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setConfirmCancelAppointment(null)}
+                  disabled={cancellingId === confirmCancelAppointment?._id}
+                  className="px-4 py-2 rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 text-sm font-bold disabled:opacity-50"
+                >
+                  Keep Appointment
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCancelConfirmed}
+                  disabled={cancellingId === confirmCancelAppointment?._id}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-transparent bg-rose-600 text-white hover:bg-rose-700 text-sm font-bold disabled:opacity-50"
+                >
+                  {cancellingId === confirmCancelAppointment?._id ? <Loader2 size={15} className="animate-spin" /> : <XCircle size={15} />}
+                  {cancellingId === confirmCancelAppointment?._id ? 'Cancelling...' : 'Yes, Cancel'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {cancelFeedback.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm px-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white shadow-2xl border border-slate-200 p-6">
+            <h3 className={`text-base font-extrabold ${cancelFeedback.tone === 'success' ? 'text-emerald-700' : 'text-rose-700'}`}>
+              {cancelFeedback.tone === 'success' ? 'Success' : 'Unable to Cancel'}
+            </h3>
+            <p className="mt-2 text-sm text-slate-600">{cancelFeedback.message}</p>
+            <div className="mt-5 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setCancelFeedback({ open: false, message: '', tone: 'error' })}
+                className="px-4 py-2 rounded-xl bg-slate-900 text-white hover:bg-slate-800 text-sm font-bold"
+              >
+                Close
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
