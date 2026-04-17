@@ -1,6 +1,6 @@
 Write-Host "🔄 Cleaning up existing Kubernetes pods..." -ForegroundColor Yellow
 kubectl delete -f k8s/ -R
-docker build -t docker-api-gateway:latest -f ./api-gateway/Dockerfile .
+docker build -t api-gateway ./api-gateway
 docker build -t docker-auth-service:latest -f ./services/auth-service/Dockerfile .
 docker build -t docker-patient-service:latest -f ./services/patient-service/Dockerfile .
 docker build -t docker-doctor-service:latest -f ./services/doctor-service/Dockerfile .
