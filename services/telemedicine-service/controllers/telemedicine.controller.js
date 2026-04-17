@@ -140,7 +140,7 @@ const resolveParticipantIdFromUser = async (user) => {
     }
 
     if (user.role === 'Patient') {
-        const patient = await getPatientByIdInternal(user.id);
+        const patient = await getPatientByUserIdInternal(user.id);
         if (!patient?._id) {
             throw new ApiError(404, 'Patient profile not found.');
         }
