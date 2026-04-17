@@ -32,7 +32,19 @@ router.use('/api/doctors', createProxyMiddleware({ target: services.doctor, chan
 router.use('/api/appointments', createProxyMiddleware({ target: services.appointment, changeOrigin: true, onError: onProxyError }));
 router.use('/api/payments', createProxyMiddleware({ target: services.payment, changeOrigin: true, onError: onProxyError }));
 router.use('/api/notifications', createProxyMiddleware({ target: services.notification, changeOrigin: true, onError: onProxyError }));
-router.use('/api/ai', createProxyMiddleware({ target: services.ai, changeOrigin: true, onError: onProxyError }));
 router.use('/api/telemedicine', createProxyMiddleware({ target: services.telemedicine, changeOrigin: true, onError: onProxyError }));
+router.use('/api/ai', createProxyMiddleware({
+  target: services.ai,
+  changeOrigin: true,
+  onError: onProxyError,
+  pathRewrite: (path) => `/api/ai${path}`,
+
+  onProxyReq: (proxyReq, req) => {
+    if (req.headers.cookie) {
+      proxyReq.setHeader('Cookie', req.headers.cookie);
+    }
+  }
+}));
+
 
 export default router;
