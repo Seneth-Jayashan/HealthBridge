@@ -16,7 +16,7 @@ import VideoConsultRoom from '../../components/telemedicine/VideoConsultRoom';
 import Feedback from '../../components/doctor/Feedback'; 
 
 const PatientTelehealth = () => {
-  const { user } = useAuth();
+const { user } = useAuth();
   const [sessions, setSessions] = useState([]);
   const [appointments, setAppointments] = useState([]);
   const [selectedSessionId, setSelectedSessionId] = useState('');
@@ -32,11 +32,15 @@ const PatientTelehealth = () => {
   const [feedbackDoctorId, setFeedbackDoctorId] = useState('');
   const [feedbackDoctorName, setFeedbackDoctorName] = useState('');
 
+  const [selectedDoctor, setSelectedDoctor] = useState(null);
+
+  // 1. Memoize the selected session
   const selectedSession = useMemo(
     () => sessions.find((session) => session._id === selectedSessionId) || null,
     [sessions, selectedSessionId],
   );
 
+  // 2. Memoize the dictionary of appointments
   const appointmentsById = useMemo(() => {
     return appointments.reduce((acc, appointment) => {
       if (appointment?._id) {
@@ -45,6 +49,17 @@ const PatientTelehealth = () => {
       return acc;
     }, {});
   }, [appointments]);
+
+  // FIX: Replace getSessionDetails and its separate state with a useMemo.
+  // This automatically keeps session & appointment details synced without side-effects.
+  const selectedSessionDetails = useMemo(() => {
+    if (!selectedSession) return null;
+    return {
+      ...selectedSession,
+      appointment: appointmentsById[selectedSession.appointmentId] || null
+    };
+  }, [selectedSession, appointmentsById]);
+
 
   const loadSessions = async () => {
     setLoading(true);
@@ -55,13 +70,43 @@ const PatientTelehealth = () => {
         getPatientOnlineAppointments()
       ]);
       const safeList = Array.isArray(data) ? data : [];
-      setSessions(safeList);
+
+      // Add Doctor Names to Sessions
+      const sessionsWithDoctorNames = await Promise.all(safeList.map(async (session) => {
+        try {
+          // Safely check both locations for doctorId
+          const doctorId = session?.metadata?.doctorId || session?.doctorId;
+          if (!doctorId) return session;
+
+          // Fetch the doctor profile
+          const doctorResponse = await getDoctorByIdForPatient(doctorId);
+          
+          // CRITICAL FIX: Handle the data whether it's wrapped in .data or not
+          const actualDoctorData = doctorResponse?.data || doctorResponse;
+
+          let doctorName = 'Dr. Doctor';
+          
+          // Now check the safely extracted object for the userId
+          if (actualDoctorData?.userId) {
+            const nameResponse = await getDoctorById(actualDoctorData.userId);
+            doctorName = nameResponse?.name || nameResponse?.data?.name || 'Dr. Doctor';
+          }
+
+          return { ...session, doctorName };
+        } catch (error) {
+          console.error("Failed to fetch name for session:", session._id, error);
+          return { ...session, doctorName: 'Dr. Doctor' }; 
+        }
+      }));
+
+      // FIX: Actually use the array that has the doctor names in it!
+      setSessions(sessionsWithDoctorNames);
       setAppointments(Array.isArray(appts) ? appts : []);
 
-      if (safeList.length === 0) {
+      if (sessionsWithDoctorNames.length === 0) {
         setSelectedSessionId('');
-      } else if (!safeList.some((session) => session._id === selectedSessionId)) {
-        setSelectedSessionId(safeList[0]._id);
+      } else if (!sessionsWithDoctorNames.some((session) => session._id === selectedSessionId)) {
+        setSelectedSessionId(sessionsWithDoctorNames[0]._id);
       }
     } catch (requestError) {
       setError(requestError?.response?.data?.message || 'Unable to load your appointments.');
@@ -69,6 +114,8 @@ const PatientTelehealth = () => {
       setLoading(false);
     }
   };
+
+  console.log("sessions with doctor names:", sessions);
 
   useEffect(() => {
     loadSessions();
@@ -86,7 +133,6 @@ const PatientTelehealth = () => {
         const liveSession = safeList.find((session) => session._id === joinPayload.sessionId);
         const status = String(liveSession?.status || '').toLowerCase();
 
-        // If the backend marks the session as ended while we are in it
         if (!liveSession || terminalStatuses.has(status)) {
           triggerCallEnd();
         }
@@ -96,8 +142,6 @@ const PatientTelehealth = () => {
     };
 
     const intervalId = window.setInterval(syncSessionState, 5000);
-    
-    // STOP HERE. Do not add code after the return statement.
     return () => window.clearInterval(intervalId); 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [joinPayload?.sessionId]);
@@ -132,50 +176,50 @@ const PatientTelehealth = () => {
     }
   };
 
-  // --- check selectedSession id from sessions to get All details of the session
-  const getSessionDetails = (selectedSessionId) => {
-    const session = sessions.find(s => s._id === selectedSessionId);
-    if (!session) return null;
-    const appointment = appointments.find(a => a._id === session.appointmentId);
-    return {
-      ...session,
-      appointmentDetails: appointment || {},
-    };
-  };
 
-  const fetchCompleteDoctorDetails = async (selectedSessionId) => {
-      try {
-          const docId = getSessionDetails(selectedSessionId)?.doctorId || null;
-          
-          if (!docId) {
-              return { docId: null, doctorData: null, docName: 'Your Doctor' };
-          }
-
-          const doctor = await getDoctorByIdForPatient(docId);
-          const actualDoctorData = doctor?.data || doctor;
-
-          let docName = 'Your Doctor';
-          if (actualDoctorData?.userId) {
-              const nameResponse = await getDoctorById(actualDoctorData.userId);
-              docName = nameResponse?.name || nameResponse?.data?.name || 'Your Doctor';
-          }
-
-          return {
-              docId,
-              doctorData: actualDoctorData,
-              docName
-          };
-
-      } catch (error) {
-          console.error("Error fetching complete doctor details:", error);
-          return { docId: null, doctorData: null, docName: 'Your Doctor' };
+  // FIX: Moved fetching logic inside the useEffect where it belongs.
+  // It now relies safely on the memoized `selectedSessionDetails` variable.
+  useEffect(() => {
+    const loadDoctorDetails = async () => {
+      // Safely check both locations your doctorId might live
+      const docId = selectedSessionDetails?.doctorId || selectedSessionDetails?.metadata?.doctorId || null;
+      
+      if (!docId) {
+        setSelectedDoctor({ docId: null, doctorData: null, docName: 'Your Doctor' });
+        return;
       }
-  };
+
+      try {
+        const doctor = await getDoctorByIdForPatient(docId);
+        const actualDoctorData = doctor?.data || doctor;
+
+        let docName = 'Your Doctor';
+        if (actualDoctorData?.userId) {
+            const nameResponse = await getDoctorById(actualDoctorData.userId);
+            docName = nameResponse?.name || nameResponse?.data?.name || 'Your Doctor';
+        }
+
+        setSelectedDoctor({
+            docId,
+            doctorData: actualDoctorData,
+            docName
+        });
+      } catch (error) {
+        console.error("Error fetching complete doctor details:", error);
+        setSelectedDoctor({ docId: null, doctorData: null, docName: 'Your Doctor' });
+      }
+    };
+
+    // Only run this if we actually have session details ready
+    if (selectedSessionId && selectedSessionDetails) {
+      loadDoctorDetails();
+    }
+  }, [selectedSessionId, selectedSessionDetails]);
 
   // --- NEW HANDLER FOR ENDING THE CALL ---
   // --- CORRECTED HANDLER FOR ENDING THE CALL ---
   const triggerCallEnd = async () => {
-    const { docId, docName } = await fetchCompleteDoctorDetails(selectedSessionId);
+    const { docId, docName } = selectedDoctor || {};
 
     if (docId) {
       setFeedbackDoctorId(docId);
@@ -293,7 +337,7 @@ const PatientTelehealth = () => {
                           </span>
                         </div>
                         
-                        <h3 className="text-xl font-bold text-slate-900 mb-1">{session.channelName}</h3>
+                        <h3 className="text-xl font-bold text-slate-900 mb-1">{session.doctorName || 'Dr. Doctor'}</h3>
                         <div className="flex items-center gap-2 text-sm font-medium text-slate-500">
                           <Stethoscope size={16} />
                           <span className="line-clamp-1">{sessionTopic}</span>
@@ -356,7 +400,7 @@ const PatientTelehealth = () => {
                       <div>
                         <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Reason</p>
                         <p className="font-semibold text-slate-800 line-clamp-1">
-                          {appointmentsById[selectedSession.appointmentId]?.reason || 'General'}
+                          {selectedSessionDetails?.metadata?.reason || 'General'}
                         </p>
                       </div>
                     </div>
@@ -366,9 +410,9 @@ const PatientTelehealth = () => {
                         <User size={24} />
                       </div>
                       <div>
-                        <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Patient</p>
+                        <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Doctor</p>
                         <p className="font-semibold text-slate-800 line-clamp-1">
-                          {user?.name || 'You'}
+                          {selectedDoctor?.docName || 'You'}
                         </p>
                       </div>
                     </div>
