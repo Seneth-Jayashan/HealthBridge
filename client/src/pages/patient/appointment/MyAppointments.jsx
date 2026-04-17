@@ -10,7 +10,6 @@ import {
   MapPin, ChevronRight, XCircle, CreditCard, Loader2, FilePenLine, Save, Star
 } from 'lucide-react';
 
-// IMPORT THE FEEDBACK COMPONENT
 import Feedback from '../../../components/doctor/Feedback';
 
 const statusStyles = {
@@ -103,7 +102,7 @@ const MyAppointments = () => {
   // Tab State
   const [activeTab, setActiveTab] = useState('upcoming'); 
 
-  // --- NEW: FEEDBACK MODAL STATE ---
+  // Feedback Modal State
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
   const [feedbackDoctorId, setFeedbackDoctorId] = useState('');
   const [feedbackDoctorName, setFeedbackDoctorName] = useState('');
@@ -291,26 +290,30 @@ const MyAppointments = () => {
         custom_2: response.custom_2 || String(patientId),
       };
       
+      // --- UPDATE: CLEAR STATE IN CALLBACKS ---
       window.payhere.onCompleted = async function onCompleted(orderId) {
         alert("Payment Successful! Your appointment is confirmed.");
         await loadAppointments(); 
+        setPayingId(null); // Clear loading screen
       };
 
       window.payhere.onDismissed = function onDismissed() {
         console.log("Payment dismissed");
+        setPayingId(null); // Clear loading screen
       };
 
       window.payhere.onError = function onError(error) {
         alert("An error occurred during payment: " + error);
+        setPayingId(null); // Clear loading screen
       };
 
       window.payhere.startPayment(paymentObject);
 
     } catch (err) {
       alert(err?.response?.data?.message || err.message || 'Failed to initiate payment.');
-    } finally {
-      setPayingId(null);
-    }
+      setPayingId(null); // Only clear here if the API call fails BEFORE opening PayHere
+    } 
+    // Removed `finally { setPayingId(null) }` so the loading screen stays active!
   };
 
   const startEditing = async (appt) => {
@@ -400,7 +403,7 @@ const MyAppointments = () => {
   });
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-6 md:py-10">
+    <div className="max-w-5xl mx-auto px-4 py-6 md:py-10 relative">
 
       {/* Header */}
       <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -777,7 +780,7 @@ const MyAppointments = () => {
                         </button>
                       )}
 
-                      {/* NEW: LEAVE FEEDBACK BUTTON */}
+                      {/* LEAVE FEEDBACK BUTTON */}
                       {status === 'completed' && !isEditing && (
                         <button
                           onClick={() => {
@@ -821,6 +824,22 @@ const MyAppointments = () => {
               </article>
             );
           })}
+        </div>
+      )}
+
+      {/* NEW: FULL SCREEN LOADING OVERLAY FOR PAYHERE */}
+      {payingId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm px-4">
+          <div className="w-full max-w-sm rounded-3xl bg-white shadow-2xl border border-slate-200 p-8 text-center flex flex-col items-center animate-in zoom-in duration-200">
+            <div className="bg-blue-50 p-4 rounded-full mb-4">
+              <Loader2 size={40} className="animate-spin text-blue-600" />
+            </div>
+            <h3 className="text-xl font-bold text-slate-900">Processing Payment</h3>
+            <p className="mt-2 text-sm text-slate-500">
+              Please complete your payment in the secure PayHere window. <br className="my-1"/>
+              <span className="font-bold text-slate-700">Do not close or refresh this page.</span>
+            </p>
+          </div>
         </div>
       )}
 

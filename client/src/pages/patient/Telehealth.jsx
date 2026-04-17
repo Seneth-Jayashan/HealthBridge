@@ -95,7 +95,9 @@ const PatientTelehealth = () => {
     };
 
     const intervalId = window.setInterval(syncSessionState, 5000);
-    return () => window.clearInterval(intervalId);
+    
+    // STOP HERE. Do not add code after the return statement.
+    return () => window.clearInterval(intervalId); 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [joinPayload?.sessionId]);
 
@@ -130,11 +132,15 @@ const PatientTelehealth = () => {
   };
 
   // --- NEW HANDLER FOR ENDING THE CALL ---
+  // --- CORRECTED HANDLER FOR ENDING THE CALL ---
   const triggerCallEnd = async () => {
-    // 1. Capture the doctor's info before clearing the state
-    if (currentAppointment?.doctorId) {
-      setFeedbackDoctorId(currentAppointment.doctorId);
-      setFeedbackDoctorName(currentAppointment.doctorName || 'your doctor'); // Assuming you have doctorName in appointment
+    // 1. Capture the doctor's info safely into local variables first
+    const docId = currentAppointment?.doctorId || currentAppointment?.doctor?._id;
+    const docName = currentAppointment?.doctorName || currentAppointment?.doctor?.name || 'your doctor';
+
+    if (docId) {
+      setFeedbackDoctorId(docId);
+      setFeedbackDoctorName(docName);
     }
 
     // 2. Clear the video room state
@@ -146,8 +152,8 @@ const PatientTelehealth = () => {
     // 3. Refresh the session list
     await loadSessions();
 
-    // 4. Open the Feedback Modal
-    if (currentAppointment?.doctorId) {
+    // 4. Open the Feedback Modal using the local variable we saved in step 1!
+    if (docId) {
       setIsFeedbackOpen(true);
     }
   };
