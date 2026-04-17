@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { 
   Activity, Calendar, MessageCircle, UserRound, LogOut, 
@@ -9,22 +9,22 @@ import {
 import { useAuth } from '../../context/AuthContext'; 
 
 const navItems = [
-  { label: 'Overview',         to: '/patient/dashboard',     icon: Activity },
-  { label: 'Telehealth', to: '/patient/telehealth', icon: Video },
-  { label: 'Medical Reports', to: '/patient/reports', icon: HeartPulse },
-  { label: 'Prescriptions',    to: '/patient/prescriptions', icon: FileText },
-  { label: 'Payments', to: '/patient/payments', icon: CreditCard },
-  { label: 'Profile Settings', to: '/patient/profile',       icon: UserRound },
+  { label: 'Overview',         to: '/patient/dashboard',      icon: Activity },
+  { label: 'Telehealth',       to: '/patient/telehealth',     icon: Video },
+  { label: 'Medical Reports',  to: '/patient/reports',        icon: HeartPulse },
+  { label: 'Prescriptions',    to: '/patient/prescriptions',  icon: FileText },
+  { label: 'Payments',         to: '/patient/payments',       icon: CreditCard },
+  { label: 'Profile Settings', to: '/patient/profile',        icon: UserRound },
 ];
 
 const aiNavItems = [
-  { label: 'Symptom Checker',  to: '/symptom-checker',       icon: Brain },
-  { label: 'Symptom History',  to: '/symptom-history',       icon: ClipboardList },
+  { label: 'Symptom Checker',  to: '/symptom-checker',        icon: Brain },
+  { label: 'Symptom History',  to: '/symptom-history',        icon: ClipboardList },
 ];
 
 const appointmentSubItems = [
   { label: 'Book Appointment', to: '/patient/appointment/book', icon: CalendarPlus },
-  { label: 'My Appointments', to: '/patient/appointment/my', icon: CalendarCheck },
+  { label: 'My Appointments',  to: '/patient/appointment/my',   icon: CalendarCheck },
 ];
 
 const PatientSidebar = () => {
@@ -38,6 +38,23 @@ const PatientSidebar = () => {
   // Auto-open dropdown if current path is an appointment page
   const isAppointmentActive = location.pathname.startsWith('/patient/appointment');
   const [appointmentOpen, setAppointmentOpen] = useState(isAppointmentActive);
+
+  // Close mobile sidebar on route change
+  useEffect(() => {
+    setIsOpen(false);
+  }, [location]);
+
+  // Prevent background scroll when mobile menu is open
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isOpen]);
 
   const handleLogout = () => {
     logout(); 
@@ -53,7 +70,7 @@ const PatientSidebar = () => {
   return (
     <>
       {/* Mobile Top Bar */}
-      <div className="md:hidden flex items-center justify-between bg-white border-b border-slate-100 px-6 py-4 sticky top-0 z-30">
+      <div className="md:hidden flex items-center justify-between bg-white border-b border-slate-100 px-5 py-4 sticky top-0 z-[40] w-full">
         <div className="flex items-center gap-3">
           <div className="bg-blue-700 p-2 rounded-lg shadow-md shadow-blue-700/20">
             <Activity className="text-white" size={18} />
@@ -64,26 +81,28 @@ const PatientSidebar = () => {
         </div>
         <button 
           onClick={() => setIsOpen(true)} 
-          className="text-slate-500 hover:text-slate-800 transition-colors p-1"
+          className="p-2 -mr-2 text-slate-600 active:bg-slate-100 rounded-full transition-colors"
+          aria-label="Open Menu"
         >
-          <Menu size={28} />
+          <Menu size={26} />
         </button>
       </div>
 
       {/* Mobile Overlay */}
-      {isOpen && (
-        <div 
-          className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-40 md:hidden transition-opacity"
-          onClick={closeMobileSidebar}
-        />
-      )}
+      <div 
+        className={`fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[50] md:hidden transition-opacity duration-300 ${
+          isOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+        }`}
+        onClick={closeMobileSidebar}
+      />
 
       {/* Main Sidebar */}
       <aside className={`
-        fixed inset-y-0 left-0 z-50 bg-white border-r border-slate-100 flex flex-col transition-all duration-300 ease-in-out shadow-2xl md:shadow-[4px_0_24px_rgba(0,0,0,0.02)]
+        fixed inset-y-0 left-0 z-[60] bg-white border-r border-slate-100 flex flex-col transition-all duration-300 ease-in-out shadow-2xl md:shadow-[4px_0_24px_rgba(0,0,0,0.02)]
         ${isOpen ? 'translate-x-0' : '-translate-x-full'}
         md:translate-x-0 md:static md:h-screen md:top-0
-        ${isCollapsed ? 'md:w-20 w-72' : 'w-72'}
+        ${isCollapsed ? 'md:w-20' : 'md:w-72'}
+        w-[280px] sm:w-[320px]
       `}>
         
         {/* Desktop Collapse Toggle */}
@@ -92,13 +111,13 @@ const PatientSidebar = () => {
             setIsCollapsed(!isCollapsed);
             if (!isCollapsed) setAppointmentOpen(false); // close dropdown when collapsing
           }}
-          className="hidden md:block absolute -right-3 top-8 bg-white border border-slate-200 text-slate-500 rounded-full p-1.5 shadow-sm hover:text-blue-600 hover:border-blue-300 transition-colors z-50"
+          className="hidden md:flex absolute -right-3 top-8 bg-white border border-slate-200 text-slate-500 rounded-full p-1.5 shadow-sm hover:text-blue-600 hover:border-blue-300 transition-colors z-50"
         >
           {isCollapsed ? <ChevronRight size={14} strokeWidth={3} /> : <ChevronLeft size={14} strokeWidth={3} />}
         </button>
 
         {/* Brand */}
-        <div className={`h-20 flex items-center border-b border-slate-50 overflow-hidden transition-all justify-between ${isCollapsed ? 'md:px-0 md:justify-center px-6' : 'px-6 gap-3'}`}>
+        <div className={`h-20 shrink-0 flex items-center border-b border-slate-50 overflow-hidden transition-all justify-between ${isCollapsed ? 'md:px-0 md:justify-center px-6' : 'px-6 gap-3'}`}>
           <Link to="/" className="flex items-center gap-3" onClick={closeMobileSidebar}>
             <div className="bg-blue-700 p-2 rounded-xl shadow-md shadow-blue-700/20 shrink-0 flex items-center justify-center">
               <Activity className="text-white" size={20} />
@@ -113,7 +132,7 @@ const PatientSidebar = () => {
         </div>
 
         {/* User Profile */}
-        <div className={`py-6 border-b border-slate-100 transition-all ${isCollapsed ? 'md:px-3 px-5' : 'px-5'}`}>
+        <div className={`py-6 shrink-0 border-b border-slate-100 transition-all ${isCollapsed ? 'md:px-3 px-5' : 'px-5'}`}>
           <div className={`flex items-center bg-slate-50 rounded-2xl border border-slate-100 transition-colors hover:bg-slate-100 cursor-pointer ${isCollapsed ? 'md:p-2 md:justify-center p-3 gap-3' : 'p-3 gap-3'}`}>
             <div className="h-10 w-10 shrink-0 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-black text-sm border border-blue-200" title={user?.name}>
               {initials}
@@ -126,10 +145,10 @@ const PatientSidebar = () => {
         </div>
 
         {/* Navigation */}
-        <div className={`flex-1 overflow-y-auto py-6 ${isCollapsed ? 'md:px-3 px-4' : 'px-4'}`}>
+        <div className={`flex-1 overflow-y-auto custom-scrollbar py-6 ${isCollapsed ? 'md:px-3 px-4' : 'px-4'}`}>
           
           {/* Patient Portal Section */}
-          <p className={`px-4 text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 whitespace-nowrap ${isCollapsed ? 'md:hidden' : 'block'}`}>
+          <p className={`px-4 text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400 mb-4 whitespace-nowrap ${isCollapsed ? 'md:hidden' : 'block'}`}>
             Patient Portal
           </p>
           <nav className="space-y-1.5">
@@ -140,7 +159,7 @@ const PatientSidebar = () => {
               onClick={closeMobileSidebar}
               className={({ isActive }) =>
                 `w-full rounded-xl py-3 text-sm font-bold flex items-center transition-all duration-200 ${isCollapsed ? 'md:px-0 md:justify-center px-4 gap-3' : 'px-4 gap-3'} ${
-                  isActive ? 'bg-blue-700 text-white shadow-md shadow-blue-700/20' : 'text-slate-500 hover:bg-slate-50 hover:text-blue-700'
+                  isActive ? 'bg-blue-700 text-white shadow-lg shadow-blue-700/20' : 'text-slate-500 hover:bg-slate-50 hover:text-blue-700'
                 }`
               }
             >
@@ -239,7 +258,7 @@ const PatientSidebar = () => {
                 className={({ isActive }) =>
                   `w-full rounded-xl py-3 text-sm font-bold flex items-center transition-all duration-200 ${isCollapsed ? 'md:px-0 md:justify-center px-4 gap-3' : 'px-4 gap-3'} ${
                     isActive
-                      ? 'bg-blue-700 text-white shadow-md shadow-blue-700/20'
+                      ? 'bg-blue-700 text-white shadow-lg shadow-blue-700/20'
                       : 'text-slate-500 hover:bg-slate-50 hover:text-blue-700'
                   }`
                 }
@@ -255,18 +274,18 @@ const PatientSidebar = () => {
           </nav>
 
           {/* AI Tools Section Divider */}
-          <div className={`mt-6 mb-3 ${isCollapsed ? 'md:hidden' : 'block'}`}>
+          <div className={`mt-6 mb-4 ${isCollapsed ? 'md:hidden' : 'block'}`}>
             <div className="px-2 flex items-center gap-2">
-              <div className="flex-1 h-px bg-slate-200" />
-              <span className="text-xs font-bold uppercase tracking-wider text-blue-600 whitespace-nowrap">
+              <div className="flex-1 h-px bg-slate-100" />
+              <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-blue-600 whitespace-nowrap">
                 🤖 AI Tools
               </span>
-              <div className="flex-1 h-px bg-slate-200" />
+              <div className="flex-1 h-px bg-slate-100" />
             </div>
           </div>
 
           {/* Collapsed divider line for AI section */}
-          <div className={`mt-4 mb-3 h-px bg-slate-200 ${isCollapsed ? 'md:block hidden' : 'hidden'}`} />
+          <div className={`mt-4 mb-3 h-px bg-slate-100 ${isCollapsed ? 'md:block hidden' : 'hidden'}`} />
 
           {/* AI Nav Items */}
           <nav className="space-y-1.5">
@@ -277,10 +296,10 @@ const PatientSidebar = () => {
                 onClick={closeMobileSidebar}
                 title={isCollapsed ? item.label : ""}
                 className={({ isActive }) =>
-                  `w-full rounded-xl py-3 text-sm font-bold flex items-center transition-all duration-200 ${isCollapsed ? 'md:px-0 md:justify-center px-4 gap-3' : 'px-4 gap-3'} ${
+                  `w-full rounded-xl py-3 text-sm font-bold flex items-center transition-all duration-200 border border-transparent ${isCollapsed ? 'md:px-0 md:justify-center px-4 gap-3' : 'px-4 gap-3'} ${
                     isActive
                       ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20'
-                      : 'text-blue-600 hover:bg-blue-50 hover:text-blue-700 border border-blue-100 bg-blue-50/50'
+                      : 'text-blue-600 hover:bg-blue-50 hover:text-blue-700 bg-blue-50/40 border-blue-100/50'
                   }`
                 }
               >
@@ -297,7 +316,7 @@ const PatientSidebar = () => {
         </div>
 
         {/* Logout */}
-        <div className={`p-4 border-t border-slate-100 bg-slate-50/50 ${isCollapsed ? 'md:flex md:justify-center' : ''}`}>
+        <div className={`p-4 shrink-0 border-t border-slate-100 bg-slate-50/50 ${isCollapsed ? 'md:flex md:justify-center' : ''}`}>
           <button 
             onClick={handleLogout}
             title={isCollapsed ? 'Secure Logout' : ''}

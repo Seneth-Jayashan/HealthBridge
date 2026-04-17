@@ -222,7 +222,7 @@ const DoctorDashboard = () => {
         <div className={`hb-dash-item opacity-0 flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 md:p-8 rounded-3xl shadow-lg border ${isDark ? 'bg-[#131C31] border-slate-800 shadow-black/20' : 'bg-white border-slate-100 shadow-blue-900/5'}`}>
           <div>
             <h1 className={`text-3xl font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>
-              Welcome back, Dr. {profile?.userId?.name || profile?.name || 'Doctor'}
+              Welcome back, Doctor
             </h1>
             <p className={`mt-2 font-medium ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
               Live overview of consultations, telehealth activity, and revenue performance.
