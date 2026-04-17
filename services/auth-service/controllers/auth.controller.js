@@ -2,6 +2,20 @@ import User from '../models/User.js';
 import jwt from 'jsonwebtoken';
 import { ApiError, ApiResponse } from '@healthbridge/shared';
 
+const normalizeRole = (role) => {
+    const value = String(role || '').trim().toLowerCase();
+    if (value === 'admin') return 'Admin';
+    if (value === 'doctor') return 'Doctor';
+    return 'Patient';
+};
+
+const assertInternalAccess = (req) => {
+    const secret = req.headers['x-internal-service-key'];
+    if (!secret || secret !== process.env.INTERNAL_SERVICE_SECRET) {
+        throw new ApiError(403, 'Forbidden: Invalid internal service credentials');
+    }
+};
+
 // Helper function to generate JWT
 const generateToken = (id, role) => {
     return jwt.sign({ id, role }, process.env.JWT_SECRET, { expiresIn: '1d' });
@@ -11,22 +25,29 @@ const generateToken = (id, role) => {
 // @route   POST /api/auth/register
 export const registerUser = async (req, res, next) => {
     try {
-        const { name, email, password, role } = req.body;
+        const { name, email, phoneNumber, password, role } = req.body;
+        const normalizedRole = normalizeRole(role);
+
+        if (normalizedRole === "Admin" && normalizeRole(req.user?.role) !== "Admin") {
+            throw new ApiError(403, "Only Admins can create another Admin user");
+        }
 
         const userExists = await User.findOne({ email });
         if (userExists) {
             throw new ApiError(400, "User already exists with this email");
         }
 
-        const user = await User.create({ name, email, password, role });
+        const user = await User.create({ name, email, phoneNumber, password, role: normalizedRole });
 
         if (user) {
-            const token = generateToken(user._id, user.role);
+            const canonicalRole = normalizeRole(user.role);
+            const token = generateToken(user._id, canonicalRole);
             res.status(201).json(new ApiResponse(201, {
                 _id: user._id,
                 name: user.name,
                 email: user.email,
-                role: user.role,
+                phoneNumber: user.phoneNumber,
+                role: canonicalRole,
                 token
             }, "User registered successfully"));
         } else {
@@ -46,12 +67,14 @@ export const loginUser = async (req, res, next) => {
         const user = await User.findOne({ email });
 
         if (user && (await user.matchPassword(password))) {
-            const token = generateToken(user._id, user.role);
+            const canonicalRole = normalizeRole(user.role);
+            const token = generateToken(user._id, canonicalRole);
             res.status(200).json(new ApiResponse(200, {
                 _id: user._id,
                 name: user.name,
                 email: user.email,
-                role: user.role,
+                phoneNumber: user.phoneNumber,
+                role: canonicalRole,
                 token
             }, "Login successful"));
         } else {
@@ -76,14 +99,35 @@ export const getMe = async (req, res, next) => {
     }
 };
 
-// @desc    Get all users (Admin only)
-// @route   GET /api/auth/admin/users
-export const getAllUsers = async (req, res, next) => {
+
+
+// @desc    Get admin users for internal service calls
+// @route   GET /api/auth/internal/admins
+// @access  Internal
+export const getInternalAdmins = async (req, res, next) => {
     try {
-        // Fetch all users, but exclude their hashed passwords for security
-        const users = await User.find({}).select('-password');
-        
-        res.status(200).json(new ApiResponse(200, users, "All platform users retrieved successfully"));
+        assertInternalAccess(req);
+        const admins = await User.find({ role: 'Admin' }).select('name email phoneNumber role');
+        res.status(200).json(new ApiResponse(200, admins, 'Admin users retrieved successfully'));
+    } catch (error) {
+        next(error);
+    }
+};
+
+// @desc    Get user details for internal service calls
+// @route   GET /api/auth/internal/users/:userId
+// @access  Internal
+export const getInternalUserById = async (req, res, next) => {
+    try {
+        assertInternalAccess(req);
+        const { userId } = req.params;
+        const user = await User.findById(userId).select('name email phoneNumber role');
+
+        if (!user) {
+            throw new ApiError(404, 'User not found');
+        }
+
+        res.status(200).json(new ApiResponse(200, user, 'User retrieved successfully'));
     } catch (error) {
         next(error);
     }

@@ -15,6 +15,6 @@ WORKDIR /app/services/doctor-service
 # 4. Install dependencies (it will now successfully find the ../../shared folder!)
 RUN npm install
 
-EXPOSE 3001
+EXPOSE 3003
 
 CMD ["npm", "start"]

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, NavLink, useNavigate } from 'react-router-dom';
+import { data, Link, NavLink, useNavigate } from 'react-router-dom';
 import { 
   Shield, Users, Activity, CreditCard, Stethoscope, BarChart3, 
   Settings, LogOut, ChevronLeft, ChevronRight 
@@ -11,9 +11,7 @@ const navItems = [
   { label: 'Provider Network', to: '/admin/providers', icon: Stethoscope },
   { label: 'Patient Directory', to: '/admin/patients', icon: Users },
   { label: 'Financial & Billing', to: '/admin/billing', icon: CreditCard },
-  { label: 'Platform Analytics', to: '/admin/analytics', icon: BarChart3 },
   { label: 'Security Audits', to: '/admin/security', icon: Shield },
-  { label: 'Global Settings', to: '/admin/settings', icon: Settings },
 ];
 
 const AdminSidebar = () => {

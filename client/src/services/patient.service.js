@@ -1,6 +1,66 @@
 import httpClient from '../api/Axios';
 
+// --- Dashboard ---
 export const getPatientDashboard = async () => {
-  const response = await httpClient.get('/patient/dashboard');
+  const response = await httpClient.get('/patients/dashboard');
+  return response.data?.data || response.data;
+};
+
+// --- Profile Management ---
+export const getPatientProfile = async () => {
+  const response = await httpClient.get('/patients/profile');
+  return response.data?.data || response.data;
+};
+
+export const updatePatientProfile = async (profileData) => {
+  const response = await httpClient.put('/patients/profile', profileData);
+  return response.data?.data || response.data;
+};
+
+// NEW: Fetch just the profile update status
+export const getIsProfileUpdated = async () => {
+  const response = await httpClient.get('/patients/profile/status');
+  return response.data?.data || response.data;
+};
+
+// --- Medical Reports ---
+/**
+ * Uploads a medical report.
+ * @param {FormData} formData - Must be a FormData object containing the 'reportFile' and text fields.
+ */
+export const uploadMedicalReport = async (formData) => {
+  const response = await httpClient.post('/patients/reports', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+  return response.data?.data || response.data;
+};
+
+export const deleteMedicalReport = async (reportId) => {
+  const response = await httpClient.delete(`/patients/reports/${reportId}`);
+  return response.data?.data || response.data;
+};
+
+
+
+// -----------------------------------------
+// --------  DOCTOR RELATED ACTIONS --------
+// -----------------------------------------
+
+// --- Get Doctor Profile for Patients ---
+export const getDoctorByIdForPatient = async (doctorId) => {
+  const response = await httpClient.get(`/doctors/patients/${doctorId}`);
+  return response.data?.data || response.data;
+};
+
+// --- Doctor Reviews ---
+export const submitDoctorReview = async (doctorId, rating, comment) => {
+  const response = await httpClient.post(`/doctors/patients/${doctorId}/reviews`, { rating, comment });
+  return response.data?.data || response.data;
+}
+
+export const deleteDoctorReview = async (doctorId) => {
+  const response = await httpClient.delete(`/doctors/patients/${doctorId}/reviews`);
   return response.data?.data || response.data;
 };

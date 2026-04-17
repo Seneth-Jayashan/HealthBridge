@@ -17,9 +17,10 @@ export const requireAuth = (req, res, next) => {
 // Checks if the logged-in user has the specific role needed
 export const requireRole = (...roles) => {
     return (req, res, next) => {
-        const userRole = req.headers['x-user-role'];
-        
-        if (!userRole || !roles.includes(userRole)) {
+        const userRole = String(req.headers['x-user-role'] || '').trim().toLowerCase();
+        const allowedRoles = roles.map((role) => String(role || '').trim().toLowerCase());
+
+        if (!userRole || !allowedRoles.includes(userRole)) {
             return next(new ApiError(403, `Forbidden: Requires one of roles: ${roles.join(', ')}`));
         }
         next();

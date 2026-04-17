@@ -13,8 +13,10 @@ services:
       - PORT=3000
       - JWT_SECRET=super_secret_healthbridge_key_change_this_later
       - AUTH_SERVICE_URL=http://auth-service:3001 # Docker networking magic!
+      - TELEMEDICINE_SERVICE_URL=http://telemedicine-service:3008
     depends_on:
       - auth-service
+      - telemedicine-service
 
   auth-service:
     build:
@@ -28,6 +30,7 @@ services:
       - JWT_SECRET=super_secret_healthbridge_key_change_this_later
       - MONGO_URI=mongodb+srv://HealthBridge_DB:Team_Health_Bridge_12@cluster0.d8ewy6i.mongodb.net/?appName=Cluster0
       - MONGO_DB_NAME=healthbridge_auth_db
+      - INTERNAL_SERVICE_SECRET=healthbridge_internal_secret
 
   patient-service:
     build:
@@ -42,15 +45,82 @@ services:
       - MONGO_URI=mongodb+srv://HealthBridge_DB:Team_Health_Bridge_12@cluster0.d8ewy6i.mongodb.net/?appName=Cluster0
       - MONGO_DB_NAME=healthbridge_patient_db
 
-  doctor-service:
+    doctor-service:
+      build:
+        context: ../
+        dockerfile: ./services/doctor-service/Dockerfile
+      container_name: healthbridge-doctor
+      ports:
+        - "3003:3003"
+      environment:
+        - PORT=3003
+        - JWT_SECRET=super_secret_healthbridge_key_change_this_later
+        - MONGO_URI=mongodb+srv://HealthBridge_DB:Team_Health_Bridge_12@cluster0.d8ewy6i.mongodb.net/?appName=Cluster0
+        - MONGO_DB_NAME=healthbridge_doctor_db
+        - NOTIFICATION_SERVICE_URL=http://notification-service:3006
+        - AUTH_SERVICE_URL=http://auth-service:3001
+        - INTERNAL_SERVICE_SECRET=healthbridge_internal_secret
+
+    payment-service:
+      build:
+        context: ../
+        dockerfile: ./services/payment-service/Dockerfile
+      container_name: healthbridge-payment
+      ports:
+        - "3005:3005"
+      environment:
+        - PORT=3005
+        - JWT_SECRET=super_secret_healthbridge_key_change_this_later
+        - MONGO_URI=mongodb+srv://HealthBridge_DB:Team_Health_Bridge_12@cluster0.d8ewy6i.mongodb.net/?appName=Cluster0
+        - MONGO_DB_NAME=healthbridge_payment_db
+        - AUTH_SERVICE_URL=http://auth-service:3001
+        - INTERNAL_SERVICE_SECRET=healthbridge_internal_secret
+        - PAYHERE_ENV=sandbox
+        - PAYHERE_MERCHANT_ID=1233185
+        - PAYHERE_MERCHANT_SECRET=Mzk1OTEwNzkyODIwNTE5ODU2MDAxNjI3OTE1NjExMTcxMzYwMDgwOQ==
+        - PAYHERE_RETURN_URL=http://localhost:5173/payment/success
+        - PAYHERE_CANCEL_URL=http://localhost:5173/payment/cancel
+        - PAYHERE_NOTIFY_URL=http://localhost:3000/api/v1/payment/notify
+        - PAYHERE_CURRENCY=LKR
+        - PAYHERE_API_ENDPOINT=https://sandbox.payhere.lk/pay/checkout
+  notification-service:
     build:
       context: ../
-      dockerfile: ./services/doctor-service/Dockerfile
-    container_name: healthbridge-doctor
+      dockerfile: ./services/notification-service/Dockerfile
+    container_name: healthbridge-notification
     ports:
-      - "3003:3003"
+      - "3006:3006"
     environment:
-      - PORT=3003
+      - PORT=3006
       - JWT_SECRET=super_secret_healthbridge_key_change_this_later
       - MONGO_URI=mongodb+srv://HealthBridge_DB:Team_Health_Bridge_12@cluster0.d8ewy6i.mongodb.net/?appName=Cluster0
-      - MONGO_DB_NAME=healthbridge_doctor_db
+      - MONGO_DB_NAME=healthbridge_notification_db
+      - AUTH_SERVICE_URL=http://auth-service:3001
+      - INTERNAL_SERVICE_SECRET=healthbridge_internal_secret
+      - ZOHO_CLIENT_ID=1000.ZXLU93XC9BHN1UWOM6CTFISV984WDS
+      - ZOHO_CLIENT_SECRET=9efce252928f0e2b51c042092d61dab154ef2e727f
+      - ZOHO_ACCESS_TOKEN=1000.36be57ad5de5418a0ddb698e83aa8a32.8a2c5ca372866b6e5abcb36e61183e4e
+      - ZOHO_REFRESH_TOKEN=1000.e2048aa8088aee4721b648dec458b8fd.3aab836c45c58afd47c6a968c6a1bb72
+      - ZOHO_ACCOUNT_ID=6144660000000008002
+      - ZOHO_EMAIL=no-reply@sjaywebsolutions.lk
+      - SMS_DRIVER=textlk
+      - TEXTLK_API_KEY=3687|q6pRAAWioGlYPEXaEKDLScXSOIeuwCDjurTRGNAL5814c9d8
+      - TEXTLK_SENDER_ID=OneX Team
+      - TEXTLK_URL=https://app.text.lk/api/v3/sms/send        
+
+  telemedicine-service:
+    build:
+      context: ../
+      dockerfile: ./services/telemedicine-service/Dockerfile
+    container_name: healthbridge-telemedicine
+    ports:
+      - "3008:3008"
+    environment:
+      - PORT=3008
+      - MONGO_URI=mongodb+srv://HealthBridge_DB:Team_Health_Bridge_12@cluster0.d8ewy6i.mongodb.net/?appName=Cluster0
+      - MONGO_DB_NAME=healthbridge_telemedicine_db
+      - AGORA_APP_ID=${AGORA_APP_ID}
+      - AGORA_APP_CERTIFICATE=${AGORA_APP_CERTIFICATE}
+      - AGORA_TOKEN_TTL_SECONDS=3600
+      - APPOINTMENT_SERVICE_URL=http://appointment-service:3004
+      - INTERNAL_SERVICE_SECRET=healthbridge_internal_secret

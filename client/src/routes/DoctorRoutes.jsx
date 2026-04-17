@@ -1,22 +1,39 @@
 import React from 'react';
 import { Routes, Route } from 'react-router-dom';
 import RequireRole from '../components/auth/RequireRole';
+// Make sure this path matches where you saved the file!
+import RequireDoctorApproved from '../components/doctor/RequireDoctorApproved';
 
-// Import Doctor Pages
 import DoctorDashboard from '../pages/doctor/Dashboard';
+import DoctorRequest from '../pages/doctor/Request';
+import AppointmentList from '../pages/doctor/appointment/AppointmentList';
+import DoctorTelehealth from "../pages/doctor/Telehealth";
+import DoctorProfile from '../pages/doctor/Profile';
+import MyPayments from '../pages/doctor/MyPayments';
+import Patients from '../pages/doctor/Patients';
+import Prescriptions from '../pages/doctor/CreatePrescription';
 
 export default function DoctorRoutes() {
   return (
     <Routes>
-      {/* Protects all nested routes ensuring ONLY Doctors can access them */}
+      {/* Level 1: Must be a Doctor */}
       <Route element={<RequireRole allowedRoles={['Doctor']} />}>
         
-        <Route path="dashboard" element={<DoctorDashboard />} />
+        <Route path="request" element={<DoctorRequest />} />
         
-        {/* Future routes: */}
-        {/* <Route path="schedule" element={<DoctorSchedule />} /> */}
-        {/* <Route path="telehealth" element={<LiveTelehealth />} /> */}
+        {/* Level 2: Must be a Doctor AND Approved */}
+        <Route element={<RequireDoctorApproved />}>
+          <Route path="dashboard" element={<DoctorDashboard />} />
+          <Route path="appointment" element={<AppointmentList />} />
+          <Route path="telehealth" element={<DoctorTelehealth />} />
+          <Route path="payments" element={<MyPayments />} />
+          <Route path="profile" element={<DoctorProfile />} />
+          <Route path="patients" element={<Patients />} />
+          <Route path="prescriptions/new" element={<Prescriptions />} />
+
+        </Route>
         
+      {/* Protects all nested routes ensuring ONLY Doctors can access them */}
       </Route>
     </Routes>
   );

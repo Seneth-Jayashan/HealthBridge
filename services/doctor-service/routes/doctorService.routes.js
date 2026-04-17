@@ -1,18 +1,78 @@
 import express from 'express';
-import { getDoctorProfile, updateDoctorProfile, verifyDoctor } from '../controllers/doctorService.controller.js';
-import { requireAuth, requireRole } from '@healthbridge/shared';
+import {
+    getVerifiedDoctors,
+    getDoctorProfile,
+    updateDoctorProfile,
+    uploadVerificationDocument,
+    updateDoctorAvailability,
+    getDoctorAvailability,
+    checkConsultationFee,
+    getDoctorByUserIdInternal,
+    getDoctorAvailabilityInternal,
+    reserveDoctorSlotInternal,
+    releaseDoctorSlotInternal,
+    getDoctorPatients,
+    removePatientFromDoctorList,
+    getDoctorDetailsInternal
+
+} from '../controllers/doctorService.controller.js'; 
+import { addToPatientList } from '../controllers/patient.doctor.controller.js';
+import { requireAuth, requireRole, createUploadMiddleware } from '@healthbridge/shared';
 
 const router = express.Router();
 
-// --- ADMIN ROUTES ---
-// Must go BEFORE the generic router.use() block so it doesn't get caught in the Doctor role check
-router.put('/admin/verify/:userId', requireAuth, requireRole('Admin'), verifyDoctor);
+const uploadVerification = createUploadMiddleware(
+    'doctor_verifications', 
+    ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'], 
+    5 
+);
 
-// These routes require the user to be logged in AND have the 'Doctor' role
+// ==========================================
+// INTERNAL / SERVICE-TO-SERVICE ROUTES
+// ==========================================
+router.get('/internal/payment/checkFee', checkConsultationFee);
+router.get('/internal/get-doctor/:userId', getDoctorByUserIdInternal);
+router.post('/internal/confirm/add-to-patient-list', addToPatientList);
+
+
+// ==========================================
+// PUBLIC/PATIENT ROUTES (Authenticated users)
+// ==========================================
+router.route('/')
+    .get(requireAuth, getVerifiedDoctors);
+
+// ==========================================
+// INTERNAL ROUTES (Service-to-service only)
+// ==========================================
+router.get('/internal/availability/:doctorId', getDoctorAvailabilityInternal);
+router.post('/internal/availability/:doctorId/reserve', reserveDoctorSlotInternal);
+router.post('/internal/availability/:doctorId/release', releaseDoctorSlotInternal);
+router.get('/internal/doctor/:doctorId', getDoctorDetailsInternal);
+
+// ==========================================
+// PRIVATE ROUTES (Accessible ONLY by Doctors)
+// ==========================================
+// Apply Doctor role protection to all subsequent routes in this file
 router.use(requireAuth, requireRole('Doctor'));
 
+// --- Profile Routes ---
 router.route('/profile')
     .get(getDoctorProfile)
     .put(updateDoctorProfile);
+
+// --- Availability Route ---
+router.route('/availability')
+    .get(getDoctorAvailability)
+    .patch(updateDoctorAvailability);
+
+router.route('/patients-list')
+    .get(getDoctorPatients);
+    
+router.route('/patients-list/remove')
+    .post(removePatientFromDoctorList);
+
+// --- Verification Document Route ---
+router.route('/verification-document')
+    .post(uploadVerification.single('documentFile'), uploadVerificationDocument);
 
 export default router;

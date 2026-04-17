@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payment-deployment
+  namespace: healthbridge
+spec:
+  replicas: 1 
+  selector:
+    matchLabels:
+      app: payment-service
+  template:
+    metadata:
+      labels:
+        app: payment-service
+    spec:
+      containers:
+      - name: payment-service
+        image: docker-payment-service:latest # Uses your locally built Docker image
+        imagePullPolicy: IfNotPresent     # Tells Kubernetes to use the local image instead of downloading
+        ports:
+        - containerPort: 3005
+        env:
+        - name: PORT
+          value: "3005"
+        - name: JWT_SECRET
+          value: "super_secret_healthbridge_key_change_this_later"
+        - name: MONGO_URI
+          value: "mongodb+srv://HealthBridge_DB:Team_Health_Bridge_12@cluster0.d8ewy6i.mongodb.net/?appName=Cluster0"
+        - name: MONGO_DB_NAME
+          value: "healthbridge_payment_db"
+        - name: AUTH_SERVICE_URL
+          value: "http://auth-service:3001"
+        - name: DOCTOR_SERVICE_URL
+          value: "http://doctor-service:3003"
+        - name: INTERNAL_SERVICE_SECRET
+          value: "healthbridge_internal_secret"
+
+        - name: PAYHERE_ENV
+          value: "sandbox"
+        - name: PAYHERE_MERCHANT_ID
+          value: "1233185"
+        - name: PAYHERE_MERCHANT_SECRET
+          value: "Mjk1MzIxMDAyODQyMDc1MjQ0NDYyMTAzNjExMTY2Mjc2NzkzMjgzOQ=="
+        - name: PAYHERE_RETURN_URL
+          value: "http://localhost:5173/payment/success"
+        - name: PAYHERE_CANCEL_URL
+          value: "http://localhost:5173/payment/cancel"
+        - name: PAYHERE_NOTIFY_URL
+          value: "http://localhost:3000/api/v1/payment/notify"
+        - name: PAYHERE_CURRENCY
+          value: "LKR"
+        - name: PAYHERE_API_ENDPOINT
+          value: "https://sandbox.payhere.lk/pay/checkout"

@@ -19,6 +19,13 @@ spec:
             name: api-gateway
             port:
               number: 3000
+      - path: /public/api(/|$)(.*)
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: api-gateway
+            port:
+              number: 3000
       # 2. All other traffic goes to the React UI
       - path: /
         pathType: Prefix
