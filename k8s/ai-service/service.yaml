@@ -8,6 +8,6 @@ spec:
     app: ai-service
   ports:
     - protocol: TCP
-      port: 5007
-      targetPort: 5007
+      port: 3007
+      targetPort: 3007
   type: ClusterIP

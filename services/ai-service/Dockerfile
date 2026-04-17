@@ -15,9 +15,9 @@ COPY . .
 RUN mkdir -p logs && chown -R appuser:healthbridge /app
 USER appuser
 
-EXPOSE 5007
+EXPOSE 3007
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=25s --retries=3 \
-  CMD wget -qO- http://localhost:5007/health || exit 1
+  CMD wget -qO- http://localhost:3007/health || exit 1
 
 CMD ["node", "index.js"]

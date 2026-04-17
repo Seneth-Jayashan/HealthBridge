@@ -18,10 +18,10 @@ spec:
           image: docker-ai-service:latest
           imagePullPolicy: Never
           ports:
-            - containerPort: 5007
+            - containerPort: 3007
           env:
             - name: PORT
-              value: "5007"
+              value: "3007"
             - name: NODE_ENV
               value: "production"
             - name: MONGO_URI
@@ -44,12 +44,12 @@ spec:
           livenessProbe:
             httpGet:
               path: /health
-              port: 5007
+              port: 3007
             initialDelaySeconds: 20
             periodSeconds: 30
           readinessProbe:
             httpGet:
               path: /health
-              port: 5007
+              port: 3007
             initialDelaySeconds: 10
             periodSeconds: 10

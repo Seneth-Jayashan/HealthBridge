@@ -10,13 +10,10 @@ import { useAuth } from '../../context/AuthContext';
 
 const navItems = [
   { label: 'Overview',         to: '/patient/dashboard',     icon: Activity },
-  { label: 'Appointments',     to: '/patient/appointments',  icon: Calendar },
-  { label: 'Medical Reports', to: '/patient/reports', icon: HeartPulse },
   { label: 'Telehealth', to: '/patient/telehealth', icon: Video },
-  { label: 'Medical Records',  to: '/patient/records',       icon: HeartPulse },
+  { label: 'Medical Reports', to: '/patient/reports', icon: HeartPulse },
   { label: 'Prescriptions',    to: '/patient/prescriptions', icon: FileText },
   { label: 'Payments', to: '/patient/payments', icon: CreditCard },
-  { label: 'Messages',         to: '/patient/messages',      icon: MessageCircle },
   { label: 'Profile Settings', to: '/patient/profile',       icon: UserRound },
 ];
 
