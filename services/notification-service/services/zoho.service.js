@@ -36,11 +36,12 @@ async function refreshAccessToken() {
  * @param {number} [retryCount=0] - Internal use to prevent infinite loops
  */
 async function sendEmail({ to, subject, text, html }, retryCount = 0) {
-  const isMockEnv = 
-    process.env.NODE_ENV === 'test' || 
+  const sendEnabled = String(process.env.ZOHO_SEND_ENABLED || '').toLowerCase() === 'true';
+  const isMockEnv =
+    process.env.NODE_ENV === 'test' ||
     process.env.NODE_ENV === 'development';
 
-  if (isMockEnv) {
+  if (isMockEnv && !sendEnabled) {
     console.log(`[Zoho Mock] Email to ${to} | Subject: ${subject}`);
     return { success: true, message: 'Mock email sent' };
   }
@@ -51,8 +52,18 @@ async function sendEmail({ to, subject, text, html }, retryCount = 0) {
   }
 
   try {
+    if (!accessToken) {
+      if (!isRefreshing) {
+        isRefreshing = refreshAccessToken();
+      }
+      const refreshed = await isRefreshing;
+      if (!refreshed) {
+        return { success: false, message: 'Failed to refresh Zoho access token' };
+      }
+    }
+
     const data = {
-      fromAddress: `Learn Bridge <${process.env.ZOHO_EMAIL}>`,
+      fromAddress: `Health Bridge <${process.env.ZOHO_EMAIL}>`,
       toAddress: to,
       subject,
       content: html || text,

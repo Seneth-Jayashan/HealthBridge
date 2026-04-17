@@ -1,4 +1,35 @@
 /**
+ * Advanced Email Wrapper
+ * Ensures consistent branding, layout, and mobile responsiveness for HealthBridge.
+ * * @param {string} content - The main HTML body content
+ * @param {string} headerColor - Hex color for the header background
+ * @param {string} accentEmoji - Emoji to display next to the title
+ * @param {string} title - The header title text
+ */
+const wrapEmailTemplate = (content, headerColor = '#1a5f7a', accentEmoji = '🔔', title = 'Notification') => `
+<div style="background-color: #f4f7f9; padding: 20px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+    <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.08); border: 1px solid #e1e8ed;">
+        
+        <div style="background-color: ${headerColor}; padding: 30px 20px; text-align: center;">
+            <div style="color: rgba(255,255,255,0.85); font-size: 12px; font-weight: bold; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 8px;">HealthBridge Telehealth</div>
+            <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 600;">${accentEmoji} ${title}</h1>
+        </div>
+
+        <div style="padding: 40px 30px; line-height: 1.8; color: #334155; font-size: 16px;">
+            ${content}
+        </div>
+
+        <div style="background-color: #f8fafc; padding: 25px; text-align: center; border-top: 1px solid #f1f5f9;">
+            <p style="margin: 0; font-size: 13px; color: #64748b;">
+                <strong>The HealthBridge Team</strong><br/>
+                &copy; ${new Date().getFullYear()} All rights reserved.
+            </p>
+        </div>
+    </div>
+</div>
+`;
+
+/**
  * Centralized Notification Templates for HealthBridge
  * Generates formatted SMS and HTML Email content based on template names.
  * * @param {string} templateName - The identifier for the template (e.g., 'APPOINTMENT_CONFIRMED')
@@ -9,207 +40,145 @@
 export const getNotificationTemplate = (templateName, title, message) => {
     // 1. Default formatting (Used if no specific template matches)
     let smsContent = `${title}: ${message}`;
-    let htmlContent = `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;">
-            <div style="background-color: #2E86C1; padding: 20px; color: white;">
-                <h2 style="margin: 0;">${title}</h2>
-            </div>
-            <div style="padding: 20px; color: #333; line-height: 1.6;">
-                <p>${message}</p>
-            </div>
-            <div style="background-color: #f8f9fa; padding: 15px; text-align: center; font-size: 12px; color: #777;">
-                &copy; ${new Date().getFullYear()} HealthBridge. All rights reserved.
-            </div>
-        </div>
-    `;
+    let htmlBody = `<p>Hello,</p><p>${message}</p>`;
+    let config = { color: '#2E86C1', emoji: '🔔', displayTitle: title }; 
 
     // 2. Specific Templates
     switch (templateName) {
         case 'APPOINTMENT_CONFIRMED':
-            smsContent = `HealthBridge: Your appointment is confirmed! ${message}`;
-            htmlContent = `
-                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;">
-                    <div style="background-color: #27AE60; padding: 20px; color: white; text-align: center;">
-                        <h2 style="margin: 0;">Appointment Confirmed! 🎉</h2>
-                    </div>
-                    <div style="padding: 20px; color: #333; line-height: 1.6;">
-                        <p>Hello,</p>
-                        <p>${message}</p>
-                        <p>Please log in to your dashboard 10 minutes before the scheduled time to access your video consultation link.</p>
-                        <br/>
-                        <p>Stay healthy,<br/><strong>The HealthBridge Team</strong></p>
-                    </div>
+            config = { color: '#27AE60', emoji: '🎉', displayTitle: 'Appointment Confirmed!' };
+            smsContent = `HealthBridge: Your appointment is confirmed! ${message} Please Pay the doctor consultation fee to access the video consultation link.`;
+            htmlBody = `
+                <p>Hello,</p>
+                <p>${message}</p>
+                <div style="background-color: #ecfdf5; border-left: 4px solid #27AE60; padding: 15px; margin: 20px 0; font-size: 14px; color: #065f46;">
+                    <strong>Action Required:</strong> Please pay the doctor consultation fee to access the video consultation link. Log in to your dashboard 10 minutes before the scheduled time.
                 </div>
+                <a href="https://yourfrontend.com/dashboard" style="display: inline-block; background-color: #27AE60; color: white; padding: 12px 25px; text-decoration: none; border-radius: 6px; font-weight: bold; margin-top: 10px;">Go to Dashboard</a>
+            `;
+            break;
+
+        case 'APPOINTMENT_ACCEPTED':
+            config = { color: '#27AE60', emoji: '✅', displayTitle: 'Appointment Accepted!' };
+            smsContent = `HealthBridge: Your appointment is accepted! ${message} Please Pay the doctor consultation fee to access the video consultation link.`;
+            htmlBody = `
+                <p>Hello,</p>
+                <p>${message}</p>
+                <div style="background-color: #ecfdf5; border-left: 4px solid #27AE60; padding: 15px; margin: 20px 0; font-size: 14px; color: #065f46;">
+                    <strong>Action Required:</strong> Please pay the doctor consultation fee to access the video consultation link. Log in to your dashboard 10 minutes before the scheduled time.
+                </div>
+                <a href="https://yourfrontend.com/dashboard" style="display: inline-block; background-color: #27AE60; color: white; padding: 12px 25px; text-decoration: none; border-radius: 6px; font-weight: bold; margin-top: 10px;">Go to Dashboard</a>
             `;
             break;
 
         case 'DOCTOR_VERIFIED':
+            config = { color: '#2E86C1', emoji: '✅', displayTitle: 'Profile Verified!' };
             smsContent = `HealthBridge Admin: Your medical profile has been verified. You can now accept appointments.`;
-            htmlContent = `
-                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;">
-                    <div style="background-color: #2E86C1; padding: 20px; color: white; text-align: center;">
-                        <h2 style="margin: 0;">Profile Verified! ✅</h2>
-                    </div>
-                    <div style="padding: 20px; color: #333; line-height: 1.6;">
-                        <p>Congratulations, Doctor!</p>
-                        <p>Your medical credentials have been successfully reviewed and approved by our admin team.</p>
-                        <p>${message}</p>
-                        <a href="https://yourfrontend.com/login" style="display: inline-block; background-color: #2E86C1; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin-top: 15px;">Log In to Dashboard</a>
-                    </div>
-                </div>
+            htmlBody = `
+                <p>Congratulations, Doctor!</p>
+                <p>Your medical credentials have been successfully reviewed and approved by our admin team.</p>
+                <p>${message}</p>
+                <a href="https://yourfrontend.com/login" style="display: inline-block; background-color: #2E86C1; color: white; padding: 12px 25px; text-decoration: none; border-radius: 6px; font-weight: bold; margin-top: 15px;">Log In to Dashboard</a>
             `;
             break;
 
         case 'DOCTOR_VERIFICATION_APPROVED':
+            config = { color: '#1E8449', emoji: '⚕️', displayTitle: 'Verification Approved' };
             smsContent = `HealthBridge: Your doctor verification has been approved. ${message}`;
-            htmlContent = `
-                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;">
-                    <div style="background-color: #1E8449; padding: 20px; color: white; text-align: center;">
-                        <h2 style="margin: 0;">Doctor Verification Approved</h2>
-                    </div>
-                    <div style="padding: 20px; color: #333; line-height: 1.6;">
-                        <p>${message}</p>
-                        <p>You can now access your doctor dashboard.</p>
-                    </div>
-                </div>
+            htmlBody = `
+                <p style="font-size: 18px; font-weight: 600; color: #0f172a;">Your account is now active.</p>
+                <p>${message}</p>
+                <p>You can now access your doctor dashboard to set your availability and manage patients.</p>
+                <a href="https://yourfrontend.com/login" style="display: inline-block; background-color: #1E8449; color: white; padding: 12px 25px; text-decoration: none; border-radius: 6px; font-weight: bold; margin-top: 10px;">Access Dashboard</a>
             `;
             break;
 
         case 'DOCTOR_VERIFICATION_REJECTED':
+            config = { color: '#C0392B', emoji: '⚠️', displayTitle: 'Verification Rejected' };
             smsContent = `HealthBridge: Your doctor verification request was rejected. ${message}`;
-            htmlContent = `
-                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;">
-                    <div style="background-color: #C0392B; padding: 20px; color: white; text-align: center;">
-                        <h2 style="margin: 0;">Doctor Verification Rejected</h2>
-                    </div>
-                    <div style="padding: 20px; color: #333; line-height: 1.6;">
-                        <p>${message}</p>
-                        <p>Please contact admin for more information.</p>
-                    </div>
+            htmlBody = `
+                <p style="font-size: 18px; font-weight: 600; color: #991b1b;">Action Required Regarding Your Profile</p>
+                <p>${message}</p>
+                <div style="background-color: #fef2f2; border-left: 4px solid #C0392B; padding: 15px; margin: 20px 0; font-size: 14px; color: #991b1b;">
+                    Please contact the admin team for more information regarding your document submission.
                 </div>
             `;
             break;
 
         case 'OTP_CODE':
+            config = { color: '#1e293b', emoji: '🔐', displayTitle: 'Verification Code' };
             smsContent = `Your HealthBridge verification code is: ${message}. Do not share this code.`;
-            htmlContent = `
-                <div style="font-family: Arial, sans-serif; max-width: 400px; margin: 0 auto; text-align: center; padding: 30px; border: 1px solid #ddd; border-radius: 10px;">
-                    <h2 style="color: #333; margin-top: 0;">Verification Code</h2>
-                    <p style="color: #666; font-size: 14px;">Use the following code to complete your action:</p>
-                    <h1 style="letter-spacing: 5px; color: #2E86C1; background-color: #f4f6f7; padding: 15px; border-radius: 8px;">${message}</h1>
-                    <p style="color: #999; font-size: 12px; margin-bottom: 0;">This code is valid for 10 minutes.</p>
+            htmlBody = `
+                <div style="text-align: center;">
+                    <p>Use the following code to complete your action. It will expire in 10 minutes.</p>
+                    <div style="display: inline-block; margin: 20px 0; padding: 20px 40px; background-color: #f8fafc; border-radius: 12px; border: 2px dashed #cbd5e1;">
+                        <span style="font-size: 36px; font-weight: 800; letter-spacing: 8px; color: #1e293b;">${message}</span>
+                    </div>
+                    <p style="font-size: 13px; color: #64748b;">If you didn't request this code, please secure your account immediately.</p>
                 </div>
             `;
             break;
 
         case 'NEW_APPOINTMENT_SCHEDULED':
+            config = { color: '#8E44AD', emoji: '📅', displayTitle: 'New Appointment Scheduled' };
             smsContent = `HealthBridge: You have a new appointment. ${message}`;
-            htmlContent = `
-                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;">
-                    <div style="background-color: #8E44AD; padding: 20px; color: white; text-align: center;">
-                        <h2 style="margin: 0;">New Appointment Scheduled 📅</h2>
-                    </div>
-                    <div style="padding: 20px; color: #333; line-height: 1.6;">
-                        <p>Hello Doctor,</p>
-                        <p>${message}</p>
-                        <p>Please log in to your dashboard to view the patient's details and prepare for the consultation.</p>
-                        <br/>
-                        <p>Best regards,<br/><strong>The HealthBridge Team</strong></p>
-                    </div>
-                </div>
-            `;
-            break;
-
-        case 'APPOINTMENT_ACCEPTED':
-            smsContent = `HealthBridge: Your appointment is accepted! ${message}`;
-            htmlContent = `
-                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;">
-                    <div style="background-color: #27AE60; padding: 20px; color: white; text-align: center;">
-                        <h2 style="margin: 0;">Appointment Accepted! ✅</h2>
-                    </div>
-                    <div style="padding: 20px; color: #333; line-height: 1.6;">
-                        <p>Hello,</p>
-                        <p>${message}</p>
-                        <p>Please log in to your dashboard 10 minutes before the scheduled time to access your video consultation link.</p>
-                        <br/>
-                        <p>Stay healthy,<br/><strong>The HealthBridge Team</strong></p>
-                    </div>
-                </div>
+            htmlBody = `
+                <p>Hello Doctor,</p>
+                <p>${message}</p>
+                <p>Please log in to your dashboard to view the patient's details and prepare for the consultation.</p>
+                <a href="https://yourfrontend.com/dashboard" style="display: inline-block; background-color: #8E44AD; color: white; padding: 12px 25px; text-decoration: none; border-radius: 6px; font-weight: bold; margin-top: 10px;">View Patient Details</a>
             `;
             break;
 
         case 'APPOINTMENT_REJECTED':
+            config = { color: '#E74C3C', emoji: '🔄', displayTitle: 'Appointment Update' };
             smsContent = `HealthBridge: Appointment update. ${message}`;
-            htmlContent = `
-                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;">
-                    <div style="background-color: #E74C3C; padding: 20px; color: white; text-align: center;">
-                        <h2 style="margin: 0;">Appointment Update</h2>
-                    </div>
-                    <div style="padding: 20px; color: #333; line-height: 1.6;">
-                        <p>Hello,</p>
-                        <p>${message}</p>
-                        <p>We apologize for the inconvenience. The slot has been released, and any payments will be refunded according to our policy. Please log in to your dashboard to schedule a new appointment.</p>
-                        <br/>
-                        <p>Best regards,<br/><strong>The HealthBridge Team</strong></p>
-                    </div>
-                </div>
+            htmlBody = `
+                <p>Hello,</p>
+                <p>${message}</p>
+                <p>We apologize for the inconvenience. The slot has been released, and any payments will be refunded according to our policy.</p>
+                <p>Please log in to your dashboard to schedule a new appointment at your earliest convenience.</p>
+                <a href="https://yourfrontend.com/dashboard" style="display: inline-block; background-color: #E74C3C; color: white; padding: 12px 25px; text-decoration: none; border-radius: 6px; font-weight: bold; margin-top: 10px;">Reschedule Appointment</a>
             `;
             break;
 
         case 'APPOINTMENT_PAYMENT_STATUS_UPDATED':
+            config = { color: '#1F618D', emoji: '💳', displayTitle: 'Payment Status Updated' };
             smsContent = `HealthBridge: Payment update. ${message}`;
-            htmlContent = `
-                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;">
-                    <div style="background-color: #1F618D; padding: 20px; color: white; text-align: center;">
-                        <h2 style="margin: 0;">Payment Status Updated</h2>
-                    </div>
-                    <div style="padding: 20px; color: #333; line-height: 1.6;">
-                        <p>Hello Doctor,</p>
-                        <p>${message}</p>
-                        <p>Please log in to your dashboard to review the appointment details.</p>
-                        <br/>
-                        <p>Best regards,<br/><strong>The HealthBridge Team</strong></p>
-                    </div>
-                </div>
+            htmlBody = `
+                <p>Hello Doctor,</p>
+                <p>${message}</p>
+                <p>Please log in to your dashboard to review the updated appointment and billing details.</p>
             `;
             break;
 
         case 'PRESCRIPTION_CREATED':
+            config = { color: '#117A65', emoji: '💊', displayTitle: 'New Prescription Created' };
             smsContent = `HealthBridge: New prescription. ${message}`;
-            htmlContent = `
-                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;">
-                    <div style="background-color: #117A65; padding: 20px; color: white; text-align: center;">
-                        <h2 style="margin: 0;">New Prescription Created</h2>
-                    </div>
-                    <div style="padding: 20px; color: #333; line-height: 1.6;">
-                        <p>Hello,</p>
-                        <p>${message}</p>
-                        <p>Please log in to your dashboard to review dosage instructions and notes.</p>
-                        <br/>
-                        <p>Stay healthy,<br/><strong>The HealthBridge Team</strong></p>
-                    </div>
+            htmlBody = `
+                <p>Hello,</p>
+                <p>${message}</p>
+                <div style="background-color: #e8f8f5; border-left: 4px solid #117A65; padding: 15px; margin: 20px 0; font-size: 14px; color: #0e6251;">
+                    Please log in to your dashboard to review your dosage instructions, securely download your prescription, and view doctor notes.
                 </div>
+                <a href="https://yourfrontend.com/dashboard" style="display: inline-block; background-color: #117A65; color: white; padding: 12px 25px; text-decoration: none; border-radius: 6px; font-weight: bold; margin-top: 10px;">View Prescription</a>
             `;
             break;
 
         case 'VIDEO_SESSION_STARTED':
+            config = { color: '#2E86C1', emoji: '🎥', displayTitle: 'Your Session Is Live' };
             smsContent = `HealthBridge: Video session started. ${message}`;
-            htmlContent = `
-                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;">
-                    <div style="background-color: #2E86C1; padding: 20px; color: white; text-align: center;">
-                        <h2 style="margin: 0;">Your Session Is Live</h2>
-                    </div>
-                    <div style="padding: 20px; color: #333; line-height: 1.6;">
-                        <p>Hello,</p>
-                        <p>${message}</p>
-                        <p>Please log in to join the video session.</p>
-                        <br/>
-                        <p>Stay healthy,<br/><strong>The HealthBridge Team</strong></p>
-                    </div>
-                </div>
+            htmlBody = `
+                <p>Hello,</p>
+                <p>${message}</p>
+                <p>The doctor has initiated the video call. Please click the button below to join the session immediately.</p>
+                <a href="https://yourfrontend.com/dashboard" style="display: inline-block; background-color: #2E86C1; color: white; padding: 12px 25px; text-decoration: none; border-radius: 6px; font-weight: bold; margin-top: 15px;">Join Video Session</a>
             `;
             break;
     }
 
-    return { smsContent, htmlContent };
+    return { 
+        smsContent, 
+        htmlContent: wrapEmailTemplate(htmlBody, config.color, config.emoji, config.displayTitle) 
+    };
 };
