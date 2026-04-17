@@ -14,11 +14,43 @@ const INTERNAL_TIMEOUT_MS = 8000;
 const getAppointmentServiceUrl = () => process.env.APPOINTMENT_SERVICE_URL || 'http://localhost:3004';
 const getPatientServiceUrl = () => process.env.PATIENT_SERVICE_URL || 'http://localhost:3002';
 const getDoctorServiceUrl = () => process.env.DOCTOR_SERVICE_URL || 'http://localhost:3003';
+const getAuthServiceUrl = () => process.env.AUTH_SERVICE_URL || 'http://localhost:3001';
 const getInternalServiceKey = () => process.env.INTERNAL_SERVICE_SECRET || 'internal-service-key';
 
 const buildInternalHeaders = () => ({
     'x-internal-service-key': getInternalServiceKey(),
 });
+
+const normalizeBaseUrl = (url) => String(url || '').replace(/\/$/, '');
+
+const getCandidateBaseUrls = (configuredUrl, serviceName, port) => {
+    const candidates = [
+        configuredUrl,
+        `http://${serviceName}:${port}`,
+        `http://localhost:${port}`,
+    ].filter(Boolean);
+
+    return [...new Set(candidates.map(normalizeBaseUrl))];
+};
+
+const requestInternalGet = async (candidateBaseUrls, path) => {
+    let lastError = null;
+
+    for (const baseUrl of candidateBaseUrls) {
+        try {
+            const response = await axios.get(`${baseUrl}${path}`, {
+                headers: buildInternalHeaders(),
+                timeout: INTERNAL_TIMEOUT_MS,
+            });
+
+            return response.data?.data || response.data;
+        } catch (error) {
+            lastError = error;
+        }
+    }
+
+    throw lastError;
+};
 
 const createChannelName = () => `hb-${crypto.randomBytes(8).toString('hex')}`;
 
@@ -124,15 +156,8 @@ const markSessionTokenIssued = (session, ttlSeconds) => {
 
 const getPatientByUserIdInternal = async (userId) => {
     try {
-        const patientBaseUrl = getPatientServiceUrl();
-        const endpoint = `${patientBaseUrl}/internal/get-patient-by-userId/${userId}`;
-
-        const response = await axios.get(endpoint, {
-            headers: buildInternalHeaders(),
-            timeout: INTERNAL_TIMEOUT_MS,
-        });
-
-        return response.data?.data || response.data;
+        const candidateBaseUrls = getCandidateBaseUrls(getPatientServiceUrl(), 'patient-service', 3002);
+        return await requestInternalGet(candidateBaseUrls, `/internal/get-patient-by-userId/${userId}`);
     } catch (error) {
         console.error('[Telemedicine] Failed to fetch patient:', error.message);
         throw new ApiError(404, 'Patient not found or appointment service is unavailable');
@@ -142,15 +167,8 @@ const getPatientByUserIdInternal = async (userId) => {
 
 const getPatientByIdInternal = async (patientId) => {
     try {
-        const patientBaseUrl = getPatientServiceUrl();
-        const endpoint = `${patientBaseUrl}/internal/get-patient-by-id/${patientId}`;
-
-        const response = await axios.get(endpoint, {
-            headers: buildInternalHeaders(),
-            timeout: INTERNAL_TIMEOUT_MS,
-        });
-
-        return response.data?.data || response.data;
+        const candidateBaseUrls = getCandidateBaseUrls(getPatientServiceUrl(), 'patient-service', 3002);
+        return await requestInternalGet(candidateBaseUrls, `/internal/get-patient-by-id/${patientId}`);
     } catch (error) {
         console.error('[Telemedicine] Failed to fetch patient by id:', error.message);
         throw new ApiError(404, 'Patient not found or appointment service is unavailable');
@@ -273,7 +291,8 @@ export const listMyVideoSessions = async (req, res, next) => {
     try {
         const query = await getRoleScopedSessionQuery(req.user, req.query);
 
-        const sessions = await VideoSession.find(query).sort({ createdAt: -1 }).limit(100);
+        const rawSessions = await VideoSession.find(query).sort({ createdAt: -1 }).limit(100).lean();
+        const sessions = await enrichSessionsWithPatientNames(rawSessions);
         console.log(`[Telemedicine] Retrieved ${sessions.length} sessions for user ${req.user.id} with role ${req.user.role}`);
 
         res.status(200).json(new ApiResponse(200, sessions, 'Video sessions retrieved successfully.'));
@@ -556,15 +575,8 @@ export const handlePaymentSuccess = async (req, res, next) => {
 
 const getDoctorByUserIdInternal = async (userId) => {
     try {
-        const doctorBaseUrl = getDoctorServiceUrl();
-        const endpoint = `${doctorBaseUrl}/internal/get-doctor/${userId}`;
-
-        const response = await axios.get(endpoint, {
-            headers: buildInternalHeaders(),
-            timeout: INTERNAL_TIMEOUT_MS,
-        });
-
-        return response.data?.data || response.data;
+        const candidateBaseUrls = getCandidateBaseUrls(getDoctorServiceUrl(), 'doctor-service', 3003);
+        return await requestInternalGet(candidateBaseUrls, `/internal/get-doctor/${userId}`);
     } catch (error) {
         console.error('[Telemedicine] Failed to fetch doctor:', error.message);
         throw new ApiError(404, 'Doctor not found or doctor service is unavailable');
@@ -582,4 +594,46 @@ const resolveDoctorProfileIdFromUser = async (user) => {
     }
 
     return String(doctor._id);
+};
+
+const getUserByIdInternal = async (userId) => {
+    try {
+        const candidateBaseUrls = getCandidateBaseUrls(getAuthServiceUrl(), 'auth-service', 3001);
+        return await requestInternalGet(candidateBaseUrls, `/internal/users/${userId}`);
+    } catch (error) {
+        console.error('[Telemedicine] Failed to fetch auth user by id:', error.message);
+        return null;
+    }
+};
+
+const enrichSessionsWithPatientNames = async (sessions) => {
+    if (!Array.isArray(sessions) || sessions.length === 0) {
+        return [];
+    }
+
+    const uniquePatientIds = [...new Set(sessions.map((session) => String(session.patientId)).filter(Boolean))];
+    const patientNameById = {};
+
+    await Promise.all(uniquePatientIds.map(async (patientId) => {
+        try {
+            const patientProfile = await getPatientByIdInternal(patientId);
+            const patientUserId = patientProfile?.userId;
+
+            if (!patientUserId) {
+                return;
+            }
+
+            const authUser = await getUserByIdInternal(patientUserId);
+            if (authUser?.name) {
+                patientNameById[patientId] = authUser.name;
+            }
+        } catch (error) {
+            console.warn(`[Telemedicine] Could not enrich patient name for patientId=${patientId}`);
+        }
+    }));
+
+    return sessions.map((session) => ({
+        ...session,
+        patientName: patientNameById[String(session.patientId)] || null,
+    }));
 };
